@@ -36,7 +36,7 @@ def deploy(name: str):
     """
     Deploy a new agent directory and initialise its manifest.
 
-    Creates:  agents/<name>/{skills,commands,docs}/  + agent-manifest.json
+    Creates:  agents/<name>/{skills,commands,docs,scripts,orchestration}/  + agent-manifest.json
     """
     root = _agent_root(name)
 
@@ -61,6 +61,103 @@ def deploy(name: str):
 
 
 # ---------------------------------------------------------------------------
+# describe
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.argument("name")
+@click.option("--desc", help="Description of the agent.")
+@click.option("--plan", help="Path to the orchestration plan (relative to agent root).")
+def describe(name: str, desc: str, plan: str):
+    """
+    Update agent metadata (description, orchestration plan).
+    """
+    root = _agent_root(name)
+    librarian = Librarian(str(root))
+    
+    try:
+        manifest = librarian._load_manifest()
+    except FileNotFoundError as exc:
+        click.echo(f"[librarian] {exc}", err=True)
+        sys.exit(1)
+
+    if desc:
+        manifest["description"] = desc
+    if plan:
+        manifest["orchestration_plan"] = plan
+
+    librarian._save_manifest(manifest)
+    click.echo(f"[librarian] Updated metadata for '{name}'")
+
+
+@cli.command()
+@click.argument("name")
+def uninstall(name: str):
+    """
+    Remove an agent and its registration.
+    """
+    root = _agent_root(name)
+    librarian = Librarian(str(root))
+    
+    if not root.exists():
+        click.echo(f"[librarian] Agent '{name}' not found at {root}.", err=True)
+        sys.exit(1)
+
+    if not click.confirm(f"[librarian] Are you sure you want to uninstall '{name}'?"):
+        click.echo("[librarian] Aborted.")
+        sys.exit(0)
+
+    click.echo(f"[librarian] Uninstalling '{name}'...")
+    librarian.uninstall()
+    Librarian.update_harness_files(".")
+    click.echo(f"[librarian] Uninstalled '{name}'.")
+
+
+@cli.command()
+@click.argument("name")
+def audit(name: str):
+    """
+    Check an agent for integrity drift and missing metadata.
+    """
+    root = _agent_root(name)
+    librarian = Librarian(str(root))
+    
+    click.echo(f"[librarian] Auditing '{name}'...")
+    report = librarian.audit()
+    
+    clean = True
+    
+    if report["broken_resources"]:
+        clean = False
+        click.echo("[librarian] ✗ Broken resources (listed in manifest but missing on disk):", err=True)
+        for p in report["broken_resources"]:
+            click.echo(f"  - {p}", err=True)
+
+    if report["broken_dependencies"]:
+        clean = False
+        click.echo("[librarian] ✗ Broken dependencies (cross-file references not found):", err=True)
+        for p in report["broken_dependencies"]:
+            click.echo(f"  - {p}", err=True)
+
+    if report["untracked_files"]:
+        clean = False
+        click.echo("[librarian] ! Untracked files (exist on disk but missing from manifest):")
+        for p in report["untracked_files"]:
+            click.echo(f"  - {p} (Run 'wrap' or 'sync' to add them)")
+
+    if report["missing_skill_manifests"]:
+        clean = False
+        click.echo("[librarian] ! Missing skill-manifest.json in directories:")
+        for p in report["missing_skill_manifests"]:
+            click.echo(f"  - {p}")
+
+    if clean:
+        click.echo(f"[librarian] ✓ '{name}' integrity is clean.")
+    else:
+        sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
 # wrap
 # ---------------------------------------------------------------------------
 
@@ -75,9 +172,6 @@ def deploy(name: str):
 def wrap(name: str, out: str):
     """
     Validate and bundle an agent into a portable .zip package.
-
-    Reads agents/<name>/agent-manifest.json, verifies all files exist,
-    then writes <name>-v<version>.zip to --out.
     """
     root = _agent_root(name)
     librarian = Librarian(str(root))
@@ -85,16 +179,17 @@ def wrap(name: str, out: str):
     click.echo(f"[librarian] Syncing manifest for '{name}'...")
     librarian.sync()
 
-    click.echo(f"[librarian] Validating '{name}'...")
-    present, missing = librarian.validate()
-
-    if missing:
-        click.echo(f"[librarian] Validation FAILED — {len(missing)} missing file(s):", err=True)
-        for p in missing:
-            click.echo(f"  ✗ {p}", err=True)
+    click.echo(f"[librarian] Auditing '{name}'...")
+    report = librarian.audit()
+    
+    if report["broken_resources"] or report["broken_dependencies"]:
+        click.echo("[librarian] Audit failed — fix broken paths/dependencies before wrapping.", err=True)
+        # We don't list them again as they are listed in audit() logic when we call audit command
+        # but here we should at least list them or point to audit command
+        click.echo(f"[librarian] Run 'agent-gen audit {name}' for details.", err=True)
         sys.exit(1)
 
-    click.echo(f"[librarian] {len(present)} file(s) verified.")
+    click.echo("[librarian] Audit passed.")
 
     try:
         archive = librarian.wrap(out)
@@ -103,6 +198,49 @@ def wrap(name: str, out: str):
         sys.exit(1)
 
     click.echo(f"[librarian] Wrapped → {archive}")
+
+
+@cli.command()
+@click.argument("path")
+@click.option("--yes", is_flag=True, help="Execute migration without asking for confirmation.")
+def retrofit(path: str, yes: bool):
+    """
+    Ingest and standardize an existing agent directory.
+
+    Heuristically detects Claude/Gemini/Codex structures and maps them
+    to the AgentFactory standard.
+    """
+    source_path = Path(path).resolve()
+    if not source_path.exists():
+        click.echo(f"[librarian] Path not found: {source_path}", err=True)
+        sys.exit(1)
+
+    click.echo(f"[librarian] Analyzing {source_path}...")
+    profile, mapping = Librarian.propose_retrofit(str(source_path))
+
+    click.echo(f"[librarian] Detected profile: {profile.upper()}")
+    click.echo("[librarian] Proposed Mapping:")
+    for src, dest in mapping.items():
+        click.echo(f"  - {src} -> {dest}")
+
+    if not yes:
+        if not click.confirm("[librarian] Proceed with migration?"):
+            click.echo("[librarian] Aborted.")
+            sys.exit(0)
+
+    # In-place migration
+    librarian = Librarian(str(source_path))
+    librarian.migrate(mapping)
+    
+    # Initialize manifest if missing, otherwise sync
+    if not librarian.manifest_path.exists():
+        name = source_path.name
+        librarian.init(name)
+    
+    librarian.sync()
+
+    click.echo(f"[librarian] Retrofit complete for '{source_path.name}'.")
+    click.echo(f"  Standardized into {TRACKED_DIRS}")
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +293,16 @@ def import_agent(zip_path: str, project_root: str):
     click.echo(f"[librarian] Unpacking '{name}'...")
     manifest = Librarian.unpack(str(zip_path), str(target_root))
 
+    # Deep Audit before finalizing
+    click.echo(f"[librarian] Auditing '{name}' before registration...")
+    librarian = Librarian(str(target_root))
+    report = librarian.audit()
+    if report["broken_resources"] or report["broken_dependencies"]:
+        click.echo("[librarian] Audit FAILED for imported bundle. Rollback...", err=True)
+        import shutil
+        shutil.rmtree(target_root)
+        sys.exit(1)
+
     click.echo(f"[librarian] Registering '{name}' in project manifest...")
     Librarian.register_in_project(manifest, project_root)
 
@@ -162,13 +310,16 @@ def import_agent(zip_path: str, project_root: str):
     skills = manifest["resources"].get("skills", [])
     commands = manifest["resources"].get("commands", [])
     docs = manifest["resources"].get("docs", [])
+    scripts = manifest["resources"].get("scripts", [])
+    orchestration = manifest["resources"].get("orchestration", [])
 
     click.echo("")
     click.echo("=" * 60)
     click.echo("Librarian: Import Complete.")
     click.echo(
         f"  Added {len(skills)} skill(s), {len(commands)} command(s), "
-        f"and {len(docs)} doc(s) to your environment."
+        f"{len(docs)} doc(s), {len(scripts)} script(s), "
+        f"and {len(orchestration)} orchestration file(s) to your environment."
     )
     click.echo(f"  You are now configured as the '{name}' agent.")
     if docs:
@@ -176,3 +327,6 @@ def import_agent(zip_path: str, project_root: str):
         if claude_md:
             click.echo(f"  Check {claude_md} for your new instructions.")
     click.echo("=" * 60)
+
+if __name__ == "__main__":
+    cli()
