@@ -19,8 +19,9 @@ The git-versioning skill reads this to give accurate, repo-specific commands.
 | Tag | Commit | What it represents |
 |-----|--------|--------------------|
 | v2.0.0 | b6d8f46 | Unified multi-CLI harness + Librarian intelligence layer |
+| v2.1.0 | da02586 | .ai/ harness consolidation + agent-gen init + complete adapter wiring |
 
-Latest tag: v2.0.0
+Latest tag: v2.1.0
 
 ---
 
