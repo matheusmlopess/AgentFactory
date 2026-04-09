@@ -1,5 +1,13 @@
 # Changelog
 
+## [v2.4.2] - 2026-04-09
+
+### Fixed
+- Removed stale `agent_gen.egg-info/` artifact left over from pre-src-layout migration
+- Fixed `test-agent` registry description (was "Manual Description")
+
+---
+
 ## [v2.4.1] - 2026-04-09
 
 ### Changed
