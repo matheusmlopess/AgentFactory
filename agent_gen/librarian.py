@@ -10,6 +10,8 @@ from pathlib import Path
 
 TRACKED_DIRS = ["skills", "commands", "docs", "scripts", "orchestration"]
 MANIFEST_FILE = "agent-manifest.json"
+HARNESS_ROOT = ".ai"
+CONTEXT_FILE = ".CLAUDE.md"  # single source of truth for all CLI instructions
 
 
 def _git_ref(path: str) -> str:
@@ -505,7 +507,12 @@ class Librarian:
 
     @staticmethod
     def _global_manifest_path(project_root: str) -> Path:
-        return Path(project_root).resolve() / "agent-manifest.json"
+        new = Path(project_root).resolve() / HARNESS_ROOT / MANIFEST_FILE
+        legacy = Path(project_root).resolve() / MANIFEST_FILE
+        # Fallback: project not yet migrated to .ai/ layout
+        if not new.parent.exists() and legacy.exists():
+            return legacy
+        return new
 
     @classmethod
     def _get_lock(cls, project_root: str):
@@ -607,12 +614,12 @@ class Librarian:
                     desc = data.get("description", "No description provided.")
                     if len(desc) > 100:
                         desc = desc[:97] + "..."
-                    agent_registry_lines.append(f"- **{name}**: {desc} (See: `agents/{name}/docs/CLAUDE.md`)")
+                    agent_registry_lines.append(f"- **{name}**: {desc} (See: `{HARNESS_ROOT}/agents/{name}/docs/CLAUDE.md`)")
             agent_registry_lines.append("<!-- @agent-registry:end -->")
             agent_registry_text = "\n".join(agent_registry_lines)
 
             # Build the skills registry text for root project
-            skills_dir = project_path / "skills"
+            skills_dir = project_path / HARNESS_ROOT / "skills"
             skill_registry_lines = ["<!-- @skills-registry:start -->"]
             root_skills = []
             if skills_dir.exists() and skills_dir.is_dir():
@@ -642,14 +649,13 @@ class Librarian:
             skill_registry_lines.append("<!-- @skills-registry:end -->")
             skill_registry_text = "\n".join(skill_registry_lines)
 
-            # Targeted files: shared source of truth AND root legacy files
+            # Targeted files: single .ai/.CLAUDE.md is the source of truth for all CLIs;
+            # README.md gets registry updates too for human readers.
             targets = [
-                "core/AGENTS.md",
-                "core/CLAUDE.md",
-                "core/GEMINI.md",
-                "README.md"
+                f"{HARNESS_ROOT}/{CONTEXT_FILE}",
+                "README.md",
             ]
-            
+
             import re
             agent_pattern = re.compile(r"<!-- @agent-registry:start -->.*?<!-- @agent-registry:end -->", re.DOTALL)
             skill_pattern = re.compile(r"<!-- @skills-registry:start -->.*?<!-- @skills-registry:end -->", re.DOTALL)
@@ -657,17 +663,20 @@ class Librarian:
             updated_paths = set()
             for target_name in targets:
                 target_path = project_path / target_name
-                
-                # If it's a symlink, resolve it to update the underlying file once
+
+                # Resolve symlinks to avoid writing the same underlying file twice
                 resolved_path = target_path.resolve()
                 if resolved_path in updated_paths:
                     continue
-                
-                # Special case for AGENTS.md/ai/shared/AGENTS.md - create if missing
+
+                # Create .CLAUDE.md stub if missing (first run after init)
                 if not target_path.exists() and not target_path.is_symlink():
-                    if "AGENTS.md" in target_name:
+                    if target_name.endswith(CONTEXT_FILE):
                         target_path.parent.mkdir(parents=True, exist_ok=True)
-                        target_path.write_text(f"# Project Agents\n\n{agent_registry_text}\n", encoding="utf-8")
+                        target_path.write_text(
+                            f"# Project Context\n\n{agent_registry_text}\n",
+                            encoding="utf-8",
+                        )
                         updated_paths.add(resolved_path)
                     continue
 
@@ -675,18 +684,17 @@ class Librarian:
                     continue
 
                 content = target_path.read_text(encoding="utf-8")
-                
+
                 # Update Agents
                 if "<!-- @agent-registry:start -->" in content:
                     content = agent_pattern.sub(agent_registry_text, content)
                 else:
-                    if "AGENTS.md" in target_name:
-                        content = content.strip() + f"\n\n## Registered Agents\n{agent_registry_text}\n"
-                
+                    content = content.strip() + f"\n\n## Registered Agents\n{agent_registry_text}\n"
+
                 # Update Skills
                 if "<!-- @skills-registry:start -->" in content:
                     content = skill_pattern.sub(skill_registry_text, content)
-                
+
                 target_path.write_text(content, encoding="utf-8")
                 updated_paths.add(resolved_path)
 
