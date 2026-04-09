@@ -1,16 +1,17 @@
 ---
 name: git-versioning
-version: 1.1.0
+version: 1.2.0
 description: >
   Git and versioning workflow assistant for any project using the versioning template.
   Handles commit, branch, PR, merge, tag, release, rollback, and inspection.
   Reads all project-specific values (remote URL, branch, versions) from
   skills/git-versioning/references/repo-state.md — no hardcoded project names.
+  Enforces a session branch gate: no edits are allowed directly on the default branch.
   Trigger when the user wants to commit, push, open a PR, merge, tag, release,
   rollback an artifact, or asks "what should I do next" in a git context.
 ---
 
-# Git Versioning Assistant — v1.1.0
+# Git Versioning Assistant — v1.2.0
 
 ---
 
@@ -27,6 +28,30 @@ Use these values in every command and message. Never hardcode them.
 
 If `repo-state.md` has unfilled placeholders, stop and tell the user:
 > "Please fill in the Remote section of `skills/git-versioning/references/repo-state.md` before continuing."
+
+---
+
+## Step 0.5 — Session Branch Gate (run every session before any edit)
+
+Run these two commands immediately after loading context:
+
+```bash
+git branch --show-current
+git status --short
+```
+
+Then apply the gate:
+
+| State | Action |
+|-------|--------|
+| On `DEFAULT_BRANCH`, working tree **clean** | **STOP.** Tell the user: "You're on `DEFAULT_BRANCH`. Create a branch before making any changes:" then output the branch creation command. Do not proceed until the user confirms they are on a non-default branch. |
+| On `DEFAULT_BRANCH`, working tree **dirty** (uncommitted changes) | **EMERGENCY STOP.** Tell the user: "You have uncommitted changes directly on `DEFAULT_BRANCH` — this puts the stable release at risk. Stash your changes and move them to a feature branch:" then output the stash + branch + pop commands. Do not commit to `DEFAULT_BRANCH`. |
+| On a non-default branch, working tree **clean** | Confirm: "Working on branch `<branch>` — ready to proceed." Continue to Step 1. |
+| On a non-default branch, working tree **dirty** | Confirm: "Working on branch `<branch>` with uncommitted changes." Continue to Step 1. |
+
+**Why this matters**: `DEFAULT_BRANCH` represents the last stable tagged release. Any direct commit to it makes rollback harder and risks overwriting a known-good state. All work — even a one-line fix — must be done on a branch, reviewed via PR, and merged cleanly.
+
+**Never skip this gate.** Even if the user says "just make a quick fix" or "it's only a typo", direct commits to `DEFAULT_BRANCH` are always wrong.
 
 ---
 
