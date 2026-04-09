@@ -1,6 +1,6 @@
 {
   "theme": "dark",
-  "default_model": "claude-3-opus-20240229",
+  "default_model": "claude-sonnet-4-6",
   "memory_enabled": true,
   "mcp_enabled": true
 }
