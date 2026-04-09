@@ -14,6 +14,50 @@ HARNESS_ROOT = ".ai"
 CONTEXT_FILE = ".CLAUDE.md"  # single source of truth for all CLI instructions
 
 
+def _extract_first_paragraph(path: Path) -> str:
+    """
+    Extract the first meaningful paragraph from a Markdown file.
+    Skips YAML frontmatter (--- blocks), blank lines, and # headers.
+    Returns up to 200 chars of the first descriptive sentence/paragraph.
+    """
+    try:
+        content = path.read_text(encoding="utf-8", errors="ignore")
+        lines = content.splitlines()
+        in_frontmatter = False
+        collect = []
+        i = 0
+        # Skip YAML frontmatter
+        if lines and lines[0].strip() == "---":
+            in_frontmatter = True
+            i = 1
+            while i < len(lines):
+                if lines[i].strip() == "---":
+                    i += 1
+                    break
+                i += 1
+        # Collect first non-header, non-empty, non-comment paragraph
+        for line in lines[i:]:
+            stripped = line.strip()
+            if not stripped:
+                if collect:
+                    break
+                continue
+            if stripped.startswith("#"):
+                if collect:
+                    break
+                continue
+            # Skip HTML comments (<!-- ... -->)
+            if stripped.startswith("<!--"):
+                continue
+            collect.append(stripped)
+            if len(" ".join(collect)) >= 200:
+                break
+        text = " ".join(collect).strip()
+        return text[:200] if text else ""
+    except Exception:
+        return ""
+
+
 def _git_ref(path: str) -> str:
     try:
         return subprocess.check_output(
@@ -778,6 +822,94 @@ class Librarian:
 
         # Ensure adapter symlink wiring is complete after every harness update
         cls._ensure_adapter_wiring(project_root)
+
+    # ------------------------------------------------------------------
+    # Remote import helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _extract_source_context(source_dir: str) -> dict:
+        """
+        Read CLAUDE.md, AGENTS.md, and .claude/agents/*.md from a raw repo
+        BEFORE retrofit to extract agent and sub-agent descriptions.
+
+        Returns:
+            {"description": str, "agents": {name: str}}
+        """
+        root = Path(source_dir).resolve()
+        ctx: dict = {"description": "", "agents": {}}
+
+        # Agent-level description: README is the most reliable source for a project
+        # description; CLAUDE.md / AGENTS.md often contain instructions, not descriptions.
+        for candidate in ["README.md", "CLAUDE.md", "AGENTS.md", ".ai/.CLAUDE.md"]:
+            f = root / candidate
+            if f.exists():
+                desc = _extract_first_paragraph(f)
+                if desc:
+                    ctx["description"] = desc
+                    break
+
+        # Sub-agent descriptions from .claude/agents/*.md
+        agents_dir = root / ".claude" / "agents"
+        if agents_dir.exists():
+            for md in sorted(agents_dir.glob("*.md")):
+                desc = _extract_first_paragraph(md)
+                ctx["agents"][md.stem] = desc
+
+        return ctx
+
+    @staticmethod
+    def _auto_init_agent_manifest(agent_dir: str, name: str, context: dict) -> None:
+        """
+        Create agent-manifest.json (via init()) if missing, patch description
+        from extracted context, then sync resources from disk.
+        """
+        lib = Librarian(agent_dir)
+        if not lib.manifest_path.exists():
+            lib.init(name)
+        if context.get("description"):
+            manifest = lib._load_manifest()
+            manifest["description"] = context["description"][:200]
+            lib._save_manifest(manifest)
+        lib.sync()
+
+    @staticmethod
+    def _auto_stub_skill_manifests(agent_dir: str, context: dict) -> None:
+        """
+        After retrofit, scan orchestration/agents/ and skills/ for flat .md files
+        without a skill-manifest.json. For each, promote it to a subdirectory and
+        create a skill-manifest.json stub with description from extracted context.
+        """
+        root = Path(agent_dir).resolve()
+        scan_dirs = [root / "orchestration" / "agents", root / "skills"]
+        for scan_dir in scan_dirs:
+            if not scan_dir.exists():
+                continue
+            # Snapshot list before we start moving files
+            md_files = list(scan_dir.glob("*.md"))
+            for md_file in md_files:
+                stem = md_file.stem
+                # Promote flat .md into a named subdirectory
+                skill_dir = scan_dir / stem
+                skill_dir.mkdir(exist_ok=True)
+                dest_md = skill_dir / md_file.name
+                if not dest_md.exists():
+                    shutil.move(str(md_file), str(dest_md))
+                elif md_file.exists():
+                    md_file.unlink()
+                # Create skill-manifest.json stub if missing
+                sm_path = skill_dir / "skill-manifest.json"
+                if not sm_path.exists():
+                    desc = (
+                        context["agents"].get(stem, "")
+                        or _extract_first_paragraph(dest_md)
+                        or f"{stem} sub-agent"
+                    )
+                    sm_path.write_text(json.dumps({
+                        "name": stem,
+                        "version": "1.0.0",
+                        "description": desc[:200],
+                    }, indent=2))
 
     @classmethod
     def _ensure_adapter_wiring(cls, project_root: str) -> None:

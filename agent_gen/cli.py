@@ -2,6 +2,9 @@
 
 import os
 import sys
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 
 import click
@@ -20,6 +23,67 @@ def _agent_root(name: str) -> Path:
     if not new.parent.exists() and legacy.parent.exists():
         return legacy
     return new
+
+
+def _clone_and_prepare(url: str) -> tuple[str, object]:
+    """
+    Clone a git URL, retrofit it to AgentFactory standard, and wrap it as a ZIP.
+
+    Returns:
+        (zip_path_str, cleanup_fn) — caller must call cleanup_fn() after import.
+    """
+    # Derive agent name from URL
+    name = url.rstrip("/").split("/")[-1]
+    if name.endswith(".git"):
+        name = name[:-4]
+
+    tmp_dir = tempfile.mkdtemp(prefix="agentfactory_import_")
+    cloned_dir = os.path.join(tmp_dir, name)
+
+    try:
+        click.echo(f"[librarian] Cloning {url} ...")
+        result = subprocess.run(
+            ["git", "clone", url, cloned_dir],
+            capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            raise click.ClickException(
+                f"git clone failed:\n{result.stderr.strip()}"
+            )
+
+        # 1. Extract context from source BEFORE retrofit
+        click.echo("[librarian] Extracting context from source docs ...")
+        context = Librarian._extract_source_context(cloned_dir)
+
+        # 2. Retrofit if needed
+        profile, mapping = Librarian.propose_retrofit(cloned_dir)
+        if mapping:
+            click.echo(f"[librarian] Retrofitting (profile: {profile}) ...")
+            Librarian(cloned_dir).migrate(mapping)
+
+        # 3. Promote sub-agent .md files and create skill-manifest.json stubs
+        click.echo("[librarian] Generating skill manifests ...")
+        Librarian._auto_stub_skill_manifests(cloned_dir, context)
+
+        # 4. Init + patch manifest description + sync resources
+        click.echo("[librarian] Initialising agent manifest ...")
+        Librarian._auto_init_agent_manifest(cloned_dir, name, context)
+
+        # 5. Wrap into a ZIP
+        click.echo("[librarian] Wrapping into portable unit ...")
+        zip_path = Librarian(cloned_dir).wrap(tmp_dir)
+
+        def _cleanup():
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+        return str(zip_path), _cleanup
+
+    except click.ClickException:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise
+    except Exception as exc:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        raise click.ClickException(f"Preparation failed: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -447,22 +511,41 @@ def import_skill(path: str, target_agent: str):
 # ---------------------------------------------------------------------------
 
 @cli.command("import")
-@click.argument("zip_path")
+@click.argument("zip_path", required=False, default=None)
+@click.option(
+    "--from-git",
+    "from_git",
+    default=None,
+    metavar="URL",
+    help="Git URL to clone, retrofit, and import as an agent (skips ZIP_PATH).",
+)
 @click.option(
     "--project-root",
     default=".",
     show_default=True,
     help="Root of the project receiving the import (for the Handshake).",
 )
-def import_agent(zip_path: str, project_root: str):
+def import_agent(zip_path: str, from_git: str, project_root: str):
     """
     Unpack a portable agent bundle and register it in this project.
+
+    Accepts either a local ZIP_PATH or --from-git URL (git clone + auto-retrofit).
 
     Steps:
       1. Unpack <zip_path> into agents/<name>/
       2. Read the embedded manifest
       3. Handshake: update this project's global agent-manifest.json
     """
+    _cleanup = None
+
+    if not zip_path and not from_git:
+        raise click.UsageError("Provide either ZIP_PATH or --from-git URL.")
+    if zip_path and from_git:
+        raise click.UsageError("ZIP_PATH and --from-git are mutually exclusive.")
+
+    if from_git:
+        zip_path, _cleanup = _clone_and_prepare(from_git)
+
     zip_path = Path(zip_path).resolve()
 
     if not zip_path.exists():
@@ -511,6 +594,10 @@ def import_agent(zip_path: str, project_root: str):
 
     click.echo(f"[librarian] Registering '{name}' in project manifest...")
     Librarian.register_in_project(manifest, project_root)
+
+    # Clean up temp dir from --from-git clone
+    if _cleanup:
+        _cleanup()
 
     # Success summary (paste-ready for Claude)
     skills = manifest["resources"].get("skills", [])
