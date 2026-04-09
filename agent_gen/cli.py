@@ -110,7 +110,7 @@ def init_project(project_root: str):
     """
     Initialize the AgentFactory harness in a project.
 
-    Creates .ai/ with all harness directories, a single .ai/.CLAUDE.md
+    Creates .ai/ with all harness directories, a single .ai/AgentFactory.md
     source of truth, and wires root symlinks so every CLI tool (Claude,
     Codex, Gemini) reads the same shared context file.
 
@@ -142,7 +142,7 @@ def init_project(project_root: str):
             (d / ".gitkeep").touch()
         click.echo(f"  [ok] {d.relative_to(project_path)}")
 
-    # 2. Create single .CLAUDE.md source of truth
+    # 2. Create single AgentFactory.md source of truth
     context_path = ai_root / CONTEXT_FILE
     if not context_path.exists():
         context_path.write_text(
@@ -173,7 +173,7 @@ def init_project(project_root: str):
     else:
         click.echo(f"  [skip] {global_manifest_path.relative_to(project_path)} (already exists)")
 
-    # 4. Root symlinks — all four .md files point to .ai/.CLAUDE.md
+    # 4. Root symlinks — all four .md files point to .ai/AgentFactory.md
     root_links = {
         "CLAUDE.md":  f"{HARNESS_ROOT}/{CONTEXT_FILE}",
         "AGENTS.md":  f"{HARNESS_ROOT}/{CONTEXT_FILE}",

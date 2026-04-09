@@ -11,7 +11,7 @@ from pathlib import Path
 TRACKED_DIRS = ["skills", "commands", "docs", "scripts", "orchestration"]
 MANIFEST_FILE = "agent-manifest.json"
 HARNESS_ROOT = ".ai"
-CONTEXT_FILE = ".CLAUDE.md"  # single source of truth for all CLI instructions
+CONTEXT_FILE = "AgentFactory.md"  # single source of truth for all CLI instructions
 
 
 def _extract_first_paragraph(path: Path) -> str:
@@ -791,7 +791,7 @@ class Librarian:
                 if resolved_path in updated_paths:
                     continue
 
-                # Create .CLAUDE.md stub if missing (first run after init)
+                # Create AgentFactory.md stub if missing (first run after init)
                 if not target_path.exists() and not target_path.is_symlink():
                     if target_name.endswith(CONTEXT_FILE):
                         target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -841,7 +841,7 @@ class Librarian:
 
         # Agent-level description: README is the most reliable source for a project
         # description; CLAUDE.md / AGENTS.md often contain instructions, not descriptions.
-        for candidate in ["README.md", "CLAUDE.md", "AGENTS.md", ".ai/.CLAUDE.md"]:
+        for candidate in ["README.md", "CLAUDE.md", "AGENTS.md", ".ai/AgentFactory.md"]:
             f = root / candidate
             if f.exists():
                 desc = _extract_first_paragraph(f)

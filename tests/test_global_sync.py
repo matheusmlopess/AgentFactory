@@ -41,7 +41,7 @@ class TestGlobalRegistrySync(unittest.TestCase):
             "<!-- @agent-registry:end -->"
         )
 
-        # Root symlink pointing to .ai/.CLAUDE.md (all CLIs share the same file)
+        # Root symlink pointing to .ai/AgentFactory.md (all CLIs share the same file)
         self.root_agents_md = self.project_root / "AGENTS.md"
         os.symlink(self.context_file, self.root_agents_md)
 
@@ -76,7 +76,7 @@ class TestGlobalRegistrySync(unittest.TestCase):
 
     def test_update_harness_files_symlink_awareness(self):
         """update_harness_files respects symlinks and doesn't duplicate content."""
-        # CLAUDE.md at root symlinks to the same .ai/.CLAUDE.md
+        # CLAUDE.md at root symlinks to the same .ai/AgentFactory.md
         claude_md = self.project_root / "CLAUDE.md"
         os.symlink(self.context_file, claude_md)
 
