@@ -6,7 +6,7 @@ from pathlib import Path
 
 import click
 
-from .librarian import TRACKED_DIRS, Librarian
+from .librarian import TRACKED_DIRS, HARNESS_ROOT, CONTEXT_FILE, Librarian
 
 
 # ---------------------------------------------------------------------------
@@ -14,7 +14,12 @@ from .librarian import TRACKED_DIRS, Librarian
 # ---------------------------------------------------------------------------
 
 def _agent_root(name: str) -> Path:
-    return Path.cwd() / "agents" / name
+    new = Path.cwd() / HARNESS_ROOT / "agents" / name
+    legacy = Path.cwd() / "agents" / name
+    # Backward-compat: fall back to legacy path if .ai/agents/ doesn't exist yet
+    if not new.parent.exists() and legacy.parent.exists():
+        return legacy
+    return new
 
 
 # ---------------------------------------------------------------------------
@@ -24,6 +29,109 @@ def _agent_root(name: str) -> Path:
 @click.group()
 def cli():
     """Agent Factory — Librarian-powered agent lifecycle manager."""
+
+
+# ---------------------------------------------------------------------------
+# init
+# ---------------------------------------------------------------------------
+
+@cli.command("init")
+@click.option(
+    "--project-root",
+    default=".",
+    show_default=True,
+    help="Root of the project to initialize (defaults to current directory).",
+)
+def init_project(project_root: str):
+    """
+    Initialize the AgentFactory harness in a project.
+
+    Creates .ai/ with all harness directories, a single .ai/.CLAUDE.md
+    source of truth, and wires root symlinks so every CLI tool (Claude,
+    Codex, Gemini) reads the same shared context file.
+
+    Safe to run on an existing project — skips items that already exist.
+    """
+    import json as _json
+    from datetime import datetime, timezone
+
+    project_path = Path(project_root).resolve()
+    ai_root = project_path / HARNESS_ROOT
+
+    click.echo(f"[librarian] Initializing harness at {project_path} ...")
+
+    # 1. Create .ai/ directory tree
+    dirs = [
+        ai_root / "adapters" / "claude",
+        ai_root / "adapters" / "gemini",
+        ai_root / "adapters" / "codex",
+        ai_root / "rules",
+        ai_root / "commands",
+        ai_root / "skills",
+        ai_root / "agents",
+        ai_root / "memory",
+    ]
+    for d in dirs:
+        created = not d.exists()
+        d.mkdir(parents=True, exist_ok=True)
+        if created:
+            (d / ".gitkeep").touch()
+        click.echo(f"  [ok] {d.relative_to(project_path)}")
+
+    # 2. Create single .CLAUDE.md source of truth
+    context_path = ai_root / CONTEXT_FILE
+    if not context_path.exists():
+        context_path.write_text(
+            "# Project Context\n\n"
+            "<!-- @agent-registry:start -->\n"
+            "_No agents currently imported._\n"
+            "<!-- @agent-registry:end -->\n\n"
+            "<!-- @skills-registry:start -->\n"
+            "_No global skills currently imported._\n"
+            "<!-- @skills-registry:end -->\n",
+            encoding="utf-8",
+        )
+        click.echo(f"  [created] {context_path.relative_to(project_path)}")
+    else:
+        click.echo(f"  [skip] {context_path.relative_to(project_path)} (already exists)")
+
+    # 3. Create .ai/agent-manifest.json
+    global_manifest_path = Librarian._global_manifest_path(str(project_path))
+    if not global_manifest_path.exists():
+        manifest = {
+            "factory": "AgentFactory",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "agents": {},
+        }
+        with open(global_manifest_path, "w") as f:
+            _json.dump(manifest, f, indent=2)
+        click.echo(f"  [created] {global_manifest_path.relative_to(project_path)}")
+    else:
+        click.echo(f"  [skip] {global_manifest_path.relative_to(project_path)} (already exists)")
+
+    # 4. Root symlinks — all four .md files point to .ai/.CLAUDE.md
+    root_links = {
+        "CLAUDE.md":  f"{HARNESS_ROOT}/{CONTEXT_FILE}",
+        "AGENTS.md":  f"{HARNESS_ROOT}/{CONTEXT_FILE}",
+        "GEMINI.md":  f"{HARNESS_ROOT}/{CONTEXT_FILE}",
+        "CODEX.md":   f"{HARNESS_ROOT}/{CONTEXT_FILE}",
+        ".claude":    f"{HARNESS_ROOT}/adapters/claude",
+        ".gemini":    f"{HARNESS_ROOT}/adapters/gemini",
+        ".codex":     f"{HARNESS_ROOT}/adapters/codex",
+    }
+    for link_name, target in root_links.items():
+        link_path = project_path / link_name
+        if link_path.exists() or link_path.is_symlink():
+            click.echo(f"  [skip] {link_name} (already exists)")
+            continue
+        link_path.symlink_to(target)
+        click.echo(f"  [linked] {link_name} -> {target}")
+
+    # 5. Ensure adapter capability symlinks are wired
+    Librarian._ensure_adapter_wiring(str(project_path))
+    click.echo("  [wired] adapter capability symlinks")
+
+    click.echo(f"\n[librarian] Harness ready. Run 'agent-gen deploy <name>' to scaffold your first agent.")
 
 
 # ---------------------------------------------------------------------------
@@ -270,7 +378,7 @@ def import_skill(path: str, target_agent: str):
         sys.exit(1)
 
     if target_agent == ".":
-        target_root = Path.cwd()
+        target_root = Path.cwd() / HARNESS_ROOT
         click.echo(f"[librarian] Importing skill from {path_obj} into root project...")
         # Perform root-level skill import logic manually to avoid overwriting global manifest
         import tempfile
@@ -311,10 +419,10 @@ def import_skill(path: str, target_agent: str):
             shutil.copytree(temp_path, target_dir)
 
         click.echo(f"[librarian] Successfully imported skill '{skill_name}' into root project.")
-        click.echo(f"  Path: {target_root / 'skills' / skill_name}")
+        click.echo(f"  Path: {target_root / 'skills' / skill_name}")  # .ai/skills/<name>
         
-        # Update harness files to register the root skill
-        Librarian.update_harness_files(str(target_root))
+        # update_harness_files takes the project root (not the .ai/ sub-path)
+        Librarian.update_harness_files(str(Path.cwd()))
         return
 
     target_root = _agent_root(target_agent)
@@ -369,7 +477,7 @@ def import_agent(zip_path: str, project_root: str):
             peeked = json.load(mf)
 
     name = peeked["name"]
-    target_root = Path.cwd() / "agents" / name
+    target_root = _agent_root(name)
 
     if target_root.exists():
         click.echo(
