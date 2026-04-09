@@ -1,1 +1,1 @@
-core/CLAUDE.md
+.ai/.CLAUDE.md

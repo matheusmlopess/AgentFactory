@@ -5,9 +5,9 @@ __pycache__/
 .DS_Store
 
 # AI Harness - Ephemeral & Local
-adapters/*/settings.local.json
-adapters/*/cache/
-adapters/*/history/
-adapters/*/logs/
-adapters/*/sessions/
-adapters/*/context/
+.ai/adapters/*/settings.local.json
+.ai/adapters/*/cache/
+.ai/adapters/*/history/
+.ai/adapters/*/logs/
+.ai/adapters/*/sessions/
+.ai/adapters/*/context/

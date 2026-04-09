@@ -1,1 +1,1 @@
-core/GEMINI.md
+.ai/.CLAUDE.md

@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: agent-gen
+Version: 0.2.0
+Summary: Agent Factory — Librarian-powered agent lifecycle manager
+Requires-Python: >=3.11
+Requires-Dist: click>=8.1
+Requires-Dist: filelock>=3.13.0
