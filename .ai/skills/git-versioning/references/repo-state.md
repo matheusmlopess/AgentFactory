@@ -21,8 +21,9 @@ The git-versioning skill reads this to give accurate, repo-specific commands.
 | v2.0.0 | b6d8f46 | Unified multi-CLI harness + Librarian intelligence layer |
 | v2.1.0 | da02586 | .ai/ harness consolidation + agent-gen init + complete adapter wiring |
 | v2.1.1 | 91313c3 | Harness cleanup + audit gap detection (version drift, repo-state staleness) |
+| v2.2.0 | c2d5dfc | git-versioning v1.2.0: session branch gate enforcement |
 
-Latest tag: v2.1.1
+Latest tag: v2.2.0
 
 ---
 

@@ -21,8 +21,9 @@ The git-versioning skill reads this to give accurate, repo-specific commands.
 | v2.0.0 | 764f1df | .ai/ harness consolidation — single .CLAUDE.md source of truth |
 | v2.1.0 | d94ae42 | Librarian intelligence layer enhancements + registry auto-population |
 | v2.1.1 | 91313c3 | Harness cleanup + audit gap detection (version drift, repo-state staleness) |
+| v2.2.0 | c2d5dfc | git-versioning v1.2.0: session branch gate enforcement |
 
-Latest tag: v2.1.1
+Latest tag: v2.2.0
 
 ---
 
