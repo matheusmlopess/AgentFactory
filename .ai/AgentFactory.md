@@ -6,7 +6,7 @@ AgentFactory is a lightweight Python-based CLI (`agent-gen`) for building, packa
 
 ## Unified Folder Strategy
 All harness content lives under `.ai/`. The project root is kept clean — only required CLI symlinks are exposed:
-- `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CODEX.md` → `.ai/.CLAUDE.md` (this file — single source of truth for all CLIs)
+- `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CODEX.md` → `.ai/AgentFactory.md` (this file — single source of truth for all CLIs)
 - `.claude` → `.ai/adapters/claude` | `.gemini` → `.ai/adapters/gemini` | `.codex` → `.ai/adapters/codex`
 
 Internal layout:
