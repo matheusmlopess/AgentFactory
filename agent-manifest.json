@@ -1,0 +1,64 @@
+{
+  "factory": "AgentFactory",
+  "created_at": "2026-04-07T19:24:48.138780+00:00",
+  "agents": {
+    "test-agent": {
+      "version": "1.0.0",
+      "description": "Manual Description",
+      "imported_at": "2026-04-08T17:16:14.627961+00:00",
+      "git_ref": "untracked",
+      "resources": {
+        "skills": [
+          "skills/search/skill-manifest.json",
+          "skills/search.md"
+        ],
+        "commands": [],
+        "docs": [],
+        "scripts": [
+          "scripts/main.py",
+          "scripts/utils.py"
+        ],
+        "orchestration": [
+          "orchestration/plan.json"
+        ]
+      }
+    },
+    "test-intel-agent": {
+      "version": "1.0.0",
+      "description": "AgentFactory-powered agent: test-intel-agent",
+      "imported_at": "2026-04-08T17:16:14.622924+00:00",
+      "git_ref": "1fc9b7f",
+      "resources": {
+        "skills": [
+          "skills/search/skill-manifest.json",
+          "skills/search.md"
+        ],
+        "commands": [],
+        "docs": [],
+        "scripts": [
+          "scripts/utils.py"
+        ],
+        "orchestration": []
+      }
+    },
+    "test-claude-agent": {
+      "version": "1.0.0",
+      "description": "AgentFactory-powered agent: test-claude-agent",
+      "imported_at": "2026-04-08T17:16:14.633093+00:00",
+      "git_ref": "1fc9b7f",
+      "resources": {
+        "skills": [
+          "skills/search.md"
+        ],
+        "commands": [],
+        "docs": [
+          "docs/CLAUDE.md"
+        ],
+        "scripts": [
+          "scripts/search.py"
+        ],
+        "orchestration": []
+      }
+    }
+  }
+}

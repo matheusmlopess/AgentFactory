@@ -25,18 +25,29 @@ def _git_ref(path: str) -> str:
 
 CONVERSION_PROFILES = {
     "claude": {
-        "prompts": "skills",
-        "tools": "scripts",
-        "instructions.md": "docs/CLAUDE.md",
-        "claude_instructions.md": "docs/CLAUDE.md"
+        ".claude/skills": "skills",
+        ".claude/commands": "commands",
+        "CLAUDE.md": "docs/CLAUDE.md",
+        ".claude/rules": "docs/rules",
+        ".claude/templates": "docs/templates",
+        ".claude/output-styles": "docs/output-styles",
+        ".claude/tools": "scripts/tools",
+        ".claude/workflows": "orchestration/workflows",
+        ".claude/agents": "orchestration/agents",
+        "AGENTS.md": "orchestration/AGENTS.md"
     },
     "gemini": {
-        "system_instructions.md": "docs/GEMINI.md",
-        "api_configs": "scripts"
+        ".gemini/skills": "skills",
+        ".gemini/extensions": "skills/extensions",
+        "GEMINI.md": "docs/GEMINI.md",
+        "AGENTS.md": "orchestration/AGENTS.md"
     },
     "codex": {
-        "functions": "skills",
-        "logic": "orchestration"
+        ".codex/prompts": "skills/prompts",
+        "codex.md": "docs/codex.md",
+        ".codex/templates": "docs/templates",
+        ".codex/workflows": "orchestration/workflows",
+        "AGENTS.md": "orchestration/AGENTS.md"
     }
 }
 
@@ -91,44 +102,67 @@ class Librarian:
 
     def migrate(self, mapping: dict[str, str]) -> None:
         """
-        Execute the migration based on a mapping.
+        Execute the migration based on a mapping with a safe rollback mechanism.
         """
-        # 1. Create standard directories
-        for d in TRACKED_DIRS:
-            (self.agent_root / d).mkdir(parents=True, exist_ok=True)
-            (self.agent_root / d / ".gitkeep").touch()
+        import tempfile
+        import shutil
 
-        # 2. Move files according to mapping
-        for src_rel, dest_rel in mapping.items():
-            src_path = self.agent_root / src_rel
-            if not src_path.exists():
-                continue
-                
-            dest_path = self.agent_root / dest_rel
+        # Use a temporary staging area to prevent corrupting the original directory on failure
+        with tempfile.TemporaryDirectory() as staging_dir:
+            staging_path = Path(staging_dir) / self.agent_root.name
             
-            if src_path.is_dir():
-                # If destination is also a directory, merge contents
-                for item in src_path.iterdir():
-                    target = dest_path / item.name
-                    if target.exists() and target.is_dir() and item.is_dir():
-                        # Simple recursive merge if both are dirs
-                        for subitem in item.iterdir():
-                            shutil.move(str(subitem), str(target / subitem.name))
-                        item.rmdir()
+            # Copy source to staging
+            shutil.copytree(self.agent_root, staging_path)
+
+            try:
+                # 1. Create standard directories in staging
+                for d in TRACKED_DIRS:
+                    (staging_path / d).mkdir(parents=True, exist_ok=True)
+                    (staging_path / d / ".gitkeep").touch()
+
+                # 2. Move files according to mapping in staging
+                for src_rel, dest_rel in mapping.items():
+                    src_path = staging_path / src_rel
+                    if not src_path.exists():
+                        continue
+                        
+                    dest_path = staging_path / dest_rel
+                    
+                    if src_path.is_dir():
+                        # If destination is also a directory, merge contents
+                        for item in src_path.iterdir():
+                            target = dest_path / item.name
+                            target.parent.mkdir(parents=True, exist_ok=True)
+                            if target.exists() and target.is_dir() and item.is_dir():
+                                # Simple recursive merge if both are dirs
+                                for subitem in item.iterdir():
+                                    sub_target = target / subitem.name
+                                    sub_target.parent.mkdir(parents=True, exist_ok=True)
+                                    shutil.move(str(subitem), str(sub_target))
+                                item.rmdir()
+                            else:
+                                shutil.move(str(item), str(target))
+                        try:
+                            src_path.rmdir()
+                        except OSError:
+                            pass # Directory not empty or already moved
                     else:
-                        shutil.move(str(item), str(target))
-                try:
-                    src_path.rmdir()
-                except OSError:
-                    pass # Directory not empty or already moved
-            else:
-                # If destination is a directory, move file into it
-                if dest_rel in TRACKED_DIRS:
-                    shutil.move(str(src_path), str(dest_path / src_path.name))
-                else:
-                    # Specific file-to-file mapping
-                    dest_path.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.move(str(src_path), str(dest_path))
+                        # If destination is a directory, move file into it
+                        if dest_rel in TRACKED_DIRS:
+                            shutil.move(str(src_path), str(dest_path / src_path.name))
+                        else:
+                            # Specific file-to-file mapping
+                            dest_path.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.move(str(src_path), str(dest_path))
+
+                # 3. If everything succeeds, swap the staging directory with the original
+                shutil.rmtree(self.agent_root)
+                shutil.move(str(staging_path), str(self.agent_root))
+
+            except Exception as exc:
+                # Rollback is automatic since we operated on the staging copy.
+                # The original agent_root is left untouched.
+                raise RuntimeError(f"Migration failed and was safely rolled back. Reason: {exc}")
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -168,11 +202,10 @@ class Librarian:
         like <!-- @depends-on: skills/search.md --> or code imports.
         """
         import re
+        import ast
         
         # Regex for <!-- @depends-on: path/to/resource -->
         MD_DEP_REGEX = re.compile(r"<!--\s*@depends-on:\s*([^\s-]+)\s*-->")
-        # Regex for basic python imports: import x or from x import y
-        PY_IMPORT_REGEX = re.compile(r"^\s*(?:import|from)\s+([a-zA-Z0-9_\.]+)", re.MULTILINE)
         
         dependencies: dict[str, list[str]] = {}
         
@@ -198,11 +231,22 @@ class Librarian:
                         deps.add(match.group(1).strip())
                     
                     # 2. Look for Python-style imports
-                    if full_path.suffix in [".py", ".md"]:
-                        for match in PY_IMPORT_REGEX.finditer(content):
-                            root_mod = match.group(1).split(".")[0]
-                            if root_mod in script_map:
-                                deps.add(script_map[root_mod])
+                    if full_path.suffix == ".py":
+                        try:
+                            tree = ast.parse(content, filename=str(full_path))
+                            for node in ast.walk(tree):
+                                if isinstance(node, ast.Import):
+                                    for alias in node.names:
+                                        root_mod = alias.name.split(".")[0]
+                                        if root_mod in script_map:
+                                            deps.add(script_map[root_mod])
+                                elif isinstance(node, ast.ImportFrom):
+                                    if node.module:
+                                        root_mod = node.module.split(".")[0]
+                                        if root_mod in script_map:
+                                            deps.add(script_map[root_mod])
+                        except SyntaxError:
+                            pass
 
                 except Exception:
                     continue
@@ -279,6 +323,10 @@ class Librarian:
         manifest["skills_metadata"].update(self._parse_skill_manifests())
 
         self._save_manifest(manifest)
+        
+        # Propagate changes to the global registry if installed
+        Librarian.sync_to_global(manifest, ".")
+        
         return manifest
 
     def audit(self) -> dict:
@@ -290,7 +338,8 @@ class Librarian:
             "broken_resources": [],
             "broken_dependencies": [],
             "missing_skill_manifests": [],
-            "untracked_files": []
+            "untracked_files": [],
+            "invalid_skill_manifests": []
         }
         
         # 1. Check resources
@@ -312,16 +361,26 @@ class Librarian:
                 if p not in m_paths:
                     report["untracked_files"].append(p)
                     
-        # 4. Check for skills without manifests (directories only)
+        # 4. Check for skills without manifests (directories only) and validate existing ones
         skills_dir = self.agent_root / "skills"
         if skills_dir.exists():
             for item in skills_dir.iterdir():
                 if item.is_dir():
-                    if not (item / "skill-manifest.json").exists():
+                    manifest_file = item / "skill-manifest.json"
+                    if not manifest_file.exists():
                         # Skip if it's an empty dir (just has .gitkeep)
                         contents = [f for f in item.iterdir() if f.name != ".gitkeep"]
                         if contents:
                             report["missing_skill_manifests"].append(str(item.relative_to(self.agent_root)))
+                    else:
+                        # Validate the manifest
+                        try:
+                            with open(manifest_file) as f:
+                                data = json.load(f)
+                            if not isinstance(data, dict) or "name" not in data or "description" not in data:
+                                report["invalid_skill_manifests"].append(str(manifest_file.relative_to(self.agent_root)))
+                        except Exception:
+                            report["invalid_skill_manifests"].append(str(manifest_file.relative_to(self.agent_root)))
                         
         return report
 
@@ -366,6 +425,65 @@ class Librarian:
 
         return archive_path
 
+    def import_skill(self, skill_source: str) -> str:
+        """
+        Import a standalone skill into this agent's skills/ directory.
+        Supports both directories and ZIP files.
+        """
+        source_path = Path(skill_source).resolve()
+        if not source_path.exists():
+            raise FileNotFoundError(f"Skill source not found: {skill_source}")
+
+        import tempfile
+        import shutil
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            
+            if zipfile.is_zipfile(source_path):
+                with zipfile.ZipFile(source_path, 'r') as zf:
+                    zf.extractall(temp_path)
+            elif source_path.is_dir():
+                # Copy content to temp area to normalize
+                shutil.copytree(source_path, temp_path, dirs_exist_ok=True)
+            else:
+                raise ValueError("Skill source must be a directory or a ZIP file.")
+
+            # Look for skill-manifest.json
+            manifest_file = temp_path / "skill-manifest.json"
+            if not manifest_file.exists():
+                # Maybe it's nested (common in some zip exports)
+                manifests = list(temp_path.rglob("skill-manifest.json"))
+                if not manifests:
+                    raise FileNotFoundError("skill-manifest.json not found in the source.")
+                # Use the first one found and adjust temp_path
+                manifest_file = manifests[0]
+                temp_path = manifest_file.parent
+
+            with open(manifest_file) as f:
+                try:
+                    skill_data = json.load(f)
+                except json.JSONDecodeError:
+                    raise ValueError(f"Invalid JSON in {manifest_file}")
+
+            if "name" not in skill_data:
+                raise ValueError("skill-manifest.json must contain a 'name' field.")
+
+            skill_name = skill_data["name"]
+            target_dir = self.agent_root / "skills" / skill_name
+
+            # Ensure skills directory exists
+            target_dir.parent.mkdir(parents=True, exist_ok=True)
+
+            if target_dir.exists():
+                shutil.rmtree(target_dir)
+
+            # Copy normalized skill to agent
+            shutil.copytree(temp_path, target_dir)
+
+        self.sync()
+        return skill_name
+
     @staticmethod
     def unpack(zip_path: str, target_root: str) -> dict:
         """
@@ -390,23 +508,63 @@ class Librarian:
         return Path(project_root).resolve() / "agent-manifest.json"
 
     @classmethod
+    def _get_lock(cls, project_root: str):
+        from filelock import FileLock
+        lock_path = cls._global_manifest_path(project_root).with_suffix('.json.lock')
+        return FileLock(str(lock_path), timeout=10)
+
+    @classmethod
     def deregister_from_project(cls, agent_name: str, project_root: str) -> None:
         """
         Remove an agent's entry from the project-level global manifest.
         """
         global_path = cls._global_manifest_path(project_root)
 
-        if not global_path.exists():
+        with cls._get_lock(project_root):
+            if not global_path.exists():
+                return
+
+            with open(global_path) as f:
+                global_manifest = json.load(f)
+
+            if agent_name in global_manifest.get("agents", {}):
+                del global_manifest["agents"][agent_name]
+
+                with open(global_path, "w") as f:
+                    json.dump(global_manifest, f, indent=2)
+
+    @classmethod
+    def sync_to_global(cls, agent_manifest: dict, project_root: str = ".") -> None:
+        """
+        Updates the agent's entry in the global registry if it is currently registered.
+        Also runs update_harness_files to keep context files in sync.
+        """
+        global_path = cls._global_manifest_path(project_root)
+        name = agent_manifest.get("name")
+        if not name:
             return
 
-        with open(global_path) as f:
-            global_manifest = json.load(f)
+        updated = False
+        with cls._get_lock(project_root):
+            if not global_path.exists():
+                return
 
-        if agent_name in global_manifest.get("agents", {}):
-            del global_manifest["agents"][agent_name]
+            with open(global_path) as f:
+                global_manifest = json.load(f)
 
-            with open(global_path, "w") as f:
-                json.dump(global_manifest, f, indent=2)
+            if name in global_manifest.get("agents", {}):
+                # Update fields that might have drifted locally
+                global_manifest["agents"][name]["version"] = agent_manifest.get("version", "1.0.0")
+                global_manifest["agents"][name]["description"] = agent_manifest.get("description", "No description provided.")
+                global_manifest["agents"][name]["git_ref"] = agent_manifest.get("git_ref", "unknown")
+                global_manifest["agents"][name]["resources"] = agent_manifest.get("resources", {})
+                
+                with open(global_path, "w") as f:
+                    json.dump(global_manifest, f, indent=2)
+                updated = True
+                
+        if updated:
+            cls.update_harness_files(project_root)
 
     def uninstall(self, project_root: str = ".") -> None:
         """
@@ -429,49 +587,71 @@ class Librarian:
         with the current list of registered agents.
         """
         global_path = cls._global_manifest_path(project_root)
-        if not global_path.exists():
-            return
-
-        with open(global_path) as f:
-            global_manifest = json.load(f)
-
-        agents = global_manifest.get("agents", {})
+        project_path = Path(project_root).resolve()
         
-        # Build the registry text
-        registry_lines = ["<!-- @agent-registry:start -->"]
-        if not agents:
-            registry_lines.append("_No agents currently imported._")
-        else:
-            for name, data in sorted(agents.items()):
-                desc = data.get("description", "No description provided.")
-                # Truncate long descriptions
-                if len(desc) > 100:
-                    desc = desc[:97] + "..."
-                registry_lines.append(f"- **{name}**: {desc} (See: `agents/{name}/docs/CLAUDE.md`)")
-        registry_lines.append("<!-- @agent-registry:end -->")
-        registry_text = "\n".join(registry_lines)
+        with cls._get_lock(project_root):
+            if not global_path.exists():
+                return
 
-        targets = ["CLAUDE.md", "GEMINI.md", "AGENTS.md", "README.md"]
-        import re
-        pattern = re.compile(r"<!-- @agent-registry:start -->.*?<!-- @agent-registry:end -->", re.DOTALL)
+            with open(global_path) as f:
+                global_manifest = json.load(f)
 
-        for target_name in targets:
-            target_path = Path(project_root) / target_name
+            agents = global_manifest.get("agents", {})
             
-            # Special case for AGENTS.md - create if missing
-            if not target_path.exists():
-                if target_name == "AGENTS.md":
-                    target_path.write_text(f"# Project Agents\n\n{registry_text}\n", encoding="utf-8")
-                continue
-
-            content = target_path.read_text(encoding="utf-8")
-            if "<!-- @agent-registry:start -->" in content:
-                new_content = pattern.sub(registry_text, content)
+            # Build the registry text
+            registry_lines = ["<!-- @agent-registry:start -->"]
+            if not agents:
+                registry_lines.append("_No agents currently imported._")
             else:
-                # Append to the end if markers aren't present
-                new_content = content.strip() + f"\n\n## Registered Agents\n{registry_text}\n"
+                for name, data in sorted(agents.items()):
+                    desc = data.get("description", "No description provided.")
+                    # Truncate long descriptions
+                    if len(desc) > 100:
+                        desc = desc[:97] + "..."
+                    registry_lines.append(f"- **{name}**: {desc} (See: `agents/{name}/docs/CLAUDE.md`)")
+            registry_lines.append("<!-- @agent-registry:end -->")
+            registry_text = "\n".join(registry_lines)
+
+            # Targeted files: shared source of truth AND root legacy files
+            targets = [
+                "core/AGENTS.md",
+                "core/CLAUDE.md",
+                "core/GEMINI.md",
+                "README.md"
+            ]
             
-            target_path.write_text(new_content, encoding="utf-8")
+            import re
+            pattern = re.compile(r"<!-- @agent-registry:start -->.*?<!-- @agent-registry:end -->", re.DOTALL)
+
+            updated_paths = set()
+            for target_name in targets:
+                target_path = project_path / target_name
+                
+                # If it's a symlink, resolve it to update the underlying file once
+                resolved_path = target_path.resolve()
+                if resolved_path in updated_paths:
+                    continue
+                
+                # Special case for AGENTS.md/ai/shared/AGENTS.md - create if missing
+                if not target_path.exists() and not target_path.is_symlink():
+                    if "AGENTS.md" in target_name:
+                        target_path.parent.mkdir(parents=True, exist_ok=True)
+                        target_path.write_text(f"# Project Agents\n\n{registry_text}\n", encoding="utf-8")
+                        updated_paths.add(resolved_path)
+                    continue
+
+                if not target_path.exists():
+                    continue
+
+                content = target_path.read_text(encoding="utf-8")
+                if "<!-- @agent-registry:start -->" in content:
+                    new_content = pattern.sub(registry_text, content)
+                else:
+                    # Append to the end if markers aren't present
+                    new_content = content.strip() + f"\n\n## Registered Agents\n{registry_text}\n"
+                
+                target_path.write_text(new_content, encoding="utf-8")
+                updated_paths.add(resolved_path)
 
     @classmethod
     def register_in_project(cls, imported_manifest: dict, project_root: str) -> None:
@@ -481,27 +661,28 @@ class Librarian:
         """
         global_path = cls._global_manifest_path(project_root)
 
-        if global_path.exists():
-            with open(global_path) as f:
-                global_manifest = json.load(f)
-        else:
-            global_manifest = {
-                "factory": "AgentFactory",
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "agents": {},
+        with cls._get_lock(project_root):
+            if global_path.exists():
+                with open(global_path) as f:
+                    global_manifest = json.load(f)
+            else:
+                global_manifest = {
+                    "factory": "AgentFactory",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "agents": {},
+                }
+
+            name = imported_manifest["name"]
+            global_manifest["agents"][name] = {
+                "version": imported_manifest["version"],
+                "description": imported_manifest.get("description", "No description provided."),
+                "imported_at": datetime.now(timezone.utc).isoformat(),
+                "git_ref": imported_manifest.get("git_ref", "unknown"),
+                "resources": imported_manifest["resources"],
             }
 
-        name = imported_manifest["name"]
-        global_manifest["agents"][name] = {
-            "version": imported_manifest["version"],
-            "description": imported_manifest.get("description", "No description provided."),
-            "imported_at": datetime.now(timezone.utc).isoformat(),
-            "git_ref": imported_manifest.get("git_ref", "unknown"),
-            "resources": imported_manifest["resources"],
-        }
-
-        with open(global_path, "w") as f:
-            json.dump(global_manifest, f, indent=2)
+            with open(global_path, "w") as f:
+                json.dump(global_manifest, f, indent=2)
 
         # Update harness files (Context Awareness)
         cls.update_harness_files(project_root)

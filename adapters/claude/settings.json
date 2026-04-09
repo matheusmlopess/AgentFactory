@@ -1,0 +1,6 @@
+{
+  "theme": "dark",
+  "default_model": "claude-3-opus-20240229",
+  "memory_enabled": true,
+  "mcp_enabled": true
+}

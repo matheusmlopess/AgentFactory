@@ -1,0 +1,13 @@
+mnt/
+__pycache__/
+*.pyc
+*.zip
+.DS_Store
+
+# AI Harness - Ephemeral & Local
+adapters/*/settings.local.json
+adapters/*/cache/
+adapters/*/history/
+adapters/*/logs/
+adapters/*/sessions/
+adapters/*/context/

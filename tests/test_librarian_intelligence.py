@@ -83,6 +83,20 @@ class TestLibrarianIntelligence(unittest.TestCase):
         report = librarian.audit()
         self.assertIn("skills/search.md -> scripts/missing.py", report["broken_dependencies"])
 
+    def test_librarian_audit_invalid_skill_manifest(self):
+        """Test that the Librarian audit catches invalid skill-manifest.json."""
+        librarian = Librarian(str(self.agent_root))
+        librarian.init("test-agent")
+        
+        # Create an invalid skill manifest
+        invalid_skill = self.agent_root / "skills" / "invalid_skill"
+        invalid_skill.mkdir()
+        with open(invalid_skill / "skill-manifest.json", "w") as f:
+            json.dump({"name": "invalid_skill"}, f) # Missing description
+        
+        report = librarian.audit()
+        self.assertIn("skills/invalid_skill/skill-manifest.json", report["invalid_skill_manifests"])
+
     def test_librarian_sync_preserves_metadata(self):
         """Test that sync() doesn't overwrite manual metadata."""
         librarian = Librarian(str(self.agent_root))

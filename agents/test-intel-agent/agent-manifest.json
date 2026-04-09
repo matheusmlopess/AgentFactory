@@ -1,0 +1,31 @@
+{
+  "name": "test-intel-agent",
+  "version": "1.0.0",
+  "description": "AgentFactory-powered agent: test-intel-agent",
+  "orchestration_plan": null,
+  "created_at": "2026-04-07T19:26:19.429268+00:00",
+  "git_ref": "1fc9b7f",
+  "resources": {
+    "skills": [
+      "skills/search/skill-manifest.json",
+      "skills/search.md"
+    ],
+    "commands": [],
+    "docs": [],
+    "scripts": [
+      "scripts/utils.py"
+    ],
+    "orchestration": []
+  },
+  "dependencies": {
+    "skills/search.md": [
+      "scripts/utils.py"
+    ]
+  },
+  "skills_metadata": {
+    "skills/search": {
+      "type": "retrieval"
+    }
+  },
+  "synced_at": "2026-04-08T17:16:14.620681+00:00"
+}
