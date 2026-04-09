@@ -341,19 +341,21 @@ class Librarian:
             "broken_dependencies": [],
             "missing_skill_manifests": [],
             "untracked_files": [],
-            "invalid_skill_manifests": []
+            "invalid_skill_manifests": [],
+            "skill_version_drift": [],
+            "repo_state_warnings": [],
         }
-        
+
         # 1. Check resources
         present, missing = self.validate()
         report["broken_resources"] = missing
-        
+
         # 2. Check dependencies
         for resource, deps in manifest.get("dependencies", {}).items():
             for dep in deps:
                 if not (self.agent_root / dep).exists():
                     report["broken_dependencies"].append(f"{resource} -> {dep}")
-        
+
         # 3. Check for untracked files in standard dirs
         disk_resources = self._crawl_resources()
         manifest_resources = manifest.get("resources", {})
@@ -362,7 +364,7 @@ class Librarian:
             for p in paths:
                 if p not in m_paths:
                     report["untracked_files"].append(p)
-                    
+
         # 4. Check for skills without manifests (directories only) and validate existing ones
         skills_dir = self.agent_root / "skills"
         if skills_dir.exists():
@@ -383,8 +385,84 @@ class Librarian:
                                 report["invalid_skill_manifests"].append(str(manifest_file.relative_to(self.agent_root)))
                         except Exception:
                             report["invalid_skill_manifests"].append(str(manifest_file.relative_to(self.agent_root)))
-                        
+
+                        # Gap 1: Detect version drift between skill-manifest.json and SKILL.md frontmatter
+                        skill_md = item / "SKILL.md"
+                        if skill_md.exists() and manifest_file.exists():
+                            try:
+                                with open(manifest_file) as f:
+                                    sm_data = json.load(f)
+                                sm_version = sm_data.get("version", "")
+                                skill_version = self._parse_skill_md_version(skill_md)
+                                if skill_version and sm_version and skill_version != sm_version:
+                                    report["skill_version_drift"].append(
+                                        f"{item.name}: skill-manifest.json={sm_version} vs SKILL.md={skill_version}"
+                                    )
+                            except Exception:
+                                pass
+
+        # Gap 2 & 3: repo-state.md checks (only meaningful for project-level audit)
+        repo_state = self.agent_root / "skills" / "git-versioning" / "references" / "repo-state.md"
+        if repo_state.exists():
+            report["repo_state_warnings"].extend(self._check_repo_state(repo_state))
+
         return report
+
+    @staticmethod
+    def _parse_skill_md_version(skill_md_path: Path) -> str:
+        """Extract version from SKILL.md YAML frontmatter (--- block)."""
+        try:
+            content = skill_md_path.read_text()
+            if not content.startswith("---"):
+                return ""
+            end = content.index("---", 3)
+            frontmatter = content[3:end]
+            for line in frontmatter.splitlines():
+                if line.strip().startswith("version:"):
+                    return line.split(":", 1)[1].strip()
+        except Exception:
+            pass
+        return ""
+
+    @staticmethod
+    def _check_repo_state(repo_state_path: Path) -> list[str]:
+        """Gap 2 & 3: warn if latest git tag not in repo-state.md or remote URL mismatch."""
+        warnings = []
+        content = repo_state_path.read_text()
+
+        # Gap 2: latest git tag not in repo-state.md
+        try:
+            latest_tag = subprocess.check_output(
+                ["git", "describe", "--tags", "--abbrev=0"],
+                stderr=subprocess.DEVNULL,
+                cwd=str(repo_state_path.parent),
+            ).decode().strip()
+            if latest_tag and latest_tag not in content:
+                warnings.append(f"repo-state.md missing latest git tag: {latest_tag}")
+        except subprocess.CalledProcessError:
+            pass  # no tags yet
+
+        # Gap 3: remote URL mismatch
+        try:
+            actual_url = subprocess.check_output(
+                ["git", "remote", "get-url", "origin"],
+                stderr=subprocess.DEVNULL,
+                cwd=str(repo_state_path.parent),
+            ).decode().strip()
+            if actual_url:
+                # Normalize: strip protocol (https://, git@, etc.) and .git suffix
+                normalized = actual_url.removesuffix(".git")
+                for prefix in ("https://", "http://", "git@", "ssh://"):
+                    normalized = normalized.removeprefix(prefix)
+                normalized = normalized.replace(":", "/")  # git@host:org/repo → host/org/repo
+                if normalized not in content and actual_url not in content:
+                    warnings.append(
+                        f"repo-state.md remote URL mismatch: git remote={actual_url}"
+                    )
+        except subprocess.CalledProcessError:
+            pass
+
+        return warnings
 
     def validate(self) -> tuple[list[str], list[str]]:
         """
