@@ -698,6 +698,40 @@ class Librarian:
                 target_path.write_text(content, encoding="utf-8")
                 updated_paths.add(resolved_path)
 
+        # Ensure adapter symlink wiring is complete after every harness update
+        cls._ensure_adapter_wiring(project_root)
+
+    @classmethod
+    def _ensure_adapter_wiring(cls, project_root: str) -> None:
+        """
+        Idempotently create missing adapter symlinks based on the capability matrix.
+
+        Expected wiring:
+          .ai/adapters/claude/commands -> ../../commands  (.ai/commands/)
+          .ai/adapters/claude/skills   -> ../../skills    (.ai/skills/)
+          .ai/adapters/gemini/tools    -> ../../skills    (.ai/skills/)
+          .ai/adapters/codex/prompts   -> ../../commands  (.ai/commands/)
+        """
+        adapters_root = Path(project_root).resolve() / HARNESS_ROOT / "adapters"
+        wiring = {
+            "claude": [("commands", "../../commands"), ("skills", "../../skills")],
+            "gemini": [("tools",    "../../skills")],
+            "codex":  [("prompts",  "../../commands")],
+        }
+        for adapter_name, links in wiring.items():
+            adapter_dir = adapters_root / adapter_name
+            if not adapter_dir.exists():
+                continue
+            for link_name, link_target in links:
+                link_path = adapter_dir / link_name
+                if link_path.is_symlink():
+                    if os.readlink(str(link_path)) == link_target:
+                        continue
+                    link_path.unlink()
+                elif link_path.exists():
+                    continue  # real file/dir present — don't clobber
+                link_path.symlink_to(link_target)
+
     @classmethod
     def register_in_project(cls, imported_manifest: dict, project_root: str) -> None:
         """
