@@ -1,0 +1,24 @@
+{
+  "name": "test-claude-agent",
+  "version": "1.0.0",
+  "description": "AgentFactory-powered agent: test-claude-agent",
+  "orchestration_plan": null,
+  "created_at": "2026-04-07T19:29:20.199332+00:00",
+  "git_ref": "1fc9b7f",
+  "resources": {
+    "skills": [
+      "skills/search.md"
+    ],
+    "commands": [],
+    "docs": [
+      "docs/CLAUDE.md"
+    ],
+    "scripts": [
+      "scripts/search.py"
+    ],
+    "orchestration": []
+  },
+  "dependencies": {},
+  "skills_metadata": {},
+  "synced_at": "2026-04-08T17:16:14.631195+00:00"
+}

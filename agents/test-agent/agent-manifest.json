@@ -1,0 +1,20 @@
+{
+  "name": "test-agent",
+  "version": "1.0.0",
+  "description": "AgentFactory-powered agent: test-agent",
+  "orchestration_plan": "orchestration/main.json",
+  "created_at": "2026-04-07T19:20:08.452250+00:00",
+  "git_ref": "1fc9b7f",
+  "resources": {
+    "skills": [],
+    "commands": [],
+    "docs": [],
+    "scripts": [],
+    "orchestration": [
+      "orchestration/main.json"
+    ]
+  },
+  "dependencies": {},
+  "skills_metadata": {},
+  "synced_at": "2026-04-08T17:16:14.627507+00:00"
+}
