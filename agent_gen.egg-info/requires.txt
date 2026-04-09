@@ -1,2 +1,0 @@
-click>=8.1
-filelock>=3.13.0

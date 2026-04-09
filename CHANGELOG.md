@@ -1,5 +1,24 @@
 # Changelog
 
+## [v2.4.1] - 2026-04-09
+
+### Changed
+- Relocated `tests/` → `src/tests/` to match standard Python src layout
+- `pyproject.toml` `testpaths` updated to `["src/tests"]`
+
+---
+
+## [v2.4.0] - 2026-04-09
+
+### Changed
+- Moved `agent_gen/` → `src/agent_gen/` (standard Python src layout)
+- `pyproject.toml` `packages.find.where = ["src"]`
+- Removed stale root-level dirs: `plans/`, `mnt/`, `scripts/`, `issues/`
+- Relocated `SPEC.md` → `docs/SPEC.md`
+- Updated README with accurate layout diagram, CLI reference, and `docs/SPEC.md` link
+
+---
+
 ## [v2.3.2] - 2026-04-09
 
 ### Changed

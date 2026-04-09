@@ -34,7 +34,7 @@ The project utilizes a tiered AI harness to coordinate Claude, Codex, and Gemini
 
 ## Registered Agents
 <!-- @agent-registry:start -->
-- **test-agent**: Manual Description (See: `.ai/agents/test-agent/docs/CLAUDE.md`)
+- **test-agent**: Minimal test agent for validating AgentFactory lifecycle operations: deploy, audit, wrap, and imp... (See: `.ai/agents/test-agent/docs/CLAUDE.md`)
 - **test-claude-agent**: AgentFactory-powered agent demonstrating a minimal Claude-native agent layout. (See: `.ai/agents/test-claude-agent/docs/CLAUDE.md`)
 - **test-intel-agent**: AgentFactory-powered agent demonstrating intelligence-layer features: dependency detection and sk... (See: `.ai/agents/test-intel-agent/docs/CLAUDE.md`)
 <!-- @agent-registry:end -->

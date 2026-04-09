@@ -4,7 +4,7 @@
   "agents": {
     "test-agent": {
       "version": "1.0.0",
-      "description": "Specialized agent for Git workflows, semantic versioning, and project state management.",
+      "description": "Minimal test agent for validating AgentFactory lifecycle operations: deploy, audit, wrap, and import.",
       "imported_at": "2026-04-08T17:16:14.627961+00:00",
       "git_ref": "e051e38",
       "resources": {
