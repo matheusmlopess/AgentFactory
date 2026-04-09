@@ -16,5 +16,5 @@ dependencies = [
 agent-gen = "agent_gen.cli:cli"
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["agent_gen*"]
