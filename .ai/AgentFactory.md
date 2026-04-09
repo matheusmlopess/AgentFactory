@@ -18,7 +18,7 @@ Internal layout:
 6. `.ai/adapters/`: Per-CLI config + capability symlinks (commands→, skills→, tools→).
 
 ## Core Engine: The Librarian
-The Librarian (`agent_gen/librarian.py`) manages:
+The Librarian (`src/agent_gen/librarian.py`) manages:
 - **Manifest Integrity:** Validating `agent-manifest.json`.
 - **Lifecycle:** Deploy, Audit, Wrap, Import, Retrofit.
 - **Intelligence Layer:** Dependency and orchestration detection via AST parsing and marker discovery.

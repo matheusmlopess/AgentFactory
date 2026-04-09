@@ -1,10 +1,22 @@
-mnt/
+# Python build artifacts
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
 *.zip
+
+# OS
 .DS_Store
 
-# AI Harness - Ephemeral & Local
+# Test / tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# AI Harness — ephemeral & local
 .ai/adapters/*/settings.local.json
 .ai/adapters/*/cache/
 .ai/adapters/*/history/
