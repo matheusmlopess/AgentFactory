@@ -7,23 +7,33 @@ It provides a meta-framework that standardizes agent behavior, context managemen
 
 ## The Unified AI Harness (v2.0)
 
-AgentFactory utilizes a revolutionary **Unified Folder Strategy**. It allows you to use Claude, Codex, and Gemini simultaneously on the same project without conflicting instructions or redundant files. 
+AgentFactory utilizes a **Unified Folder Strategy**. It allows you to use Claude, Codex, and Gemini simultaneously on the same project without conflicting instructions or redundant files.
 
-Native CLI structures (like `.claude/` or `.codex/`) are elegantly symlinked to a single, pristine `.ai` equivalent structure at the root:
+All harness content lives inside a single `.ai/` directory. The project root stays clean — only three required instruction files (auto-loaded by each CLI) and three hidden native CLI symlinks are exposed:
 
 ```text
-.
-├── core/         # Core context (Architecture, Agents, Domain)
-├── rules/        # Enforceable constraints (Security, Testing)
-├── commands/     # Execution scripts
-├── prompts/      # Normalized prompt layer
-├── skills/       # Reusable deep-context workflows
-├── agents/       # Persona roles
-├── memory/       # Project state
-└── adapters/     # Native CLI configurations (symlinked from root)
+project/
+├── CLAUDE.md → .ai/.CLAUDE.md    ← auto-loaded by Claude
+├── AGENTS.md → .ai/.CLAUDE.md    ← auto-loaded by Codex  (same file)
+├── GEMINI.md → .ai/.CLAUDE.md    ← auto-loaded by Gemini (same file)
+├── .claude   → .ai/adapters/claude
+├── .gemini   → .ai/adapters/gemini
+├── .codex    → .ai/adapters/codex
+└── .ai/
+    ├── .CLAUDE.md       # single source of truth for all CLI instructions
+    ├── agent-manifest.json
+    ├── adapters/        # per-CLI config + capability symlinks
+    ├── rules/           # enforceable constraints
+    ├── commands/        # Claude slash commands + Codex prompts (unified)
+    ├── skills/          # reusable deep-context workflows + Gemini tools
+    ├── agents/          # deployed agent directories
+    └── memory/          # project state
 ```
 
 ## CLI Reference
+
+### Project Setup
+- `agent-gen init`: Initialize the AgentFactory harness in a new or existing project — creates `.ai/` structure, root symlinks, and adapter wiring.
 
 ### Agent Lifecycle
 - `agent-gen deploy <name>`: Scaffold a new agent.
@@ -39,15 +49,16 @@ Native CLI structures (like `.claude/` or `.codex/`) are elegantly symlinked to 
 ## Installation & Setup
 
 1. Install Python 3.11+.
-2. Install dependencies: `pip install -r requirements.txt` (or via `pyproject.toml`).
-3. Run `agent-gen --help` to see available commands.
+2. Install: `pip install -e .`
+3. Run `agent-gen init` to scaffold the harness in your project.
+4. Run `agent-gen --help` to see all available commands.
 
 ## Architecture & Contributions
-See `core/CLAUDE.md` (Architecture) and `core/GEMINI.md` (Domain) for deeper technical insights. Ensure all contributions follow the `rules/` specified in the repository.
+See `.ai/.CLAUDE.md` for architecture, domain context, and project constraints. Contributions should follow the rules defined in `.ai/rules/`.
 
 ## Registered Agents
 <!-- @agent-registry:start -->
-- **test-agent**: Specialized agent for Git workflows, semantic versioning, and project state management. (See: `agents/test-agent/docs/CLAUDE.md`)
+- **test-agent**: Manual Description (See: `agents/test-agent/docs/CLAUDE.md`)
 - **test-claude-agent**: AgentFactory-powered agent: test-claude-agent (See: `agents/test-claude-agent/docs/CLAUDE.md`)
 - **test-intel-agent**: AgentFactory-powered agent: test-intel-agent (See: `agents/test-intel-agent/docs/CLAUDE.md`)
 <!-- @agent-registry:end -->
