@@ -31,7 +31,7 @@ Latest tag: v2.1.1
 | Artifact | Version | Path |
 |----------|---------|------|
 | agent-gen CLI | v0.2.0 | pyproject.toml |
-| git-versioning | v1.1.0 | .ai/skills/git-versioning/SKILL.md |
+| git-versioning | v1.2.0 | .ai/skills/git-versioning/SKILL.md |
 | diff-visualizer | v1.1.0 | .ai/skills/diff-visualizer/SKILL.md |
 
 ---

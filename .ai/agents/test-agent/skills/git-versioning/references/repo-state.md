@@ -30,7 +30,7 @@ Latest tag: v2.1.1
 
 | Skill | Version | Path |
 |-------|---------|------|
-| git-versioning | v1.1.0 | skills/git-versioning/SKILL.md |
+| git-versioning | v1.2.0 | skills/git-versioning/SKILL.md |
 | diff-visualizer | v1.1.0 | skills/diff-visualizer/SKILL.md |
 
 ---
