@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "agent-factory-server": {
+      "command": "python3",
+      "args": ["-m", "agent_gen.mcp_server"],
+      "env": {}
+    }
+  }
+}

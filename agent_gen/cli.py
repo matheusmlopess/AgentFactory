@@ -87,6 +87,7 @@ def describe(name: str, desc: str, plan: str):
         manifest["orchestration_plan"] = plan
 
     librarian._save_manifest(manifest)
+    Librarian.sync_to_global(manifest, ".")
     click.echo(f"[librarian] Updated metadata for '{name}'")
 
 
@@ -151,6 +152,12 @@ def audit(name: str):
         for p in report["missing_skill_manifests"]:
             click.echo(f"  - {p}")
 
+    if report.get("invalid_skill_manifests"):
+        clean = False
+        click.echo("[librarian] ✗ Invalid skill manifests (missing 'name' or 'description'):", err=True)
+        for p in report["invalid_skill_manifests"]:
+            click.echo(f"  - {p}", err=True)
+
     if clean:
         click.echo(f"[librarian] ✓ '{name}' integrity is clean.")
     else:
@@ -182,10 +189,8 @@ def wrap(name: str, out: str):
     click.echo(f"[librarian] Auditing '{name}'...")
     report = librarian.audit()
     
-    if report["broken_resources"] or report["broken_dependencies"]:
-        click.echo("[librarian] Audit failed — fix broken paths/dependencies before wrapping.", err=True)
-        # We don't list them again as they are listed in audit() logic when we call audit command
-        # but here we should at least list them or point to audit command
+    if report["broken_resources"] or report["broken_dependencies"] or report.get("invalid_skill_manifests"):
+        click.echo("[librarian] Audit failed — fix broken paths, dependencies, or invalid skill manifests before wrapping.", err=True)
         click.echo(f"[librarian] Run 'agent-gen audit {name}' for details.", err=True)
         sys.exit(1)
 
@@ -244,6 +249,44 @@ def retrofit(path: str, yes: bool):
 
 
 # ---------------------------------------------------------------------------
+# import-skill
+# ---------------------------------------------------------------------------
+
+@cli.command("import-skill")
+@click.argument("path")
+@click.option(
+    "--to",
+    "target_agent",
+    required=True,
+    help="Name of the target agent to receive the skill.",
+)
+def import_skill(path: str, target_agent: str):
+    """
+    Import a standalone skill into an existing agent.
+    """
+    path_obj = Path(path).resolve()
+    if not path_obj.exists():
+        click.echo(f"[librarian] Skill path not found: {path_obj}", err=True)
+        sys.exit(1)
+
+    target_root = _agent_root(target_agent)
+    if not target_root.exists():
+        click.echo(f"[librarian] Target agent '{target_agent}' not found at {target_root}.", err=True)
+        sys.exit(1)
+
+    librarian = Librarian(str(target_root))
+    
+    try:
+        click.echo(f"[librarian] Importing skill from {path_obj} into '{target_agent}'...")
+        skill_name = librarian.import_skill(str(path_obj))
+        click.echo(f"[librarian] Successfully imported skill '{skill_name}' into '{target_agent}'.")
+        click.echo(f"  Path: {target_root / 'skills' / skill_name}")
+    except Exception as exc:
+        click.echo(f"[librarian] Skill import failed: {exc}", err=True)
+        sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
 # import (reserved word workaround)
 # ---------------------------------------------------------------------------
 
@@ -288,20 +331,27 @@ def import_agent(zip_path: str, project_root: str):
         )
         sys.exit(1)
 
-    target_root.mkdir(parents=True)
+    import tempfile
+    import shutil
 
-    click.echo(f"[librarian] Unpacking '{name}'...")
-    manifest = Librarian.unpack(str(zip_path), str(target_root))
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir) / name
+        temp_root.mkdir(parents=True)
+        
+        click.echo(f"[librarian] Unpacking '{name}'...")
+        manifest = Librarian.unpack(str(zip_path), str(temp_root))
 
-    # Deep Audit before finalizing
-    click.echo(f"[librarian] Auditing '{name}' before registration...")
-    librarian = Librarian(str(target_root))
-    report = librarian.audit()
-    if report["broken_resources"] or report["broken_dependencies"]:
-        click.echo("[librarian] Audit FAILED for imported bundle. Rollback...", err=True)
-        import shutil
-        shutil.rmtree(target_root)
-        sys.exit(1)
+        # Deep Audit before finalizing
+        click.echo(f"[librarian] Auditing '{name}' before registration...")
+        librarian = Librarian(str(temp_root))
+        report = librarian.audit()
+        if report["broken_resources"] or report["broken_dependencies"] or report.get("invalid_skill_manifests"):
+            click.echo("[librarian] Audit FAILED for imported bundle. Aborting...", err=True)
+            sys.exit(1)
+
+        # Move to final location
+        target_root.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(temp_root), str(target_root))
 
     click.echo(f"[librarian] Registering '{name}' in project manifest...")
     Librarian.register_in_project(manifest, project_root)
