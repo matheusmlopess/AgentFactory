@@ -1,6 +1,6 @@
 ---
 name: git-versioning
-version: 1.2.0
+version: 1.2.1
 description: >
   Git and versioning workflow assistant for any project using the versioning template.
   Handles commit, branch, PR, merge, tag, release, rollback, and inspection.
@@ -11,7 +11,7 @@ description: >
   rollback an artifact, or asks "what should I do next" in a git context.
 ---
 
-# Git Versioning Assistant — v1.2.0
+# Git Versioning Assistant — v1.2.1
 
 ---
 
@@ -160,17 +160,27 @@ git branch -d <branch-name>
 
 ### Step 8 — Tag and release (only when DEFAULT_BRANCH is stable)
 
-Determine repo-level bump using the SemVer rules in `repo-state.md`, then:
+Determine repo-level bump using the SemVer rules in `repo-state.md`, then run **all three commands** — tag, push, and release are a single atomic step:
 
 ```bash
 git tag -a vX.Y.Z -m "vX.Y.Z: <one-line summary>"
 git push origin vX.Y.Z
 gh release create vX.Y.Z \
   --title "vX.Y.Z — <short title>" \
-  --notes "<changelog>"
+  --notes "$(cat <<'EOF'
+## What's new
+- <bullet: what changed>
+- <bullet: what changed>
+
+## Breaking changes
+- <bullet or "None">
+EOF
+)"
 ```
 
-After tagging, update `repo-state.md`:
+**`gh release create` is mandatory — never skip it.** A git tag alone is invisible on GitHub's Releases page. The release notes are what users and collaborators see when they check what changed. If the tag was already pushed without a release, run `gh release create` immediately to backfill it.
+
+After tagging, update `repo-state.md` on a new branch → PR → merge:
 - Add a row to "Current version tags"
 - Update "Latest tag"
 

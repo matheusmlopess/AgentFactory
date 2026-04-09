@@ -22,8 +22,9 @@ The git-versioning skill reads this to give accurate, repo-specific commands.
 | v2.1.0 | da02586 | .ai/ harness consolidation + agent-gen init + complete adapter wiring |
 | v2.1.1 | 91313c3 | Harness cleanup + audit gap detection (version drift, repo-state staleness) |
 | v2.2.0 | c2d5dfc | git-versioning v1.2.0: session branch gate enforcement |
+| v2.3.0 | 076ffcd | agent-gen import --from-git: remote repo import pipeline |
 
-Latest tag: v2.2.0
+Latest tag: v2.3.0
 
 ---
 
@@ -32,7 +33,7 @@ Latest tag: v2.2.0
 | Artifact | Version | Path |
 |----------|---------|------|
 | agent-gen CLI | v0.2.0 | pyproject.toml |
-| git-versioning | v1.2.0 | .ai/skills/git-versioning/SKILL.md |
+| git-versioning | v1.2.1 | .ai/skills/git-versioning/SKILL.md |
 | diff-visualizer | v1.1.0 | .ai/skills/diff-visualizer/SKILL.md |
 
 ---

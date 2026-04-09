@@ -22,8 +22,9 @@ The git-versioning skill reads this to give accurate, repo-specific commands.
 | v2.1.0 | d94ae42 | Librarian intelligence layer enhancements + registry auto-population |
 | v2.1.1 | 91313c3 | Harness cleanup + audit gap detection (version drift, repo-state staleness) |
 | v2.2.0 | c2d5dfc | git-versioning v1.2.0: session branch gate enforcement |
+| v2.3.0 | 076ffcd | agent-gen import --from-git: remote repo import pipeline |
 
-Latest tag: v2.2.0
+Latest tag: v2.3.0
 
 ---
 
@@ -31,7 +32,7 @@ Latest tag: v2.2.0
 
 | Skill | Version | Path |
 |-------|---------|------|
-| git-versioning | v1.2.0 | skills/git-versioning/SKILL.md |
+| git-versioning | v1.2.1 | skills/git-versioning/SKILL.md |
 | diff-visualizer | v1.1.0 | skills/diff-visualizer/SKILL.md |
 
 ---
