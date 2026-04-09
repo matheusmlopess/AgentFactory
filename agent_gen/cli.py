@@ -257,17 +257,65 @@ def retrofit(path: str, yes: bool):
 @click.option(
     "--to",
     "target_agent",
-    required=True,
-    help="Name of the target agent to receive the skill.",
+    default=".",
+    help="Name of the target agent to receive the skill. Defaults to '.' (the root project).",
 )
 def import_skill(path: str, target_agent: str):
     """
-    Import a standalone skill into an existing agent.
+    Import a standalone skill into an existing agent or the root project.
     """
     path_obj = Path(path).resolve()
     if not path_obj.exists():
         click.echo(f"[librarian] Skill path not found: {path_obj}", err=True)
         sys.exit(1)
+
+    if target_agent == ".":
+        target_root = Path.cwd()
+        click.echo(f"[librarian] Importing skill from {path_obj} into root project...")
+        # Perform root-level skill import logic manually to avoid overwriting global manifest
+        import tempfile
+        import shutil
+        import zipfile
+        import json
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            if zipfile.is_zipfile(path_obj):
+                with zipfile.ZipFile(path_obj, 'r') as zf:
+                    zf.extractall(temp_path)
+            elif path_obj.is_dir():
+                shutil.copytree(path_obj, temp_path, dirs_exist_ok=True)
+            else:
+                click.echo("[librarian] Skill source must be a directory or a ZIP file.", err=True)
+                sys.exit(1)
+
+            manifest_file = temp_path / "skill-manifest.json"
+            if not manifest_file.exists():
+                manifests = list(temp_path.rglob("skill-manifest.json"))
+                if not manifests:
+                    click.echo("[librarian] skill-manifest.json not found in the source.", err=True)
+                    sys.exit(1)
+                manifest_file = manifests[0]
+                temp_path = manifest_file.parent
+
+            with open(manifest_file) as f:
+                skill_data = json.load(f)
+
+            skill_name = skill_data["name"]
+            target_dir = target_root / "skills" / skill_name
+            target_dir.parent.mkdir(parents=True, exist_ok=True)
+
+            if target_dir.exists():
+                shutil.rmtree(target_dir)
+
+            shutil.copytree(temp_path, target_dir)
+
+        click.echo(f"[librarian] Successfully imported skill '{skill_name}' into root project.")
+        click.echo(f"  Path: {target_root / 'skills' / skill_name}")
+        
+        # Update harness files to register the root skill
+        Librarian.update_harness_files(str(target_root))
+        return
 
     target_root = _agent_root(target_agent)
     if not target_root.exists():

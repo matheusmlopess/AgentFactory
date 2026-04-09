@@ -1,1 +1,5 @@
-{"type": "retrieval"}
+{
+  "name": "search-retrieval",
+  "description": "Semantic search and retrieval skill",
+  "type": "retrieval"
+}

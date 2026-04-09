@@ -598,19 +598,49 @@ class Librarian:
 
             agents = global_manifest.get("agents", {})
             
-            # Build the registry text
-            registry_lines = ["<!-- @agent-registry:start -->"]
+            # Build the agent registry text
+            agent_registry_lines = ["<!-- @agent-registry:start -->"]
             if not agents:
-                registry_lines.append("_No agents currently imported._")
+                agent_registry_lines.append("_No agents currently imported._")
             else:
                 for name, data in sorted(agents.items()):
                     desc = data.get("description", "No description provided.")
-                    # Truncate long descriptions
                     if len(desc) > 100:
                         desc = desc[:97] + "..."
-                    registry_lines.append(f"- **{name}**: {desc} (See: `agents/{name}/docs/CLAUDE.md`)")
-            registry_lines.append("<!-- @agent-registry:end -->")
-            registry_text = "\n".join(registry_lines)
+                    agent_registry_lines.append(f"- **{name}**: {desc} (See: `agents/{name}/docs/CLAUDE.md`)")
+            agent_registry_lines.append("<!-- @agent-registry:end -->")
+            agent_registry_text = "\n".join(agent_registry_lines)
+
+            # Build the skills registry text for root project
+            skills_dir = project_path / "skills"
+            skill_registry_lines = ["<!-- @skills-registry:start -->"]
+            root_skills = []
+            if skills_dir.exists() and skills_dir.is_dir():
+                for manifest_file in skills_dir.rglob("skill-manifest.json"):
+                    try:
+                        with open(manifest_file) as f:
+                            s_data = json.load(f)
+                        s_name = s_data.get("name", "Unknown")
+                        s_desc = s_data.get("description", "No description provided.")
+                        if len(s_desc) > 100:
+                            s_desc = s_desc[:97] + "..."
+                        rel_path = manifest_file.parent.relative_to(project_path)
+                        
+                        # Assuming main skill file is SKILL.md
+                        skill_md_path = manifest_file.parent / "SKILL.md"
+                        doc_ref = f"`{rel_path}/SKILL.md`" if skill_md_path.exists() else f"`{rel_path}`"
+                        
+                        root_skills.append((s_name, s_desc, doc_ref))
+                    except Exception:
+                        continue
+            
+            if not root_skills:
+                skill_registry_lines.append("_No global skills currently imported._")
+            else:
+                for s_name, s_desc, doc_ref in sorted(root_skills, key=lambda x: x[0]):
+                    skill_registry_lines.append(f"- **{s_name}**: {s_desc} (See: {doc_ref})")
+            skill_registry_lines.append("<!-- @skills-registry:end -->")
+            skill_registry_text = "\n".join(skill_registry_lines)
 
             # Targeted files: shared source of truth AND root legacy files
             targets = [
@@ -621,7 +651,8 @@ class Librarian:
             ]
             
             import re
-            pattern = re.compile(r"<!-- @agent-registry:start -->.*?<!-- @agent-registry:end -->", re.DOTALL)
+            agent_pattern = re.compile(r"<!-- @agent-registry:start -->.*?<!-- @agent-registry:end -->", re.DOTALL)
+            skill_pattern = re.compile(r"<!-- @skills-registry:start -->.*?<!-- @skills-registry:end -->", re.DOTALL)
 
             updated_paths = set()
             for target_name in targets:
@@ -636,7 +667,7 @@ class Librarian:
                 if not target_path.exists() and not target_path.is_symlink():
                     if "AGENTS.md" in target_name:
                         target_path.parent.mkdir(parents=True, exist_ok=True)
-                        target_path.write_text(f"# Project Agents\n\n{registry_text}\n", encoding="utf-8")
+                        target_path.write_text(f"# Project Agents\n\n{agent_registry_text}\n", encoding="utf-8")
                         updated_paths.add(resolved_path)
                     continue
 
@@ -644,13 +675,19 @@ class Librarian:
                     continue
 
                 content = target_path.read_text(encoding="utf-8")
-                if "<!-- @agent-registry:start -->" in content:
-                    new_content = pattern.sub(registry_text, content)
-                else:
-                    # Append to the end if markers aren't present
-                    new_content = content.strip() + f"\n\n## Registered Agents\n{registry_text}\n"
                 
-                target_path.write_text(new_content, encoding="utf-8")
+                # Update Agents
+                if "<!-- @agent-registry:start -->" in content:
+                    content = agent_pattern.sub(agent_registry_text, content)
+                else:
+                    if "AGENTS.md" in target_name:
+                        content = content.strip() + f"\n\n## Registered Agents\n{agent_registry_text}\n"
+                
+                # Update Skills
+                if "<!-- @skills-registry:start -->" in content:
+                    content = skill_pattern.sub(skill_registry_text, content)
+                
+                target_path.write_text(content, encoding="utf-8")
                 updated_paths.add(resolved_path)
 
     @classmethod

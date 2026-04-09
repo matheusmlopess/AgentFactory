@@ -4,22 +4,22 @@
   "agents": {
     "test-agent": {
       "version": "1.0.0",
-      "description": "Manual Description",
+      "description": "Specialized agent for Git workflows, semantic versioning, and project state management.",
       "imported_at": "2026-04-08T17:16:14.627961+00:00",
-      "git_ref": "untracked",
+      "git_ref": "e051e38",
       "resources": {
         "skills": [
-          "skills/search/skill-manifest.json",
-          "skills/search.md"
+          "skills/git-versioning/SKILL.md",
+          "skills/git-versioning/references/repo-state.md",
+          "skills/git-versioning/skill-manifest.json"
         ],
         "commands": [],
-        "docs": [],
-        "scripts": [
-          "scripts/main.py",
-          "scripts/utils.py"
+        "docs": [
+          "docs/CLAUDE.md"
         ],
+        "scripts": [],
         "orchestration": [
-          "orchestration/plan.json"
+          "orchestration/main.json"
         ]
       }
     },
