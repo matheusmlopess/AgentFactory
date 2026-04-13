@@ -290,5 +290,125 @@ class TestCliCommands(unittest.TestCase):
             self.assertNotIn("Invalid git URL", result.output)
 
 
+    # --- Error paths & edge cases ---
+
+    def test_deploy_duplicate_name_fails(self):
+        """deploy exits non-zero when agent already exists."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "dup-agent"])
+            result = self.runner.invoke(cli, ["deploy", "dup-agent"])
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("already exists", result.output)
+
+    def test_uninstall_nonexistent_agent_fails(self):
+        """uninstall exits non-zero for an agent that doesn't exist."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["uninstall", "ghost-agent"])
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("not found", result.output)
+
+    def test_uninstall_abort_on_no(self):
+        """uninstall aborts cleanly when user declines confirmation."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "abort-agent"])
+            result = self.runner.invoke(cli, ["uninstall", "abort-agent"], input="n\n")
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn("Aborted", result.output)
+            self.assertTrue(os.path.exists(f"{AGENTS}/abort-agent"))
+
+    def test_audit_clean_agent_passes(self):
+        """audit exits 0 and prints clean message for a valid agent."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "clean-agent"])
+            result = self.runner.invoke(cli, ["audit", "clean-agent"])
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn("clean", result.output)
+
+    def test_audit_broken_resource_fails(self):
+        """audit exits 1 and reports broken resource when a tracked file is deleted."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "broken-agent"])
+            # Write a file, sync it into the manifest, then delete it
+            skill_file = Path(f"{AGENTS}/broken-agent/skills/gone.md")
+            skill_file.write_text("temporary")
+            self.runner.invoke(cli, ["wrap", "broken-agent"])  # sync via wrap
+            skill_file.unlink()  # now break it
+
+            result = self.runner.invoke(cli, ["audit", "broken-agent"])
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("Broken", result.output)
+
+    def test_import_no_args_fails(self):
+        """import with no ZIP_PATH and no --from-git exits with usage error."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["import"])
+            self.assertNotEqual(result.exit_code, 0)
+
+    def test_import_both_args_fails(self):
+        """import with both ZIP_PATH and --from-git exits with usage error."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["import", "x.zip", "--from-git", "https://github.com/u/r"])
+            self.assertNotEqual(result.exit_code, 0)
+
+    def test_import_missing_zip_fails(self):
+        """import with a non-existent zip path exits non-zero."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["import", "does-not-exist.zip"])
+            self.assertNotEqual(result.exit_code, 0)
+
+    def test_import_agent_already_exists_fails(self):
+        """import fails when an agent with the same name already exists."""
+        with self.runner.isolated_filesystem():
+            # Create, wrap, uninstall, reinstall, then try to import again
+            self.runner.invoke(cli, ["deploy", "dupe-import"])
+            Path(f"{AGENTS}/dupe-import/skills/x.md").write_text("x")
+            self.runner.invoke(cli, ["wrap", "dupe-import"])
+            zip_path = "dupe-import-v1.0.0.zip"
+            # import once (agent already exists from deploy)
+            result = self.runner.invoke(cli, ["import", zip_path])
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("already exists", result.output)
+
+    def test_retrofit_path_not_found_fails(self):
+        """retrofit exits non-zero for a path that does not exist."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["retrofit", "no-such-dir"])
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("not found", result.output)
+
+    def test_retrofit_user_abort(self):
+        """retrofit aborts cleanly when user declines confirmation."""
+        with self.runner.isolated_filesystem():
+            path = Path("to-abort")
+            path.mkdir()
+            (path / "CLAUDE.md").touch()
+            result = self.runner.invoke(cli, ["retrofit", "to-abort"], input="n\n")
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn("Aborted", result.output)
+
+    def test_import_skill_path_not_found_fails(self):
+        """import-skill exits non-zero when the given path does not exist."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "target"])
+            result = self.runner.invoke(cli, ["import-skill", "no-such-skill", "--to", "target"])
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("not found", result.output)
+
+    def test_quiet_flag_suppresses_output(self):
+        """--quiet / -q suppresses all informational output."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["-q", "init"])
+            self.assertEqual(result.exit_code, 0)
+            self.assertEqual(result.output.strip(), "")
+
+    def test_describe_manifest_missing_fails(self):
+        """describe exits non-zero when the agent manifest is not found."""
+        with self.runner.isolated_filesystem():
+            # Create agent directory without deploying (no manifest)
+            os.makedirs(f"{AGENTS}/bare-agent", exist_ok=True)
+            result = self.runner.invoke(cli, ["describe", "bare-agent", "--desc", "x"])
+            self.assertNotEqual(result.exit_code, 0)
+
+
 if __name__ == '__main__':
     unittest.main()
