@@ -8,8 +8,8 @@ version = "0.3.0"
 description = "Agent Factory — Librarian-powered agent lifecycle manager"
 requires-python = ">=3.11"
 dependencies = [
-    "click>=8.1",
-    "filelock>=3.13.0",
+    "click>=8.1,<9.0",
+    "filelock>=3.13.0,<4.0",
 ]
 
 [project.scripts]
