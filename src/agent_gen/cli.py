@@ -1,6 +1,7 @@
 """agent-gen CLI — deploy, wrap, import."""
 
 import os
+import re
 import sys
 import shutil
 import subprocess
@@ -9,7 +10,7 @@ from pathlib import Path
 
 import click
 
-from .librarian import TRACKED_DIRS, HARNESS_ROOT, CONTEXT_FILE, Librarian
+from .librarian import TRACKED_DIRS, HARNESS_ROOT, CONTEXT_FILE, Librarian, _safe_extract
 
 
 # ---------------------------------------------------------------------------
@@ -32,10 +33,13 @@ def _clone_and_prepare(url: str) -> tuple[str, object]:
     Returns:
         (zip_path_str, cleanup_fn) — caller must call cleanup_fn() after import.
     """
-    # Derive agent name from URL
+    # Derive agent name from URL and sanitize (#S4)
     name = url.rstrip("/").split("/")[-1]
     if name.endswith(".git"):
         name = name[:-4]
+    name = re.sub(r"[^\w\-]", "-", name).strip("-")
+    if not name:
+        raise click.ClickException("Could not derive a valid agent name from the URL.")
 
     tmp_dir = tempfile.mkdtemp(prefix="agentfactory_import_")
     cloned_dir = os.path.join(tmp_dir, name)
@@ -98,9 +102,9 @@ def _clone_and_prepare(url: str) -> tuple[str, object]:
 # ---------------------------------------------------------------------------
 
 def _assert_within_root(rel_path: str, root: Path) -> None:
-    """Raise ClickException if rel_path resolves outside root (path traversal guard, #59)."""
+    """Raise ClickException if rel_path resolves outside root (path traversal guard, #59/#S3)."""
     resolved = (root / rel_path).resolve()
-    if not str(resolved).startswith(str(root.resolve())):
+    if not resolved.is_relative_to(root.resolve()):
         raise click.ClickException(
             f"Path '{rel_path}' resolves outside the agent root — possible path traversal."
         )
@@ -517,7 +521,7 @@ def import_skill(path: str, target_agent: str):
             temp_path = Path(temp_dir)
             if zipfile.is_zipfile(path_obj):
                 with zipfile.ZipFile(path_obj, 'r') as zf:
-                    zf.extractall(temp_path)
+                    _safe_extract(zf, temp_path)
             elif path_obj.is_dir():
                 shutil.copytree(path_obj, temp_path, dirs_exist_ok=True)
             else:

@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import zipfile
 import shutil
 import subprocess
@@ -12,6 +13,33 @@ TRACKED_DIRS = ["skills", "commands", "docs", "scripts", "orchestration"]
 MANIFEST_FILE = "agent-manifest.json"
 HARNESS_ROOT = ".ai"
 CONTEXT_FILE = "AgentFactory.md"  # single source of truth for all CLI instructions
+
+
+def _safe_extract(zf: zipfile.ZipFile, target_dir: Path) -> None:
+    """Extract ZIP members, rejecting any that would escape target_dir (zip-slip guard)."""
+    target_resolved = target_dir.resolve()
+    for member in zf.infolist():
+        dest = (target_dir / member.filename).resolve()
+        if dest != target_resolved and not str(dest).startswith(str(target_resolved) + os.sep):
+            raise ValueError(
+                f"Unsafe ZIP entry '{member.filename}' — zip slip attack blocked."
+            )
+        zf.extract(member, target_dir)
+
+
+def _sanitize_for_markdown(text: object) -> str:
+    """
+    Strip prompt-injection vectors before embedding text in AI-readable markdown.
+
+    Removes HTML comments (used as AI instruction markers), flattens newlines
+    (prevents multi-line injection), and caps length at 200 chars.
+    """
+    if not isinstance(text, str):
+        text = str(text)
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)  # strip HTML comments
+    text = " ".join(text.splitlines())                        # flatten newlines
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:200]
 
 
 def _extract_first_paragraph(path: Path) -> str:
@@ -246,9 +274,8 @@ class Librarian:
         Scan text files (markdown, python, etc) for explicit dependency annotations
         like <!-- @depends-on: skills/search.md --> or code imports.
         """
-        import re
         import ast
-        
+
         # Regex for <!-- @depends-on: path/to/resource -->
         MD_DEP_REGEX = re.compile(r"<!--\s*@depends-on:\s*([^\s-]+)\s*-->")
         
@@ -570,7 +597,7 @@ class Librarian:
             
             if zipfile.is_zipfile(source_path):
                 with zipfile.ZipFile(source_path, 'r') as zf:
-                    zf.extractall(temp_path)
+                    _safe_extract(zf, temp_path)
             elif source_path.is_dir():
                 # Copy content to temp area to normalize
                 shutil.copytree(source_path, temp_path, dirs_exist_ok=True)
@@ -622,7 +649,7 @@ class Librarian:
         target_root = Path(target_root).resolve()
 
         with zipfile.ZipFile(zip_path) as zf:
-            zf.extractall(target_root)
+            _safe_extract(zf, target_root)
 
         manifest_path = target_root / MANIFEST_FILE
         if not manifest_path.exists():
@@ -737,10 +764,9 @@ class Librarian:
                 agent_registry_lines.append("_No agents currently imported._")
             else:
                 for name, data in sorted(agents.items()):
-                    desc = data.get("description", "No description provided.")
-                    if len(desc) > 100:
-                        desc = desc[:97] + "..."
-                    agent_registry_lines.append(f"- **{name}**: {desc} (See: `{HARNESS_ROOT}/agents/{name}/docs/CLAUDE.md`)")
+                    desc = _sanitize_for_markdown(data.get("description", "No description provided."))
+                    safe_name = re.sub(r"[^\w\-]", "-", str(name)).strip("-")
+                    agent_registry_lines.append(f"- **{safe_name}**: {desc} (See: `{HARNESS_ROOT}/agents/{safe_name}/docs/CLAUDE.md`)")
             agent_registry_lines.append("<!-- @agent-registry:end -->")
             agent_registry_text = "\n".join(agent_registry_lines)
 
@@ -754,15 +780,13 @@ class Librarian:
                         with open(manifest_file) as f:
                             s_data = json.load(f)
                         s_name = s_data.get("name", "Unknown")
-                        s_desc = s_data.get("description", "No description provided.")
-                        if len(s_desc) > 100:
-                            s_desc = s_desc[:97] + "..."
+                        s_desc = _sanitize_for_markdown(s_data.get("description", "No description provided."))
                         rel_path = manifest_file.parent.relative_to(project_path)
-                        
+
                         # Assuming main skill file is SKILL.md
                         skill_md_path = manifest_file.parent / "SKILL.md"
                         doc_ref = f"`{rel_path}/SKILL.md`" if skill_md_path.exists() else f"`{rel_path}`"
-                        
+
                         root_skills.append((s_name, s_desc, doc_ref))
                     except Exception:
                         continue
@@ -771,7 +795,8 @@ class Librarian:
                 skill_registry_lines.append("_No global skills currently imported._")
             else:
                 for s_name, s_desc, doc_ref in sorted(root_skills, key=lambda x: x[0]):
-                    skill_registry_lines.append(f"- **{s_name}**: {s_desc} (See: {doc_ref})")
+                    safe_s_name = re.sub(r"[^\w\-]", "-", str(s_name)).strip("-")
+                    skill_registry_lines.append(f"- **{safe_s_name}**: {s_desc} (See: {doc_ref})")
             skill_registry_lines.append("<!-- @skills-registry:end -->")
             skill_registry_text = "\n".join(skill_registry_lines)
 
@@ -782,7 +807,6 @@ class Librarian:
                 "README.md",
             ]
 
-            import re
             agent_pattern = re.compile(r"<!-- @agent-registry:start -->.*?<!-- @agent-registry:end -->", re.DOTALL)
             skill_pattern = re.compile(r"<!-- @skills-registry:start -->.*?<!-- @skills-registry:end -->", re.DOTALL)
 
@@ -965,12 +989,15 @@ class Librarian:
                     "agents": {},
                 }
 
-            name = imported_manifest["name"]
+            # Sanitize name and description at input boundary (#S5)
+            name = re.sub(r"[^\w\-]", "-", str(imported_manifest["name"])).strip("-")[:64]
+            if not name:
+                raise ValueError("Imported manifest 'name' field is empty or invalid.")
             global_manifest["agents"][name] = {
-                "version": imported_manifest["version"],
-                "description": imported_manifest.get("description", "No description provided."),
+                "version": str(imported_manifest.get("version", "0.0.0")),
+                "description": _sanitize_for_markdown(imported_manifest.get("description", "No description provided.")),
                 "imported_at": datetime.now(timezone.utc).isoformat(),
-                "git_ref": imported_manifest.get("git_ref", "unknown"),
+                "git_ref": str(imported_manifest.get("git_ref", "unknown")),
                 "resources": imported_manifest["resources"],
             }
 
