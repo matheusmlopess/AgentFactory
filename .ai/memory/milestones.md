@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.4.0 -->
+<!-- version: 1.5.0 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -113,6 +113,19 @@ The CLI stays open-source. The platform is the paid surface.
 | # | Title | Note |
 |---|-------|------|
 | #16 | Project layout GUI React | Superseded by production platform epic #77 |
+
+---
+
+## Pending — Codex Skills Gap (priority: ship before v0.4.0)
+
+Three issues that fix a silent but complete failure: Codex gets no skill access under the current harness.
+Implement in order: #94 (one-liner fix) → #93 (break symlink) → #95 (generation logic).
+
+| # | Title | Type | Status | Branch | PR | Commit | Tag |
+|---|-------|------|--------|--------|----|--------|-----|
+| #93 | bug: AGENTS.md symlinks to AgentFactory.md — Codex reads Claude instructions | bug | pending | — | — | — | — |
+| #94 | bug: _ensure_adapter_wiring() gives Codex no skills symlink | bug | pending | — | — | — | — |
+| #95 | feat: generate Codex-specific AGENTS.md with skill declarations on every sync | enhancement | pending | — | — | — | — |
 
 ---
 
