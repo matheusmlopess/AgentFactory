@@ -1,5 +1,26 @@
 # Changelog
-<!-- version: 2.5.0 -->
+<!-- version: 2.6.0 -->
+
+## [v0.3.1] - 2026-04-13
+
+### Security
+- ZIP Slip: replaced `ZipFile.extractall()` with `_safe_extract()` guard in librarian + CLI — blocks path traversal via crafted ZIP entries (S1)
+- Prompt injection: all agent names/descriptions sanitized via `_sanitize_for_markdown()` before being written to AI-readable markdown files (S2, S5)
+- Path traversal: `_assert_within_root()` rewritten to use `Path.is_relative_to()` — fixes `startswith` prefix-bypass (S3)
+- Agent name from URL sanitized with `re.sub(r"[^\w\-]", "-", name)` before use in paths and manifests (S4)
+- Dependency versions capped: `click>=8.1,<9.0`, `filelock>=3.13.0,<4.0` (S6)
+- `softprops/action-gh-release` pinned to commit SHA (S7)
+- `awk` pattern in `release.yml` now escapes `github.ref_name` before use (S8)
+
+### Fixed
+- CLI entry point renamed `agent-gen` → `agentfactory-gen` to match the PyPI package name (S0)
+- All `agent-gen` references in README and docs updated to `agentfactory-gen`
+
+### Tests
+- 78 tests passing, 85% coverage
+- Added `test_security.py` with 13 security regression tests
+- Added zip-slip tests to `test_librarian_lifecycle.py`
+- Added 14 error-path tests to `test_cli.py` (duplicate deploy, uninstall abort, audit, import errors, quiet flag, etc.)
 
 ## [v2.5.0] - 2026-04-13
 
