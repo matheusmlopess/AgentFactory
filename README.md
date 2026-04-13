@@ -1,7 +1,7 @@
 # AgentFactory
 <!-- version: 2.5.0 -->
 
-A lightweight Python CLI (`agent-gen`) for building, packaging, and deploying AI agents as portable, framework-agnostic units.
+A lightweight Python CLI (`agentfactory-gen`) for building, packaging, and deploying AI agents as portable, framework-agnostic units.
 
 AgentFactory provides a **Unified AI Harness** — a single `.ai/` directory that lets Claude, Codex, and Gemini work on the same project simultaneously, sharing context without conflicts.
 
@@ -62,19 +62,19 @@ graph TD
 
 ```mermaid
 flowchart LR
-    A([Start]) --> B[agent-gen deploy name]
+    A([Start]) --> B[agentfactory-gen deploy name]
     B --> C[Scaffold 5-dir structure\nskills commands docs\nscripts orchestration]
     C --> D[Init agent-manifest.json\nvia Librarian.init]
 
-    D --> E[agent-gen describe\n--desc --plan]
+    D --> E[agentfactory-gen describe\n--desc --plan]
     E --> F[Update manifest\nmetadata]
 
     F --> G[Develop\nadd skills commands docs]
 
-    G --> H[agent-gen audit name]
+    G --> H[agentfactory-gen audit name]
     H --> I{Clean?}
     I -->|broken deps\nor missing files| G
-    I -->|pass| J[agent-gen wrap name]
+    I -->|pass| J[agentfactory-gen wrap name]
 
     J --> K[Librarian.sync\ncrawl disk → manifest]
     K --> L[Librarian.audit\nvalidate all paths]
@@ -83,13 +83,13 @@ flowchart LR
     M -->|pass| N[Compress → name-vX.Y.Z.zip\nPortable Unit]
 
     N --> O[Share ZIP]
-    O --> P[agent-gen import zip]
+    O --> P[agentfactory-gen import zip]
     P --> Q[Unpack into .ai/agents/name]
     Q --> R[Audit imported bundle]
     R --> S[Handshake\nregister in global manifest]
     S --> T([Agent ready])
 
-    T --> U[agent-gen uninstall name]
+    T --> U[agentfactory-gen uninstall name]
     U --> V[Remove dir\nDeregister from manifest]
 ```
 
@@ -99,7 +99,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    A[agent-gen import\n--from-git URL] --> B{Valid URL scheme?\nhttps git@ ssh}
+    A[agentfactory-gen import\n--from-git URL] --> B{Valid URL scheme?\nhttps git@ ssh}
     B -->|no| ERR1([Error: invalid URL])
     B -->|yes| C[git clone --quiet URL]
     C --> D{Clone success?}
@@ -324,22 +324,22 @@ Requires Python 3.11+.
 
 ```bash
 # 1. Initialise the harness in your project
-agent-gen init
+agentfactory-gen init
 
 # 2. Deploy your first agent
-agent-gen deploy my-agent
+agentfactory-gen deploy my-agent
 
 # 3. Set a description
-agent-gen describe my-agent --desc "My first AgentFactory agent"
+agentfactory-gen describe my-agent --desc "My first AgentFactory agent"
 
 # 4. Audit integrity
-agent-gen audit my-agent
+agentfactory-gen audit my-agent
 
 # 5. Package into a Portable Unit
-agent-gen wrap my-agent
+agentfactory-gen wrap my-agent
 
 # 6. Import a remote agent in one step
-agent-gen import --from-git https://github.com/user/some-agent-repo
+agentfactory-gen import --from-git https://github.com/user/some-agent-repo
 ```
 
 ---
@@ -348,33 +348,33 @@ agent-gen import --from-git https://github.com/user/some-agent-repo
 
 ### Setup
 ```bash
-agent-gen init                        # scaffold .ai/ harness + root symlinks
-agent-gen init --project-root <path>  # target a different directory
+agentfactory-gen \1                        # scaffold .ai/ harness + root symlinks
+agentfactory-gen \1 --project-root <path>  # target a different directory
 ```
 
 ### Agent Lifecycle
 ```bash
-agent-gen deploy <name>               # scaffold a new agent
-agent-gen describe <name> --desc "…"  # set agent description
-agent-gen describe <name> --plan <p>  # set orchestration plan path
-agent-gen audit <name>                # check for missing files, broken deps, version drift
-agent-gen wrap <name>                 # compress agent into a shareable ZIP (Portable Unit)
-agent-gen wrap <name> --out <dir>     # write ZIP to a specific directory
-agent-gen import <zip>                # unpack ZIP and register agent
-agent-gen import --from-git <url>     # clone repo, auto-retrofit, and import in one step
-agent-gen uninstall <name>            # remove agent cleanly
+agentfactory-gen \1 <name>               # scaffold a new agent
+agentfactory-gen \1 <name> --desc "…"  # set agent description
+agentfactory-gen \1 <name> --plan <p>  # set orchestration plan path
+agentfactory-gen \1 <name>                # check for missing files, broken deps, version drift
+agentfactory-gen \1 <name>                 # compress agent into a shareable ZIP (Portable Unit)
+agentfactory-gen \1 <name> --out <dir>     # write ZIP to a specific directory
+agentfactory-gen \1 <zip>                # unpack ZIP and register agent
+agentfactory-gen \1 --from-git <url>     # clone repo, auto-retrofit, and import in one step
+agentfactory-gen \1 <name>            # remove agent cleanly
 ```
 
 ### Skills & Intelligence
 ```bash
-agent-gen import-skill <path>                  # import skill into root .ai/skills/
-agent-gen import-skill <path> --to <agent>     # import into a specific agent
-agent-gen retrofit <path>                      # convert Claude/Gemini/Codex layout to AgentFactory standard
+agentfactory-gen \1-skill <path>                  # import skill into root .ai/skills/
+agentfactory-gen \1-skill <path> --to <agent>     # import into a specific agent
+agentfactory-gen \1 <path>                      # convert Claude/Gemini/Codex layout to AgentFactory standard
 ```
 
 ### Global flag
 ```bash
-agent-gen -q <command>               # suppress all informational output (quiet mode)
+agentfactory-gen \1 <command>               # suppress all informational output (quiet mode)
 ```
 
 ---
@@ -383,7 +383,7 @@ agent-gen -q <command>               # suppress all informational output (quiet 
 
 **`--from-git`** — Import any GitHub repo as an agent in one command:
 ```bash
-agent-gen import --from-git https://github.com/user/repo
+agentfactory-gen \1 --from-git https://github.com/user/repo
 ```
 Reads `README.md` and `CLAUDE.md` to extract descriptions, auto-detects and applies the correct retrofit profile, creates `skill-manifest.json` stubs for sub-agents, and registers the result in `.ai/AgentFactory.md`.
 
@@ -427,5 +427,5 @@ Contributions should follow the rules in `.ai/rules/`.
 <!-- @agent-registry:start -->
 - **test-agent**: Manual Description (See: `.ai/agents/test-agent/docs/CLAUDE.md`)
 - **test-claude-agent**: AgentFactory-powered agent demonstrating a minimal Claude-native agent layout. (See: `.ai/agents/test-claude-agent/docs/CLAUDE.md`)
-- **test-intel-agent**: AgentFactory-powered agent demonstrating intelligence-layer features: dependency detection and sk... (See: `.ai/agents/test-intel-agent/docs/CLAUDE.md`)
+- **test-intel-agent**: AgentFactory-powered agent demonstrating intelligence-layer features: dependency detection and skill manifest parsing. (See: `.ai/agents/test-intel-agent/docs/CLAUDE.md`)
 <!-- @agent-registry:end -->
