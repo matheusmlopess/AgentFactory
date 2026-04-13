@@ -238,7 +238,7 @@ flowchart TD
 
         F --> J[Job: pypi-publish\nruns after build]
         J --> K[OIDC trusted publish\nno token secret needed]
-        K --> L([Published to PyPI\npypi.org/project/agent-gen])
+        K --> L([Published to PyPI\npypi.org/project/agentfactory-gen])
     end
 
     I --> M([Release visible\non GitHub Releases page])
@@ -305,7 +305,7 @@ Each agent under `.ai/agents/<name>/` follows the **5-Directory Standard**:
 ## Installation
 
 ```bash
-pip install agent-gen
+pip install agentfactory-gen
 ```
 
 Or install from source (editable):

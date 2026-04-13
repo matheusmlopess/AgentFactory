@@ -24,7 +24,7 @@ With CI:
 
 ### Continuous Delivery (CD)
 
-CD extends CI by automating the steps that ship software to end users — in this project's case, publishing the `agent-gen` package to PyPI and creating a GitHub Release. A tagged release triggers the pipeline; no manual build or upload steps are needed.
+CD extends CI by automating the steps that ship software to end users — in this project's case, publishing the `agentfactory-gen` package to PyPI and creating a GitHub Release. A tagged release triggers the pipeline; no manual build or upload steps are needed.
 
 ---
 
@@ -131,7 +131,7 @@ This makes the release visible on GitHub's Releases page with a proper changelog
 
 ### Job 3: `pypi-publish`
 
-Publishes both artifacts to [PyPI](https://pypi.org/project/agent-gen/) using [OIDC Trusted Publishing](https://docs.pypi.org/trusted-publishers/).
+Publishes both artifacts to [PyPI](https://pypi.org/project/agentfactory-gen/) using [OIDC Trusted Publishing](https://docs.pypi.org/trusted-publishers/).
 
 **How trusted publishing works (no secrets needed):**
 
@@ -182,7 +182,7 @@ Before the first release, configure OIDC trusted publishing on PyPI:
 
    | Field | Value |
    |---|---|
-   | PyPI project name | `agent-gen` |
+   | PyPI project name | `agentfactory-gen` |
    | Owner | `matheusmlopess` |
    | Repository | `AgentFactory` |
    | Workflow filename | `release.yml` |
