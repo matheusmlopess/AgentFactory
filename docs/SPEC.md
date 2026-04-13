@@ -62,11 +62,11 @@ Placed inside `skills/<name>/`. Used to provide metadata about a specific comple
 
 ## 4. Lifecycle Commands
 
-*   `agent-gen deploy <name>`: Scaffolds the structure.
-*   `agent-gen wrap <name>`: Synchronizes, audits, and compresses into a Portable Unit.
-*   `agent-gen import <zip>`: Unpacks and registers the agent in the project.
-*   `agent-gen audit <name>`: Checks for broken paths, missing manifests, or untracked files.
-*   `agent-gen retrofit <path>`: Converts existing Claude/Gemini/Codex structures into AgentFactory.
+*   `agentfactory-gen deploy <name>`: Scaffolds the structure.
+*   `agentfactory-gen wrap <name>`: Synchronizes, audits, and compresses into a Portable Unit.
+*   `agentfactory-gen import <zip>`: Unpacks and registers the agent in the project.
+*   `agentfactory-gen audit <name>`: Checks for broken paths, missing manifests, or untracked files.
+*   `agentfactory-gen retrofit <path>`: Converts existing Claude/Gemini/Codex structures into AgentFactory.
 
 ## 5. Metadata Enforcement
 *   **Orchestration**: The Librarian automatically picks the first file in `orchestration/` if `orchestration_plan` is not set.

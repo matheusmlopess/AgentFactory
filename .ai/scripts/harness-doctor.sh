@@ -63,7 +63,7 @@ file_size() { wc -c < "$1" 2>/dev/null || echo 0; }
 
 check_harness_root() {
   if [[ ! -d "${AI_ROOT}" ]]; then
-    crit "Harness root '${AI_ROOT}/' not found — run 'agent-gen init' first."
+    crit "Harness root '${AI_ROOT}/' not found — run 'agentfactory-gen init' first."
     return
   fi
   ok "Harness root '${AI_ROOT}/' present"

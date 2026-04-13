@@ -10,7 +10,7 @@ Used to start a fresh agent from scratch.
 
 ### ASCII
 \`\`\`text
-[User] ── agent-gen deploy <name> ──▶ [Librarian]
+[User] ── agentfactory-gen deploy <name> ──▶ [Librarian]
                                           │
     ┌─────────────────────────────────────┴─────────────────────────────────────┐
     │                                                                           │
@@ -42,7 +42,7 @@ Used to ingest existing projects from Claude, Gemini, or Codex.
 
 ### ASCII
 \`\`\`text
-[User] ── agent-gen retrofit <path> ──▶ [Librarian]
+[User] ── agentfactory-gen retrofit <path> ──▶ [Librarian]
                                             │
     ┌───────────────────────────────────────┴───────────────────────────────────────┐
     │                                                                               │
@@ -81,7 +81,7 @@ Used to package an agent into a Portable Unit.
 
 ### ASCII
 \`\`\`text
-[User] ── agent-gen wrap <name> ──▶ [Librarian]
+[User] ── agentfactory-gen wrap <name> ──▶ [Librarian]
                                         │
     ┌───────────────────────────────────┴───────────────────────────────────┐
     │                                                                       │
@@ -115,7 +115,7 @@ Used to bring a Portable Unit into a new project.
 
 ### ASCII
 \`\`\`text
-[User] ── agent-gen import <zip> ──▶ [Librarian]
+[User] ── agentfactory-gen import <zip> ──▶ [Librarian]
                                          │
     ┌────────────────────────────────────┴────────────────────────────────────┐
     │                                                                         │
@@ -151,7 +151,7 @@ Used to safely remove an agent.
 
 ### ASCII
 \`\`\`text
-[User] ── agent-gen uninstall <name> ──▶ [Librarian]
+[User] ── agentfactory-gen uninstall <name> ──▶ [Librarian]
                                              │
     ┌────────────────────────────────────────┴────────────────────────────────────────┐
     │                                                                                 │
