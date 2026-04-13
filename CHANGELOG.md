@@ -1,5 +1,44 @@
 # Changelog
-<!-- version: 2.4.2 -->
+<!-- version: 2.5.0 -->
+
+## [v2.5.0] - 2026-04-13
+
+### Added
+- **Traceability matrix** — `.ai/memory/milestones.md` living matrix tracking all GitHub issues (open + closed) with branch/PR/commit/tag columns
+- **Milestones rule** — `.ai/rules/milestones.md` enforcing matrix maintenance on every PR merge and release
+- **git-versioning skill Step 8.5** — mandatory step to update `milestones.md` after every merged PR or release
+- **CI pipeline** — `.github/workflows/ci.yml`: ruff lint gate + pytest matrix (Python 3.11 + 3.12) + `--cov-fail-under=80`; branch protection on `dev` requires CI to pass before merge
+- **CD pipeline** — `.github/workflows/release.yml`: build wheel/sdist → GitHub Release (notes from CHANGELOG) → PyPI publish via OIDC trusted publishing (no stored secrets)
+- **Harness Doctor** — `.ai/scripts/harness-doctor.sh`: full health check script with exit codes 0/1/2 and `--ci` machine-readable mode
+- **Global `--quiet`/`-q` flag** — suppresses all informational output across every CLI command (#54)
+- **`milestones.md` scaffold on `agent-gen init`** — every new project starts with a traceability matrix (#B)
+- **`docs/CICD-WORKFLOW.md`** — full CI/CD concept explainer and pipeline reference
+
+### Fixed
+- `git clone` in `--from-git` now passes `--quiet` flag (#53)
+- `describe --plan` warns when the given path does not exist on disk (#43)
+- Skill version drift audit now emits a warning when `SKILL.md` has no version frontmatter instead of silently skipping (#45)
+- Gemini and Codex adapter configs were 0 bytes; now have proper stubs (#41)
+- `test-agent` was missing `commands/` and `scripts/` directories (#42)
+
+### Security
+- `--from-git` URL validated against allowed schemes (`https://`, `http://`, `git@`, `ssh://`, `git://`) before being passed to subprocess (#58)
+- `_assert_within_root()` path traversal guard applied to all filesystem operations on user-supplied paths (#59)
+
+### Enhanced
+- `retrofit` warns when multiple CLI profiles are detected for the same repo (#44)
+- `CHANGELOG.md` now carries `<!-- version: X.Y.Z -->` marker (#55)
+- `repo-state.md` updated to v2.4.2 with full version history (#56)
+
+### Tests
+- 14 new tests covering: `init` dir tree + idempotence, `describe --plan`, `wrap --out`, `import-skill --to .`, `import --from-git` (mocked), `_ensure_adapter_wiring`, `_check_repo_state`, skill version drift (#46–#52)
+
+### Infrastructure
+- `pyproject.toml` dev extras: added `pytest-cov>=5` and `ruff>=0.4`
+- Coverage config: `branch = true`, `fail_under = 80`, `show_missing = true`
+- README rewritten with 8 Mermaid workflow diagrams covering every major pipeline
+
+---
 
 ## [v2.4.2] - 2026-04-09
 
