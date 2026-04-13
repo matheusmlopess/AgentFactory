@@ -53,8 +53,10 @@ jobs:
         id: notes
         run: |
           TAG="${{ github.ref_name }}"
+          # Escape special awk regex chars in the tag (#S8)
+          ESCAPED_TAG=$(printf '%s' "$TAG" | sed 's/[[\.*^$(){}?+|]/\\&/g')
           # Extract the section for this tag from CHANGELOG.md
-          NOTES=$(awk "/^## \[${TAG}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          NOTES=$(awk "/^## \[${ESCAPED_TAG}\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
           if [ -z "$NOTES" ]; then
             NOTES="See CHANGELOG.md for details."
           fi
@@ -62,7 +64,7 @@ jobs:
           echo "$NOTES" > release_notes.txt
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           body_path: release_notes.txt
           files: dist/*
