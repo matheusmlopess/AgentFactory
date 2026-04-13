@@ -23,12 +23,10 @@ def _extract_first_paragraph(path: Path) -> str:
     try:
         content = path.read_text(encoding="utf-8", errors="ignore")
         lines = content.splitlines()
-        in_frontmatter = False
         collect = []
         i = 0
         # Skip YAML frontmatter
         if lines and lines[0].strip() == "---":
-            in_frontmatter = True
             i = 1
             while i < len(lines):
                 if lines[i].strip() == "---":
@@ -104,28 +102,29 @@ class Librarian:
         self.manifest_path = self.agent_root / MANIFEST_FILE
 
     @classmethod
-    def propose_retrofit(cls, source_dir: str) -> tuple[str, dict[str, str]]:
+    def propose_retrofit(cls, source_dir: str) -> tuple[str, dict[str, str], list[str]]:
         """
         Analyze a directory and propose a mapping to AgentFactory standard.
-        Returns (profile_name, mapping).
+        Returns (profile_name, mapping, all_matching_profiles).
+        all_matching_profiles has >1 entry when multiple profiles matched (#44).
         """
         source_path = Path(source_dir).resolve()
         detected_profile = "auto"
         mapping: dict[str, str] = {}
+        all_matching_profiles: list[str] = []
 
-        # Heuristic profile detection
+        # Heuristic profile detection — collect ALL matches (#44)
         for profile, rules in CONVERSION_PROFILES.items():
-            matches = 0
-            for trigger in rules.keys():
-                if (source_path / trigger).exists():
-                    matches += 1
+            matches = sum(1 for trigger in rules.keys() if (source_path / trigger).exists())
             if matches >= 1:
-                detected_profile = profile
-                break
+                all_matching_profiles.append(profile)
+
+        if all_matching_profiles:
+            detected_profile = all_matching_profiles[0]
 
         # Build mapping based on detected profile or auto
         rules = CONVERSION_PROFILES.get(detected_profile, {})
-        
+
         # Add profile-specific rules
         for src, dest in rules.items():
             if (source_path / src).exists():
@@ -144,7 +143,7 @@ class Librarian:
             if src not in mapping and (source_path / src).exists():
                 mapping[src] = dest
 
-        return detected_profile, mapping
+        return detected_profile, mapping, all_matching_profiles
 
     def migrate(self, mapping: dict[str, str]) -> None:
         """
@@ -438,7 +437,12 @@ class Librarian:
                                     sm_data = json.load(f)
                                 sm_version = sm_data.get("version", "")
                                 skill_version = self._parse_skill_md_version(skill_md)
-                                if skill_version and sm_version and skill_version != sm_version:
+                                if sm_version and not skill_version:
+                                    # SKILL.md exists but has no version frontmatter (#45)
+                                    report["skill_version_drift"].append(
+                                        f"{item.name}: SKILL.md missing version frontmatter (skill-manifest.json={sm_version})"
+                                    )
+                                elif skill_version and sm_version and skill_version != sm_version:
                                     report["skill_version_drift"].append(
                                         f"{item.name}: skill-manifest.json={sm_version} vs SKILL.md={skill_version}"
                                     )

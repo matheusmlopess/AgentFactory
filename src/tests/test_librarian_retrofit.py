@@ -1,10 +1,9 @@
-import os
 import shutil
 import unittest
 import tempfile
 from pathlib import Path
 
-from agent_gen.librarian import Librarian, TRACKED_DIRS
+from agent_gen.librarian import Librarian
 
 class TestLibrarianRetrofit(unittest.TestCase):
     def setUp(self):
@@ -29,7 +28,7 @@ class TestLibrarianRetrofit(unittest.TestCase):
 
     def test_retrofit_success(self):
         librarian = Librarian(str(self.legacy_agent))
-        profile, mapping = Librarian.propose_retrofit(str(self.legacy_agent))
+        profile, mapping, _ = Librarian.propose_retrofit(str(self.legacy_agent))
         
         self.assertEqual(profile, "claude")
         
@@ -47,14 +46,13 @@ class TestLibrarianRetrofit(unittest.TestCase):
 
     def test_retrofit_rollback_on_failure(self):
         librarian = Librarian(str(self.legacy_agent))
-        profile, mapping = Librarian.propose_retrofit(str(self.legacy_agent))
+        profile, mapping, _ = Librarian.propose_retrofit(str(self.legacy_agent))
         
         # Introduce a broken mapping that forces an exception
         # We'll map a non-existent file to an invalid path that raises an OSError
         # Since migrate() only tries to move existing src_paths, we'll need to mock an exception
         # Or we can just mock shutil.move to raise an Exception midway
         
-        import shutil
         original_move = shutil.move
         
         def failing_move(src, dst):

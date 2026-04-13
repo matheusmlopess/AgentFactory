@@ -1,5 +1,5 @@
 # Repo State Reference
-<!-- version: 2.1.0 -->
+<!-- version: 1.0.0 -->
 
 Keep this file updated whenever skills are upgraded or tags are created.
 The git-versioning skill reads this to give accurate, repo-specific commands.
@@ -18,22 +18,28 @@ The git-versioning skill reads this to give accurate, repo-specific commands.
 
 | Tag | Commit | What it represents |
 |-----|--------|--------------------|
-| v2.0.0 | 764f1df | .ai/ harness consolidation — single .CLAUDE.md source of truth |
-| v2.1.0 | d94ae42 | Librarian intelligence layer enhancements + registry auto-population |
+| v2.0.0 | b6d8f46 | Unified multi-CLI harness + Librarian intelligence layer |
+| v2.1.0 | da02586 | .ai/ harness consolidation + agent-gen init + complete adapter wiring |
 | v2.1.1 | 91313c3 | Harness cleanup + audit gap detection (version drift, repo-state staleness) |
 | v2.2.0 | c2d5dfc | git-versioning v1.2.0: session branch gate enforcement |
 | v2.3.0 | 076ffcd | agent-gen import --from-git: remote repo import pipeline |
+| v2.3.1 | b6e58aa | git-versioning v1.2.1: mandatory gh release create enforcement |
+| v2.3.2 | 73be793 | Rename context file from .CLAUDE.md to AgentFactory.md |
+| v2.4.0 | 34eb58c | Repo cleanup: src layout, remove stale dirs, rewrite README |
+| v2.4.1 | 99c09ed | Move tests/ → src/tests/, add pytest testpaths config |
+| v2.4.2 | c8d45e2 | Fix test-agent description, drop stale egg-info, CHANGELOG updates |
 
-Latest tag: v2.3.0
+Latest tag: v2.4.2
 
 ---
 
-## Skill versions
+## Artifact versions
 
-| Skill | Version | Path |
-|-------|---------|------|
-| git-versioning | v1.2.1 | skills/git-versioning/SKILL.md |
-| diff-visualizer | v1.1.0 | skills/diff-visualizer/SKILL.md |
+| Artifact | Version | Path |
+|----------|---------|------|
+| agent-gen CLI | v0.2.0 | pyproject.toml |
+| git-versioning | v1.3.0 | .ai/skills/git-versioning/SKILL.md |
+| diff-visualizer | v1.1.0 | .ai/skills/diff-visualizer/SKILL.md |
 
 ---
 
@@ -42,17 +48,17 @@ Latest tag: v2.3.0
 | Change | Bump |
 |--------|------|
 | Typo, doc fix, additive schema field | PATCH |
-| Skill upgraded, new behavior, new skill added | MINOR |
-| Breaking install convention, skill removed, API change | MAJOR |
+| Skill upgraded, new feature, new skill added, new command | MINOR |
+| Breaking install convention, skill removed, CLI API change | MAJOR |
 
 ---
 
 ## Branch naming convention
 
   upgrade/<skill-name>-vX.Y.Z
+  feature/<description>
   docs/<topic>
   fix/<description>
-  feature/<description>
 
 ---
 
@@ -60,4 +66,4 @@ Latest tag: v2.3.0
 
 After every tag + release, update:
 1. "Current version tags" table — add new row, update "Latest tag"
-2. "Skill versions" table — update version for upgraded skills
+2. "Artifact versions" table — update version for upgraded artifacts

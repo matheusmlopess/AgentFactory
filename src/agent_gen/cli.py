@@ -41,9 +41,16 @@ def _clone_and_prepare(url: str) -> tuple[str, object]:
     cloned_dir = os.path.join(tmp_dir, name)
 
     try:
-        click.echo(f"[librarian] Cloning {url} ...")
+        # Validate URL scheme before passing to subprocess (#58)
+        allowed_schemes = ("https://", "http://", "git@", "ssh://", "git://")
+        if not any(url.startswith(s) for s in allowed_schemes):
+            raise click.ClickException(
+                f"Invalid git URL '{url}'. Must start with one of: {', '.join(allowed_schemes)}"
+            )
+
+        _echo(f"[librarian] Cloning {url} ...")
         result = subprocess.run(
-            ["git", "clone", url, cloned_dir],
+            ["git", "clone", "--quiet", url, cloned_dir],  # --quiet flag (#53)
             capture_output=True, text=True
         )
         if result.returncode != 0:
@@ -52,25 +59,25 @@ def _clone_and_prepare(url: str) -> tuple[str, object]:
             )
 
         # 1. Extract context from source BEFORE retrofit
-        click.echo("[librarian] Extracting context from source docs ...")
+        _echo("[librarian] Extracting context from source docs ...")
         context = Librarian._extract_source_context(cloned_dir)
 
         # 2. Retrofit if needed
-        profile, mapping = Librarian.propose_retrofit(cloned_dir)
+        profile, mapping, _ = Librarian.propose_retrofit(cloned_dir)
         if mapping:
-            click.echo(f"[librarian] Retrofitting (profile: {profile}) ...")
+            _echo(f"[librarian] Retrofitting (profile: {profile}) ...")
             Librarian(cloned_dir).migrate(mapping)
 
         # 3. Promote sub-agent .md files and create skill-manifest.json stubs
-        click.echo("[librarian] Generating skill manifests ...")
+        _echo("[librarian] Generating skill manifests ...")
         Librarian._auto_stub_skill_manifests(cloned_dir, context)
 
         # 4. Init + patch manifest description + sync resources
-        click.echo("[librarian] Initialising agent manifest ...")
+        _echo("[librarian] Initialising agent manifest ...")
         Librarian._auto_init_agent_manifest(cloned_dir, name, context)
 
         # 5. Wrap into a ZIP
-        click.echo("[librarian] Wrapping into portable unit ...")
+        _echo("[librarian] Wrapping into portable unit ...")
         zip_path = Librarian(cloned_dir).wrap(tmp_dir)
 
         def _cleanup():
@@ -87,12 +94,37 @@ def _clone_and_prepare(url: str) -> tuple[str, object]:
 
 
 # ---------------------------------------------------------------------------
+# Helpers: security
+# ---------------------------------------------------------------------------
+
+def _assert_within_root(rel_path: str, root: Path) -> None:
+    """Raise ClickException if rel_path resolves outside root (path traversal guard, #59)."""
+    resolved = (root / rel_path).resolve()
+    if not str(resolved).startswith(str(root.resolve())):
+        raise click.ClickException(
+            f"Path '{rel_path}' resolves outside the agent root — possible path traversal."
+        )
+
+
+# ---------------------------------------------------------------------------
 # CLI group
 # ---------------------------------------------------------------------------
 
 @click.group()
-def cli():
+@click.option("--quiet", "-q", is_flag=True, default=False, help="Suppress informational output.")
+@click.pass_context
+def cli(ctx: click.Context, quiet: bool):
     """Agent Factory — Librarian-powered agent lifecycle manager."""
+    ctx.ensure_object(dict)
+    ctx.obj["quiet"] = quiet
+
+
+def _echo(msg: str, *, err: bool = False) -> None:
+    """Print msg unless the current Click context has quiet=True."""
+    ctx = click.get_current_context(silent=True)
+    if ctx and ctx.obj and ctx.obj.get("quiet") and not err:
+        return
+    click.echo(msg, err=err)
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +154,7 @@ def init_project(project_root: str):
     project_path = Path(project_root).resolve()
     ai_root = project_path / HARNESS_ROOT
 
-    click.echo(f"[librarian] Initializing harness at {project_path} ...")
+    _echo(f"[librarian] Initializing harness at {project_path} ...")
 
     # 1. Create .ai/ directory tree
     dirs = [
@@ -140,9 +172,31 @@ def init_project(project_root: str):
         d.mkdir(parents=True, exist_ok=True)
         if created:
             (d / ".gitkeep").touch()
-        click.echo(f"  [ok] {d.relative_to(project_path)}")
+        _echo(f"  [ok] {d.relative_to(project_path)}")
 
-    # 2. Create single AgentFactory.md source of truth
+    # 2. Scaffold milestones.md traceability matrix in .ai/memory/
+    milestones_path = ai_root / "memory" / "milestones.md"
+    if not milestones_path.exists():
+        milestones_path.write_text(
+            "# Milestones\n"
+            "<!-- version: 1.0.0 -->\n\n"
+            "Traceability matrix for all project issues and work items.\n"
+            "Update on every PR merge and release (see git-versioning SKILL.md Step 8.5).\n\n"
+            "## Completed\n\n"
+            "| # | Title | Type | PR | Commit | Tag |\n"
+            "|---|-------|------|----|--------|-----|\n"
+            "| — | _No items yet_ | — | — | — | — |\n\n"
+            "## Pending\n\n"
+            "| # | Title | Type | Status | Phase | Branch | PR | Commit | Tag |\n"
+            "|---|-------|------|--------|-------|--------|----|--------|-----|\n"
+            "| — | _No items yet_ | — | — | — | — | — | — | — |\n",
+            encoding="utf-8",
+        )
+        _echo("  [created] .ai/memory/milestones.md")
+    else:
+        _echo("  [skip] .ai/memory/milestones.md (already exists)")
+
+    # 3. Create single AgentFactory.md source of truth
     context_path = ai_root / CONTEXT_FILE
     if not context_path.exists():
         context_path.write_text(
@@ -155,9 +209,9 @@ def init_project(project_root: str):
             "<!-- @skills-registry:end -->\n",
             encoding="utf-8",
         )
-        click.echo(f"  [created] {context_path.relative_to(project_path)}")
+        _echo(f"  [created] {context_path.relative_to(project_path)}")
     else:
-        click.echo(f"  [skip] {context_path.relative_to(project_path)} (already exists)")
+        _echo(f"  [skip] {context_path.relative_to(project_path)} (already exists)")
 
     # 3. Create .ai/agent-manifest.json
     global_manifest_path = Librarian._global_manifest_path(str(project_path))
@@ -169,9 +223,9 @@ def init_project(project_root: str):
         }
         with open(global_manifest_path, "w") as f:
             _json.dump(manifest, f, indent=2)
-        click.echo(f"  [created] {global_manifest_path.relative_to(project_path)}")
+        _echo(f"  [created] {global_manifest_path.relative_to(project_path)}")
     else:
-        click.echo(f"  [skip] {global_manifest_path.relative_to(project_path)} (already exists)")
+        _echo(f"  [skip] {global_manifest_path.relative_to(project_path)} (already exists)")
 
     # 4. Root symlinks — all four .md files point to .ai/AgentFactory.md
     root_links = {
@@ -186,16 +240,16 @@ def init_project(project_root: str):
     for link_name, target in root_links.items():
         link_path = project_path / link_name
         if link_path.exists() or link_path.is_symlink():
-            click.echo(f"  [skip] {link_name} (already exists)")
+            _echo(f"  [skip] {link_name} (already exists)")
             continue
         link_path.symlink_to(target)
-        click.echo(f"  [linked] {link_name} -> {target}")
+        _echo(f"  [linked] {link_name} -> {target}")
 
     # 5. Ensure adapter capability symlinks are wired
     Librarian._ensure_adapter_wiring(str(project_path))
-    click.echo("  [wired] adapter capability symlinks")
+    _echo("  [wired] adapter capability symlinks")
 
-    click.echo(f"\n[librarian] Harness ready. Run 'agent-gen deploy <name>' to scaffold your first agent.")
+    _echo("\n[librarian] Harness ready. Run 'agent-gen deploy <name>' to scaffold your first agent.")
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +267,7 @@ def deploy(name: str):
     root = _agent_root(name)
 
     if root.exists():
-        click.echo(f"[librarian] Agent '{name}' already exists at {root}.", err=True)
+        _echo(f"[librarian] Agent '{name}' already exists at {root}.", err=True)
         sys.exit(1)
 
     # Scaffold directories
@@ -225,11 +279,11 @@ def deploy(name: str):
     librarian = Librarian(str(root))
     manifest = librarian.init(name)
 
-    click.echo(f"[librarian] Deployed '{name}'")
-    click.echo(f"  Root   : {root}")
-    click.echo(f"  Version: {manifest['version']}")
-    click.echo(f"  git_ref: {manifest['git_ref']}")
-    click.echo(f"  Manifest: {root / 'agent-manifest.json'}")
+    _echo(f"[librarian] Deployed '{name}'")
+    _echo(f"  Root   : {root}")
+    _echo(f"  Version: {manifest['version']}")
+    _echo(f"  git_ref: {manifest['git_ref']}")
+    _echo(f"  Manifest: {root / 'agent-manifest.json'}")
 
 
 # ---------------------------------------------------------------------------
@@ -250,17 +304,20 @@ def describe(name: str, desc: str, plan: str):
     try:
         manifest = librarian._load_manifest()
     except FileNotFoundError as exc:
-        click.echo(f"[librarian] {exc}", err=True)
+        _echo(f"[librarian] {exc}", err=True)
         sys.exit(1)
 
     if desc:
         manifest["description"] = desc
     if plan:
+        _assert_within_root(plan, root)  # path traversal guard (#59)
+        if not (root / plan).exists():
+            _echo(f"[librarian] Warning: plan path does not exist: {plan}", err=True)
         manifest["orchestration_plan"] = plan
 
     librarian._save_manifest(manifest)
     Librarian.sync_to_global(manifest, ".")
-    click.echo(f"[librarian] Updated metadata for '{name}'")
+    _echo(f"[librarian] Updated metadata for '{name}'")
 
 
 @cli.command()
@@ -273,17 +330,17 @@ def uninstall(name: str):
     librarian = Librarian(str(root))
     
     if not root.exists():
-        click.echo(f"[librarian] Agent '{name}' not found at {root}.", err=True)
+        _echo(f"[librarian] Agent '{name}' not found at {root}.", err=True)
         sys.exit(1)
 
     if not click.confirm(f"[librarian] Are you sure you want to uninstall '{name}'?"):
-        click.echo("[librarian] Aborted.")
+        _echo("[librarian] Aborted.")
         sys.exit(0)
 
-    click.echo(f"[librarian] Uninstalling '{name}'...")
+    _echo(f"[librarian] Uninstalling '{name}'...")
     librarian.uninstall()
     Librarian.update_harness_files(".")
-    click.echo(f"[librarian] Uninstalled '{name}'.")
+    _echo(f"[librarian] Uninstalled '{name}'.")
 
 
 @cli.command()
@@ -295,43 +352,43 @@ def audit(name: str):
     root = _agent_root(name)
     librarian = Librarian(str(root))
     
-    click.echo(f"[librarian] Auditing '{name}'...")
+    _echo(f"[librarian] Auditing '{name}'...")
     report = librarian.audit()
     
     clean = True
     
     if report["broken_resources"]:
         clean = False
-        click.echo("[librarian] ✗ Broken resources (listed in manifest but missing on disk):", err=True)
+        _echo("[librarian] ✗ Broken resources (listed in manifest but missing on disk):", err=True)
         for p in report["broken_resources"]:
-            click.echo(f"  - {p}", err=True)
+            _echo(f"  - {p}", err=True)
 
     if report["broken_dependencies"]:
         clean = False
-        click.echo("[librarian] ✗ Broken dependencies (cross-file references not found):", err=True)
+        _echo("[librarian] ✗ Broken dependencies (cross-file references not found):", err=True)
         for p in report["broken_dependencies"]:
-            click.echo(f"  - {p}", err=True)
+            _echo(f"  - {p}", err=True)
 
     if report["untracked_files"]:
         clean = False
-        click.echo("[librarian] ! Untracked files (exist on disk but missing from manifest):")
+        _echo("[librarian] ! Untracked files (exist on disk but missing from manifest):")
         for p in report["untracked_files"]:
-            click.echo(f"  - {p} (Run 'wrap' or 'sync' to add them)")
+            _echo(f"  - {p} (Run 'wrap' or 'sync' to add them)")
 
     if report["missing_skill_manifests"]:
         clean = False
-        click.echo("[librarian] ! Missing skill-manifest.json in directories:")
+        _echo("[librarian] ! Missing skill-manifest.json in directories:")
         for p in report["missing_skill_manifests"]:
-            click.echo(f"  - {p}")
+            _echo(f"  - {p}")
 
     if report.get("invalid_skill_manifests"):
         clean = False
-        click.echo("[librarian] ✗ Invalid skill manifests (missing 'name' or 'description'):", err=True)
+        _echo("[librarian] ✗ Invalid skill manifests (missing 'name' or 'description'):", err=True)
         for p in report["invalid_skill_manifests"]:
-            click.echo(f"  - {p}", err=True)
+            _echo(f"  - {p}", err=True)
 
     if clean:
-        click.echo(f"[librarian] ✓ '{name}' integrity is clean.")
+        _echo(f"[librarian] ✓ '{name}' integrity is clean.")
     else:
         sys.exit(1)
 
@@ -355,26 +412,26 @@ def wrap(name: str, out: str):
     root = _agent_root(name)
     librarian = Librarian(str(root))
 
-    click.echo(f"[librarian] Syncing manifest for '{name}'...")
+    _echo(f"[librarian] Syncing manifest for '{name}'...")
     librarian.sync()
 
-    click.echo(f"[librarian] Auditing '{name}'...")
+    _echo(f"[librarian] Auditing '{name}'...")
     report = librarian.audit()
     
     if report["broken_resources"] or report["broken_dependencies"] or report.get("invalid_skill_manifests"):
-        click.echo("[librarian] Audit failed — fix broken paths, dependencies, or invalid skill manifests before wrapping.", err=True)
-        click.echo(f"[librarian] Run 'agent-gen audit {name}' for details.", err=True)
+        _echo("[librarian] Audit failed — fix broken paths, dependencies, or invalid skill manifests before wrapping.", err=True)
+        _echo(f"[librarian] Run 'agent-gen audit {name}' for details.", err=True)
         sys.exit(1)
 
-    click.echo("[librarian] Audit passed.")
+    _echo("[librarian] Audit passed.")
 
     try:
         archive = librarian.wrap(out)
     except FileNotFoundError as exc:
-        click.echo(f"[librarian] {exc}", err=True)
+        _echo(f"[librarian] {exc}", err=True)
         sys.exit(1)
 
-    click.echo(f"[librarian] Wrapped → {archive}")
+    _echo(f"[librarian] Wrapped → {archive}")
 
 
 @cli.command()
@@ -389,20 +446,26 @@ def retrofit(path: str, yes: bool):
     """
     source_path = Path(path).resolve()
     if not source_path.exists():
-        click.echo(f"[librarian] Path not found: {source_path}", err=True)
+        _echo(f"[librarian] Path not found: {source_path}", err=True)
         sys.exit(1)
 
-    click.echo(f"[librarian] Analyzing {source_path}...")
-    profile, mapping = Librarian.propose_retrofit(str(source_path))
+    _echo(f"[librarian] Analyzing {source_path}...")
+    profile, mapping, all_profiles = Librarian.propose_retrofit(str(source_path))
 
-    click.echo(f"[librarian] Detected profile: {profile.upper()}")
-    click.echo("[librarian] Proposed Mapping:")
+    _echo(f"[librarian] Detected profile: {profile.upper()}")
+    if len(all_profiles) > 1:
+        _echo(
+            f"[librarian] Warning: multiple profiles matched: {all_profiles}. "
+            f"Using '{profile}' — pass --profile to override.",
+            err=True,
+        )
+    _echo("[librarian] Proposed Mapping:")
     for src, dest in mapping.items():
-        click.echo(f"  - {src} -> {dest}")
+        _echo(f"  - {src} -> {dest}")
 
     if not yes:
         if not click.confirm("[librarian] Proceed with migration?"):
-            click.echo("[librarian] Aborted.")
+            _echo("[librarian] Aborted.")
             sys.exit(0)
 
     # In-place migration
@@ -416,8 +479,8 @@ def retrofit(path: str, yes: bool):
     
     librarian.sync()
 
-    click.echo(f"[librarian] Retrofit complete for '{source_path.name}'.")
-    click.echo(f"  Standardized into {TRACKED_DIRS}")
+    _echo(f"[librarian] Retrofit complete for '{source_path.name}'.")
+    _echo(f"  Standardized into {TRACKED_DIRS}")
 
 
 # ---------------------------------------------------------------------------
@@ -438,12 +501,12 @@ def import_skill(path: str, target_agent: str):
     """
     path_obj = Path(path).resolve()
     if not path_obj.exists():
-        click.echo(f"[librarian] Skill path not found: {path_obj}", err=True)
+        _echo(f"[librarian] Skill path not found: {path_obj}", err=True)
         sys.exit(1)
 
     if target_agent == ".":
         target_root = Path.cwd() / HARNESS_ROOT
-        click.echo(f"[librarian] Importing skill from {path_obj} into root project...")
+        _echo(f"[librarian] Importing skill from {path_obj} into root project...")
         # Perform root-level skill import logic manually to avoid overwriting global manifest
         import tempfile
         import shutil
@@ -458,14 +521,14 @@ def import_skill(path: str, target_agent: str):
             elif path_obj.is_dir():
                 shutil.copytree(path_obj, temp_path, dirs_exist_ok=True)
             else:
-                click.echo("[librarian] Skill source must be a directory or a ZIP file.", err=True)
+                _echo("[librarian] Skill source must be a directory or a ZIP file.", err=True)
                 sys.exit(1)
 
             manifest_file = temp_path / "skill-manifest.json"
             if not manifest_file.exists():
                 manifests = list(temp_path.rglob("skill-manifest.json"))
                 if not manifests:
-                    click.echo("[librarian] skill-manifest.json not found in the source.", err=True)
+                    _echo("[librarian] skill-manifest.json not found in the source.", err=True)
                     sys.exit(1)
                 manifest_file = manifests[0]
                 temp_path = manifest_file.parent
@@ -482,8 +545,8 @@ def import_skill(path: str, target_agent: str):
 
             shutil.copytree(temp_path, target_dir)
 
-        click.echo(f"[librarian] Successfully imported skill '{skill_name}' into root project.")
-        click.echo(f"  Path: {target_root / 'skills' / skill_name}")  # .ai/skills/<name>
+        _echo(f"[librarian] Successfully imported skill '{skill_name}' into root project.")
+        _echo(f"  Path: {target_root / 'skills' / skill_name}")  # .ai/skills/<name>
         
         # update_harness_files takes the project root (not the .ai/ sub-path)
         Librarian.update_harness_files(str(Path.cwd()))
@@ -491,18 +554,18 @@ def import_skill(path: str, target_agent: str):
 
     target_root = _agent_root(target_agent)
     if not target_root.exists():
-        click.echo(f"[librarian] Target agent '{target_agent}' not found at {target_root}.", err=True)
+        _echo(f"[librarian] Target agent '{target_agent}' not found at {target_root}.", err=True)
         sys.exit(1)
 
     librarian = Librarian(str(target_root))
     
     try:
-        click.echo(f"[librarian] Importing skill from {path_obj} into '{target_agent}'...")
+        _echo(f"[librarian] Importing skill from {path_obj} into '{target_agent}'...")
         skill_name = librarian.import_skill(str(path_obj))
-        click.echo(f"[librarian] Successfully imported skill '{skill_name}' into '{target_agent}'.")
-        click.echo(f"  Path: {target_root / 'skills' / skill_name}")
+        _echo(f"[librarian] Successfully imported skill '{skill_name}' into '{target_agent}'.")
+        _echo(f"  Path: {target_root / 'skills' / skill_name}")
     except Exception as exc:
-        click.echo(f"[librarian] Skill import failed: {exc}", err=True)
+        _echo(f"[librarian] Skill import failed: {exc}", err=True)
         sys.exit(1)
 
 
@@ -549,11 +612,12 @@ def import_agent(zip_path: str, from_git: str, project_root: str):
     zip_path = Path(zip_path).resolve()
 
     if not zip_path.exists():
-        click.echo(f"[librarian] File not found: {zip_path}", err=True)
+        _echo(f"[librarian] File not found: {zip_path}", err=True)
         sys.exit(1)
 
     # Peek at the archive to get the agent name before unpacking
-    import zipfile, json
+    import zipfile
+    import json
 
     with zipfile.ZipFile(zip_path) as zf:
         with zf.open("agent-manifest.json") as mf:
@@ -563,7 +627,7 @@ def import_agent(zip_path: str, from_git: str, project_root: str):
     target_root = _agent_root(name)
 
     if target_root.exists():
-        click.echo(
+        _echo(
             f"[librarian] '{name}' already exists at {target_root}. "
             "Remove it first or rename the incoming bundle.",
             err=True,
@@ -577,22 +641,22 @@ def import_agent(zip_path: str, from_git: str, project_root: str):
         temp_root = Path(temp_dir) / name
         temp_root.mkdir(parents=True)
         
-        click.echo(f"[librarian] Unpacking '{name}'...")
+        _echo(f"[librarian] Unpacking '{name}'...")
         manifest = Librarian.unpack(str(zip_path), str(temp_root))
 
         # Deep Audit before finalizing
-        click.echo(f"[librarian] Auditing '{name}' before registration...")
+        _echo(f"[librarian] Auditing '{name}' before registration...")
         librarian = Librarian(str(temp_root))
         report = librarian.audit()
         if report["broken_resources"] or report["broken_dependencies"] or report.get("invalid_skill_manifests"):
-            click.echo("[librarian] Audit FAILED for imported bundle. Aborting...", err=True)
+            _echo("[librarian] Audit FAILED for imported bundle. Aborting...", err=True)
             sys.exit(1)
 
         # Move to final location
         target_root.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(temp_root), str(target_root))
 
-    click.echo(f"[librarian] Registering '{name}' in project manifest...")
+    _echo(f"[librarian] Registering '{name}' in project manifest...")
     Librarian.register_in_project(manifest, project_root)
 
     # Clean up temp dir from --from-git clone
@@ -606,20 +670,20 @@ def import_agent(zip_path: str, from_git: str, project_root: str):
     scripts = manifest["resources"].get("scripts", [])
     orchestration = manifest["resources"].get("orchestration", [])
 
-    click.echo("")
-    click.echo("=" * 60)
-    click.echo("Librarian: Import Complete.")
-    click.echo(
+    _echo("")
+    _echo("=" * 60)
+    _echo("Librarian: Import Complete.")
+    _echo(
         f"  Added {len(skills)} skill(s), {len(commands)} command(s), "
         f"{len(docs)} doc(s), {len(scripts)} script(s), "
         f"and {len(orchestration)} orchestration file(s) to your environment."
     )
-    click.echo(f"  You are now configured as the '{name}' agent.")
+    _echo(f"  You are now configured as the '{name}' agent.")
     if docs:
         claude_md = next((d for d in docs if "CLAUDE.md" in d), None)
         if claude_md:
-            click.echo(f"  Check {claude_md} for your new instructions.")
-    click.echo("=" * 60)
+            _echo(f"  Check {claude_md} for your new instructions.")
+    _echo("=" * 60)
 
 if __name__ == "__main__":
     cli()

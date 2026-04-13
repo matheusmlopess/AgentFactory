@@ -1,30 +1,64 @@
-# Architecture
-<!-- version: 2.0.0 -->
+# CLAUDE.md
+<!-- version: 2.1.0 -->
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Overview
-AgentFactory is a lightweight Python-based CLI (`agent-gen`) for building, packaging, and deploying AI agents as **Portable Units**.
+AgentFactory is a lightweight Python-based CLI (`agent-gen`) for building, packaging, and deploying AI agents as **Portable Units**. Source lives in `src/agent_gen/`; tests in `src/tests/`.
 
-## Unified Folder Strategy
-All harness content lives under `.ai/`. The project root is kept clean — only required CLI symlinks are exposed:
-- `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CODEX.md` → `.ai/AgentFactory.md` (this file — single source of truth for all CLIs)
+## Development Commands
+
+```bash
+# Install (editable)
+pip install -e .
+
+# Run all tests
+pytest
+
+# Run a single test file
+pytest src/tests/test_cli.py
+
+# Run a single test by name
+pytest src/tests/test_cli.py::TestCliCommands::test_e2e_lifecycle
+```
+
+## Architecture
+
+### Unified Harness (`.ai/`)
+All harness content lives under `.ai/`. Root files are symlinks:
+- `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `CODEX.md` → `.ai/AgentFactory.md` (this file)
 - `.claude` → `.ai/adapters/claude` | `.gemini` → `.ai/adapters/gemini` | `.codex` → `.ai/adapters/codex`
 
 Internal layout:
-1. `.ai/rules/`: Project constraints.
+1. `.ai/rules/`: Enforceable project constraints (git, testing, docs, cli, security).
 2. `.ai/commands/`: Slash commands (Claude) and prompt templates (Codex).
 3. `.ai/skills/`: Reusable deep-context workflows. Accessible to Claude via `.claude/skills/`.
-4. `.ai/agents/`: Deployed agent directories (each with skills/, docs/, scripts/, orchestration/).
+4. `.ai/agents/`: Deployed agent directories — each follows the **5-Directory Standard**: `skills/` · `commands/` · `docs/` · `scripts/` · `orchestration/`.
 5. `.ai/memory/`: Project state and context.
 6. `.ai/adapters/`: Per-CLI config + capability symlinks (commands→, skills→, tools→).
 
-## Core Engine: The Librarian
-The Librarian (`src/agent_gen/librarian.py`) manages:
-- **Manifest Integrity:** Validating `agent-manifest.json`.
-- **Lifecycle:** Deploy, Audit, Wrap, Import, Retrofit.
-- **Intelligence Layer:** Dependency and orchestration detection via AST parsing and marker discovery.
+### Core Engine: The Librarian (`src/agent_gen/librarian.py`)
+Central class driving every lifecycle operation. Key responsibilities:
+- **Manifest Integrity:** Load/validate/save `agent-manifest.json` per agent.
+- **Lifecycle:** `init`, `sync`, `audit`, `wrap`, `unpack`, `import_skill`, `migrate` (retrofit), `uninstall`.
+- **Global registry:** `sync_to_global`, `register_in_project`, `update_harness_files` keep `.ai/AgentFactory.md` and `.ai/agent-manifest.json` in sync across all agents.
+- **Intelligence Layer:** `_detect_dependencies` (AST-based Python import parsing + `<!-- @depends-on: -->` marker discovery) and `_detect_orchestration` for cross-file relationship detection.
+- **Retrofit:** `propose_retrofit` heuristically detects Claude/Gemini/Codex layouts and maps them to AgentFactory standard via `CONVERSION_PROFILES`.
 
-## Multi-CLI Harness
-The project utilizes a tiered AI harness to coordinate Claude, Codex, and Gemini, ensuring a shared context window and seamless handoff.
+Key constants in `librarian.py`:
+- `TRACKED_DIRS = ["skills", "commands", "docs", "scripts", "orchestration"]`
+- `HARNESS_ROOT = ".ai"` | `MANIFEST_FILE = "agent-manifest.json"`
+
+### CLI (`src/agent_gen/cli.py`)
+Thin Click wrappers around the Librarian. Commands: `init`, `deploy`, `describe`, `audit`, `wrap`, `retrofit`, `import`, `import-skill`, `uninstall`. The `--from-git` flag on `import` clones a repo, auto-retrofits, stubs skill manifests, and wraps in one step.
+
+### Multi-CLI Harness
+Claude, Codex, and Gemini share the same `.ai/` directory for shared context with no conflicts. Adapter wiring (`_ensure_adapter_wiring`) creates capability symlinks inside each adapter directory.
+
+## Rules
+- Every `.md` file must include a `<!-- version: X.Y.Z -->` marker.
+- Use semantic commit messages and feature branches; all changes via PR.
+- Aim for 80%+ test coverage for new logic; always write a reproduction test for bugs.
 
 ## Global Skills
 <!-- @skills-registry:start -->
@@ -34,7 +68,7 @@ The project utilizes a tiered AI harness to coordinate Claude, Codex, and Gemini
 
 ## Registered Agents
 <!-- @agent-registry:start -->
-- **test-agent**: Minimal test agent for validating AgentFactory lifecycle operations: deploy, audit, wrap, and imp... (See: `.ai/agents/test-agent/docs/CLAUDE.md`)
+- **test-agent**: Manual Description (See: `.ai/agents/test-agent/docs/CLAUDE.md`)
 - **test-claude-agent**: AgentFactory-powered agent demonstrating a minimal Claude-native agent layout. (See: `.ai/agents/test-claude-agent/docs/CLAUDE.md`)
 - **test-intel-agent**: AgentFactory-powered agent demonstrating intelligence-layer features: dependency detection and sk... (See: `.ai/agents/test-intel-agent/docs/CLAUDE.md`)
 <!-- @agent-registry:end -->

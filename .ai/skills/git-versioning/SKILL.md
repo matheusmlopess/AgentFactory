@@ -1,6 +1,6 @@
 ---
 name: git-versioning
-version: 1.2.1
+version: 1.3.0
 description: >
   Git and versioning workflow assistant for any project using the versioning template.
   Handles commit, branch, PR, merge, tag, release, rollback, and inspection.
@@ -11,7 +11,7 @@ description: >
   rollback an artifact, or asks "what should I do next" in a git context.
 ---
 
-# Git Versioning Assistant — v1.2.1
+# Git Versioning Assistant — v1.3.0
 
 ---
 
@@ -28,6 +28,8 @@ Use these values in every command and message. Never hardcode them.
 
 If `repo-state.md` has unfilled placeholders, stop and tell the user:
 > "Please fill in the Remote section of `skills/git-versioning/references/repo-state.md` before continuing."
+
+Also check `.ai/memory/milestones.md` (if it exists) — the **Pending** table shows what issues are still open and which branch/PR phase they belong to. Use this to confirm the branch name and scope when the user asks "what should I do next."
 
 ---
 
@@ -183,6 +185,24 @@ EOF
 After tagging, update `repo-state.md` on a new branch → PR → merge:
 - Add a row to "Current version tags"
 - Update "Latest tag"
+
+### Step 8.5 — Update Milestones (required after every merged PR or release)
+
+1. Open `.ai/memory/milestones.md`
+2. For each issue closed by this PR:
+   - Move its row from **Pending → Completed**
+   - Fill: Branch, PR#, short commit SHA, version tag (if released)
+3. On version tag: stamp the Tag column for all newly completed rows
+4. Bump the `<!-- version: X.Y.Z -->` marker on `milestones.md` (PATCH bump)
+5. Stage and commit alongside other release docs:
+   ```bash
+   git add .ai/memory/milestones.md
+   git commit -m "docs: update milestones for #<issue-list>"
+   ```
+
+**Never skip this step.** The milestones file is the project's audit trail — an issue with no entry in Completed is indistinguishable from one that was never worked on.
+
+---
 
 ### Step 9 — Document the release
 

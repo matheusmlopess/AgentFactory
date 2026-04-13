@@ -2,7 +2,6 @@
 _auto_init_agent_manifest, _auto_stub_skill_manifests."""
 
 import json
-import shutil
 import tempfile
 import unittest
 from pathlib import Path

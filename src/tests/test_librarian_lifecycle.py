@@ -1,5 +1,3 @@
-import os
-import shutil
 import json
 import unittest
 import tempfile
@@ -107,5 +105,43 @@ class TestLibrarianLifecycle(unittest.TestCase):
             
         self.assertIn("new-agent", global_manifest["agents"])
         
+    # --- #51: _ensure_adapter_wiring ---
+
+    def test_ensure_adapter_wiring_creates_symlinks(self):
+        """#51: _ensure_adapter_wiring creates capability symlinks for all adapters."""
+        ai_root = self.project_root / ".ai"
+        for adapter in ["claude", "gemini", "codex"]:
+            (ai_root / "adapters" / adapter).mkdir(parents=True, exist_ok=True)
+        (ai_root / "commands").mkdir(parents=True, exist_ok=True)
+        (ai_root / "skills").mkdir(parents=True, exist_ok=True)
+
+        Librarian._ensure_adapter_wiring(str(self.project_root))
+
+        claude_commands = ai_root / "adapters" / "claude" / "commands"
+        claude_skills   = ai_root / "adapters" / "claude" / "skills"
+        gemini_tools    = ai_root / "adapters" / "gemini"  / "tools"
+        codex_prompts   = ai_root / "adapters" / "codex"   / "prompts"
+
+        self.assertTrue(claude_commands.is_symlink() or claude_commands.exists())
+        self.assertTrue(claude_skills.is_symlink() or claude_skills.exists())
+        self.assertTrue(gemini_tools.is_symlink() or gemini_tools.exists())
+        self.assertTrue(codex_prompts.is_symlink() or codex_prompts.exists())
+
+    def test_ensure_adapter_wiring_idempotent(self):
+        """#51: Calling _ensure_adapter_wiring twice does not raise errors."""
+        ai_root = self.project_root / ".ai"
+        for adapter in ["claude", "gemini", "codex"]:
+            (ai_root / "adapters" / adapter).mkdir(parents=True, exist_ok=True)
+        (ai_root / "commands").mkdir(parents=True, exist_ok=True)
+        (ai_root / "skills").mkdir(parents=True, exist_ok=True)
+
+        Librarian._ensure_adapter_wiring(str(self.project_root))
+        # Second call should be a no-op without raising
+        try:
+            Librarian._ensure_adapter_wiring(str(self.project_root))
+        except Exception as exc:
+            self.fail(f"_ensure_adapter_wiring raised on second call: {exc}")
+
+
 if __name__ == '__main__':
     unittest.main()
