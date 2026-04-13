@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.3.0 -->
+<!-- version: 1.4.0 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -65,8 +65,58 @@ Status values: `done` · `in-progress` · `pending` · `deferred`
 
 ---
 
-## Pending
+## Roadmap — Production Platform (epic #77)
+
+Business model: freemium SaaS + public agent registry + marketplace.
+The CLI stays open-source. The platform is the paid surface.
+
+### Phase 1 — Foundation
 
 | # | Title | Type | Status | Branch | PR | Commit | Tag |
 |---|-------|------|--------|--------|----|--------|-----|
-| #16 | Project layout GUI React | feature | deferred | — | — | — | — |
+| #77 | epic: AgentFactory production platform | epic | pending | — | — | — | — |
+| #78 | feat[P1]: webapp scaffold — Vite + React 19 + TS + GitHub Pages | webapp | pending | — | — | — | — |
+| #79 | feat[P1]: harness explorer UI — two-panel file tree + doc pane | webapp | pending | — | — | — | — |
+| #80 | feat[P1]: lifecycle stepper + manifest inspector UI components | webapp | pending | — | — | — | — |
+| #81 | feat[P1]: public agent registry — browse, search, publish Portable Units | registry | pending | — | — | — | — |
+| #82 | feat[P1]: CLI extensions — agentfactory-gen publish + import --from-registry | cli | pending | — | — | — | — |
+
+### Phase 2 — Auth & Workspaces
+
+| # | Title | Type | Status | Branch | PR | Commit | Tag |
+|---|-------|------|--------|--------|----|--------|-----|
+| #83 | feat[P2]: GitHub OAuth authentication | platform | pending | — | — | — | — |
+| #84 | feat[P2]: private org workspaces + RBAC | platform | pending | — | — | — | — |
+| #85 | feat[P2]: Pro tier billing — Stripe seat-based subscription | billing | pending | — | — | — | — |
+| #86 | feat[P2]: agentfactory-gen login / logout CLI commands | cli | pending | — | — | — | — |
+
+### Phase 3 — Governance
+
+| # | Title | Type | Status | Branch | PR | Commit | Tag |
+|---|-------|------|--------|--------|----|--------|-----|
+| #87 | feat[P3]: per-agent audit history dashboard | platform | pending | — | — | — | — |
+| #88 | feat[P3]: agent dependency graph visualization | platform | pending | — | — | — | — |
+| #89 | feat[P3]: Enterprise compliance export — audit trail + deployment log | platform | pending | — | — | — | — |
+
+### Phase 4 — Marketplace
+
+| # | Title | Type | Status | Branch | PR | Commit | Tag |
+|---|-------|------|--------|--------|----|--------|-----|
+| #90 | feat[P4]: marketplace — paid agent listings + purchase flow | marketplace | pending | — | — | — | — |
+| #91 | feat[P4]: verified agent badge — automated Librarian security scan | registry | pending | — | — | — | — |
+| #92 | feat[P4]: publisher revenue share — Stripe Connect payouts | billing | pending | — | — | — | — |
+
+---
+
+## Superseded / Closed
+
+| # | Title | Note |
+|---|-------|------|
+| #16 | Project layout GUI React | Superseded by production platform epic #77 |
+
+---
+
+## Pending (legacy / non-platform)
+
+| # | Title | Type | Status | Branch | PR | Commit | Tag |
+|---|-------|------|--------|--------|----|--------|-----|
