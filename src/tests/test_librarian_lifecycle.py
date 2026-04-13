@@ -1,10 +1,11 @@
+import io
 import json
 import unittest
 import tempfile
 import zipfile
 from pathlib import Path
 
-from agent_gen.librarian import Librarian, MANIFEST_FILE
+from agent_gen.librarian import Librarian, MANIFEST_FILE, _safe_extract
 
 class TestLibrarianLifecycle(unittest.TestCase):
     def setUp(self):
@@ -141,6 +142,47 @@ class TestLibrarianLifecycle(unittest.TestCase):
             Librarian._ensure_adapter_wiring(str(self.project_root))
         except Exception as exc:
             self.fail(f"_ensure_adapter_wiring raised on second call: {exc}")
+
+
+    # --- S1: ZIP Slip ---
+
+    def test_zip_slip_blocked(self):
+        """S1: _safe_extract rejects ZIP entries that would escape the target directory."""
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "extract_here"
+            target.mkdir()
+
+            # Build a malicious ZIP with a path-traversal entry
+            zip_buf = io.BytesIO()
+            with zipfile.ZipFile(zip_buf, "w") as zf:
+                zf.writestr("../escape.txt", "malicious content")
+            zip_buf.seek(0)
+
+            with zipfile.ZipFile(zip_buf) as zf:
+                with self.assertRaises(ValueError) as ctx:
+                    _safe_extract(zf, target)
+            self.assertIn("zip slip", str(ctx.exception).lower())
+
+            # The escape file must NOT have been written
+            self.assertFalse((Path(tmp) / "escape.txt").exists())
+
+    def test_zip_slip_safe_entries_allowed(self):
+        """S1: _safe_extract allows legitimate entries that stay within target."""
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "extract_here"
+            target.mkdir()
+
+            zip_buf = io.BytesIO()
+            with zipfile.ZipFile(zip_buf, "w") as zf:
+                zf.writestr("subdir/file.txt", "safe content")
+                zf.writestr("root.txt", "also safe")
+            zip_buf.seek(0)
+
+            with zipfile.ZipFile(zip_buf) as zf:
+                _safe_extract(zf, target)  # must not raise
+
+            self.assertTrue((target / "subdir" / "file.txt").exists())
+            self.assertTrue((target / "root.txt").exists())
 
 
 if __name__ == '__main__':
