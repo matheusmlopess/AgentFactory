@@ -82,7 +82,7 @@ Each matrix run:
 
 1. **Checks out** the repository
 2. **Installs** the package in editable mode with dev extras: `pip install -e ".[dev]"`  
-   This installs `agent-gen`, `pytest`, `pytest-cov`, and `ruff` as defined in `pyproject.toml`
+   This installs `agentfactory-gen`, `pytest`, `pytest-cov`, and `ruff` as defined in `pyproject.toml`
 3. **Runs the test suite with coverage:**
    ```
    pytest --cov=agent_gen --cov-report=term-missing --cov-fail-under=80

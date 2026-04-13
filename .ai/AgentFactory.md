@@ -4,7 +4,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Overview
-AgentFactory is a lightweight Python-based CLI (`agent-gen`) for building, packaging, and deploying AI agents as **Portable Units**. Source lives in `src/agent_gen/`; tests in `src/tests/`.
+AgentFactory is a lightweight Python-based CLI (`agentfactory-gen`) for building, packaging, and deploying AI agents as **Portable Units**. Source lives in `src/agent_gen/`; tests in `src/tests/`.
 
 ## Development Commands
 

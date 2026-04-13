@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-agent-gen = "agent_gen.cli:cli"
+agentfactory-gen = "agent_gen.cli:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]
