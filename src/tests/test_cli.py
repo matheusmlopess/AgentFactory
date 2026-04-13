@@ -1,13 +1,11 @@
 import os
-import shutil
-import tempfile
 import json
 import unittest
 from pathlib import Path
 from click.testing import CliRunner
 
 from agent_gen.cli import cli
-from agent_gen.librarian import MANIFEST_FILE, HARNESS_ROOT
+from agent_gen.librarian import HARNESS_ROOT
 
 AGENTS = f"{HARNESS_ROOT}/agents"
 
@@ -159,6 +157,138 @@ class TestCliCommands(unittest.TestCase):
             target_skill_dir = Path(f"{AGENTS}/target-agent/skills/zip-skill")
             self.assertTrue(target_skill_dir.exists())
             self.assertTrue((target_skill_dir / "logic.py").exists())
+
+    # --- #46: agent-gen init ---
+
+    def test_init_creates_harness(self):
+        """#46: agent-gen init scaffolds .ai/ dir tree, milestones.md, and root symlinks."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["init"])
+            self.assertEqual(result.exit_code, 0)
+
+            # Directory tree
+            for subdir in ["adapters/claude", "adapters/gemini", "adapters/codex",
+                           "rules", "commands", "skills", "agents", "memory"]:
+                self.assertTrue(os.path.isdir(f".ai/{subdir}"), f"missing .ai/{subdir}")
+
+            # Milestone file scaffolded
+            self.assertTrue(os.path.exists(".ai/memory/milestones.md"))
+
+            # Source-of-truth file created
+            self.assertTrue(os.path.exists(".ai/AgentFactory.md"))
+
+            # Global manifest created
+            self.assertTrue(os.path.exists(".ai/agent-manifest.json"))
+
+    def test_init_idempotent(self):
+        """#46: Running init twice does not raise errors."""
+        with self.runner.isolated_filesystem():
+            r1 = self.runner.invoke(cli, ["init"])
+            r2 = self.runner.invoke(cli, ["init"])
+            self.assertEqual(r1.exit_code, 0)
+            self.assertEqual(r2.exit_code, 0)
+            self.assertIn("[skip]", r2.output)
+
+    # --- #47: describe --plan ---
+
+    def test_describe_plan_sets_orchestration_plan(self):
+        """#47: describe --plan stores orchestration_plan in manifest."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "plan-agent"])
+            plan_rel = "orchestration/plan.json"
+            os.makedirs(f"{AGENTS}/plan-agent/orchestration", exist_ok=True)
+            open(f"{AGENTS}/plan-agent/{plan_rel}", "w").close()
+
+            result = self.runner.invoke(cli, ["describe", "plan-agent", "--plan", plan_rel])
+            self.assertEqual(result.exit_code, 0)
+
+            with open(f"{AGENTS}/plan-agent/agent-manifest.json") as f:
+                manifest = json.load(f)
+            self.assertEqual(manifest["orchestration_plan"], plan_rel)
+
+    def test_describe_plan_warns_nonexistent_path(self):
+        """#43/#47: describe --plan emits a warning when the path does not exist."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "plan-agent"])
+            result = self.runner.invoke(cli, ["describe", "plan-agent", "--plan", "orchestration/missing.json"])
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn("Warning", result.output + (result.stderr if hasattr(result, "stderr") else ""))
+
+    # --- #48: wrap --out ---
+
+    def test_wrap_out_option(self):
+        """#48: wrap --out <dir> places the zip in the specified directory."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "out-agent"])
+            Path(f"{AGENTS}/out-agent/skills/demo.md").write_text("hi")
+
+            os.makedirs("archives", exist_ok=True)
+            result = self.runner.invoke(cli, ["wrap", "out-agent", "--out", "archives"])
+            self.assertEqual(result.exit_code, 0)
+            self.assertTrue(os.path.exists("archives/out-agent-v1.0.0.zip"))
+            self.assertFalse(os.path.exists("out-agent-v1.0.0.zip"))
+
+    # --- #49: import-skill --to . ---
+
+    def test_import_skill_to_root_project(self):
+        """#49: import-skill --to . places skill in .ai/skills/<name>/."""
+        with self.runner.isolated_filesystem():
+            # Init harness first
+            self.runner.invoke(cli, ["init"])
+
+            skill_path = Path("root-skill")
+            skill_path.mkdir()
+            with open(skill_path / "skill-manifest.json", "w") as f:
+                json.dump({"name": "root-skill", "version": "1.0.0", "description": "A root skill"}, f)
+            (skill_path / "ability.md").write_text("skill content")
+
+            result = self.runner.invoke(cli, ["import-skill", str(skill_path)])
+            self.assertEqual(result.exit_code, 0)
+
+            skill_dir = Path(".ai/skills/root-skill")
+            self.assertTrue(skill_dir.exists())
+            self.assertTrue((skill_dir / "ability.md").exists())
+
+    # --- #50: import --from-git (mocked subprocess) ---
+
+    def test_import_from_git_invalid_url(self):
+        """#50/#58: import --from-git rejects URLs with invalid scheme."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["import", "--from-git", "ftp://evil.com/repo"])
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("Invalid git URL", result.output)
+
+    def test_import_from_git_valid_url_clones(self):
+        """#50: import --from-git with a valid URL triggers git clone."""
+        import unittest.mock as mock
+
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+
+            def fake_clone(args, capture_output, text, **kw):
+                # Simulate a successful clone by creating the expected directory structure
+                cloned_dir = args[-1]
+                os.makedirs(cloned_dir, exist_ok=True)
+                # Minimal agent scaffold so the pipeline can proceed
+                import json as _j
+                manifest = {
+                    "name": "cloned-agent", "version": "1.0.0",
+                    "resources": {"skills": [], "commands": [], "docs": [], "scripts": [], "orchestration": []},
+                    "dependencies": {}, "description": "", "git_ref": "abc123",
+                }
+                with open(os.path.join(cloned_dir, "agent-manifest.json"), "w") as fh:
+                    _j.dump(manifest, fh)
+                r = mock.MagicMock()
+                r.returncode = 0
+                return r
+
+            with mock.patch("agent_gen.cli.subprocess.run", side_effect=fake_clone):
+                result = self.runner.invoke(
+                    cli, ["import", "--from-git", "https://github.com/user/cloned-agent"]
+                )
+            # Should not fail with URL validation error
+            self.assertNotIn("Invalid git URL", result.output)
+
 
 if __name__ == '__main__':
     unittest.main()

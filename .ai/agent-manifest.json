@@ -4,22 +4,22 @@
   "agents": {
     "test-agent": {
       "version": "1.0.0",
-      "description": "Minimal test agent for validating AgentFactory lifecycle operations: deploy, audit, wrap, and import.",
+      "description": "Manual Description",
       "imported_at": "2026-04-08T17:16:14.627961+00:00",
-      "git_ref": "e051e38",
+      "git_ref": "untracked",
       "resources": {
         "skills": [
-          "skills/git-versioning/SKILL.md",
-          "skills/git-versioning/references/repo-state.md",
-          "skills/git-versioning/skill-manifest.json"
+          "skills/search/skill-manifest.json",
+          "skills/search.md"
         ],
         "commands": [],
-        "docs": [
-          "docs/CLAUDE.md"
+        "docs": [],
+        "scripts": [
+          "scripts/main.py",
+          "scripts/utils.py"
         ],
-        "scripts": [],
         "orchestration": [
-          "orchestration/main.json"
+          "orchestration/plan.json"
         ]
       }
     },
