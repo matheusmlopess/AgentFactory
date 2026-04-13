@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.2.0 -->
+<!-- version: 1.3.0 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -39,29 +39,29 @@ Status values: `done` · `in-progress` · `pending` · `deferred`
 | #32 | Close git-versioning skill gaps | feature | #32 | 079070f | v2.3.0 |
 | #35 | Add agent-gen import --from-git pipeline | feature | #35 | 076ffcd | v2.3.0 |
 | #4 | diff-visualizer skill | feature | — | — | v2.2.0 |
-| #41 | Gemini & Codex adapter configs empty (0 bytes) | harness-fix | — | — | — |
-| #42 | test-agent missing commands/ & scripts/ dirs | harness-fix | — | — | — |
-| #55 | CHANGELOG.md missing version marker | doc-fix | — | — | — |
-| #56 | repo-state.md stale (v2.3.0 → v2.4.2) | doc-fix | — | — | — |
-| #53 | git clone in --from-git missing --quiet flag | cli-bug | — | — | — |
-| #43 | describe --plan accepts non-existent path silently | cli-bug | — | — | — |
-| #45 | Skill version drift silently skips missing frontmatter | audit-bug | — | — | — |
-| #58 | --from-git URL passed unsanitized to subprocess.run | security | — | — | — |
-| #59 | Path inputs used directly for filesystem ops | security | — | — | — |
-| #44 | retrofit should warn when multiple profiles match | enhancement | — | — | — |
-| #54 | Add global --quiet / -q flag to all CLI commands | enhancement | — | — | — |
-| #46 | No test for agent-gen init command | test | — | — | — |
-| #47 | No test for describe --plan option | test | — | — | — |
-| #48 | No test for wrap --out option | test | — | — | — |
-| #49 | No test for import-skill --to . (root project) | test | — | — | — |
-| #50 | No test for import --from-git pipeline | test | — | — | — |
-| #51 | No test for _ensure_adapter_wiring() | test | — | — | — |
-| #52 | No test for _check_repo_state() | test | — | — | — |
-| #57 | Direct commits landing on dev without PR | infra | — | — | — |
-| #60 | No CI workflow — tests not enforced before merge | infra | — | — | — |
-| #61 | No coverage measurement or 80% threshold enforcement | infra | — | — | — |
-| #19 | Implement Token Budget Monitor (harness-doctor) | feature | — | — | — |
-| #62 | Set up production-grade GitHub CI/CD pipeline | feature | #62 | — | — |
+| #41 | Gemini & Codex adapter configs empty (0 bytes) | harness-fix | #63 | 39f1acd | v2.5.0 |
+| #42 | test-agent missing commands/ & scripts/ dirs | harness-fix | #63 | 39f1acd | v2.5.0 |
+| #55 | CHANGELOG.md missing version marker | doc-fix | #63 | 39f1acd | v2.5.0 |
+| #56 | repo-state.md stale (v2.3.0 → v2.4.2) | doc-fix | #63 | 39f1acd | v2.5.0 |
+| #53 | git clone in --from-git missing --quiet flag | cli-bug | #63 | 39f1acd | v2.5.0 |
+| #43 | describe --plan accepts non-existent path silently | cli-bug | #63 | 39f1acd | v2.5.0 |
+| #45 | Skill version drift silently skips missing frontmatter | audit-bug | #63 | 39f1acd | v2.5.0 |
+| #58 | --from-git URL passed unsanitized to subprocess.run | security | #63 | 39f1acd | v2.5.0 |
+| #59 | Path inputs used directly for filesystem ops | security | #63 | 39f1acd | v2.5.0 |
+| #44 | retrofit should warn when multiple profiles match | enhancement | #63 | 39f1acd | v2.5.0 |
+| #54 | Add global --quiet / -q flag to all CLI commands | enhancement | #63 | 39f1acd | v2.5.0 |
+| #46 | No test for agent-gen init command | test | #63 | 39f1acd | v2.5.0 |
+| #47 | No test for describe --plan option | test | #63 | 39f1acd | v2.5.0 |
+| #48 | No test for wrap --out option | test | #63 | 39f1acd | v2.5.0 |
+| #49 | No test for import-skill --to . (root project) | test | #63 | 39f1acd | v2.5.0 |
+| #50 | No test for import --from-git pipeline | test | #63 | 39f1acd | v2.5.0 |
+| #51 | No test for _ensure_adapter_wiring() | test | #63 | 39f1acd | v2.5.0 |
+| #52 | No test for _check_repo_state() | test | #63 | 39f1acd | v2.5.0 |
+| #57 | Direct commits landing on dev without PR | infra | #63 | 39f1acd | v2.5.0 |
+| #60 | No CI workflow — tests not enforced before merge | infra | #63 | 39f1acd | v2.5.0 |
+| #61 | No coverage measurement or 80% threshold enforcement | infra | #63 | 39f1acd | v2.5.0 |
+| #19 | Implement Token Budget Monitor (harness-doctor) | feature | #63 | 39f1acd | v2.5.0 |
+| #62 | Set up production-grade GitHub CI/CD pipeline | feature | #63 | 39f1acd | v2.5.0 |
 
 ---
 
