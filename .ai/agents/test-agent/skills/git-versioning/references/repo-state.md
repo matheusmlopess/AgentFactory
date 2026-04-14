@@ -1,5 +1,5 @@
 # Repo State Reference
-<!-- version: 1.0.0 -->
+<!-- version: 1.0.1 -->
 
 Keep this file updated whenever skills are upgraded or tags are created.
 The git-versioning skill reads this to give accurate, repo-specific commands.
@@ -28,8 +28,10 @@ The git-versioning skill reads this to give accurate, repo-specific commands.
 | v2.4.0 | 34eb58c | Repo cleanup: src layout, remove stale dirs, rewrite README |
 | v2.4.1 | 99c09ed | Move tests/ → src/tests/, add pytest testpaths config |
 | v2.4.2 | c8d45e2 | Fix test-agent description, drop stale egg-info, CHANGELOG updates |
+| v2.5.0 | f5ab939 | CI/CD pipeline, traceability matrix, security fixes, 14 new tests, harness-doctor |
+| v2.5.1 | f5b50b4 | Rename PyPI package to agentfactory-gen |
 
-Latest tag: v2.4.2
+Latest tag: v2.5.1
 
 ---
 
@@ -37,9 +39,9 @@ Latest tag: v2.4.2
 
 | Artifact | Version | Path |
 |----------|---------|------|
-| agentfactory-gen CLI | v0.3.0 | pyproject.toml |
+| agentfactory-gen CLI | v0.3.2 | pyproject.toml |
 | git-versioning | v1.3.0 | .ai/skills/git-versioning/SKILL.md |
-| diff-visualizer | v1.1.0 | .ai/skills/diff-visualizer/SKILL.md |
+| diff-visualizer | v1.1.1 | .ai/skills/diff-visualizer/SKILL.md |
 
 ---
 

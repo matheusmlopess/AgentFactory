@@ -242,7 +242,9 @@ class TestAdapterAdd:
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init", "--primary", "claude"])
             runner.invoke(cli, ["adapter", "add", "codex"])
-            assert Path(".ai/adapters/codex/config.toml").exists()
+            config_path = Path(".ai/adapters/codex/config.toml")
+            assert config_path.exists()
+            assert 'model = "gpt-5.4"' in config_path.read_text(encoding="utf-8")
 
     def test_gemini_add_creates_tools_symlink(self, runner):
         with runner.isolated_filesystem():
@@ -509,6 +511,37 @@ class TestAgentsAndRules:
                 b = Path(f".ai/adapters/{adapter}/brief.md").read_text()
                 assert "Always write tests before writing implementation" in b, \
                     f"rule missing from {adapter}"
+
+    def test_skill_briefing_rule_appears_in_all_briefs(self, runner):
+        with runner.isolated_filesystem():
+            runner.invoke(cli, ["init"])
+            runner.invoke(cli, ["adapter", "add", "codex"])
+            runner.invoke(cli, ["adapter", "add", "gemini"])
+            _add_rule(
+                Path("."),
+                "skill-briefing",
+                "- **Skill Briefing:** Keep description brief and triggers concise for compiled briefs.",
+            )
+            runner.invoke(cli, ["brief"])
+            for adapter in ["claude", "codex", "gemini"]:
+                b = Path(f".ai/adapters/{adapter}/brief.md").read_text(encoding="utf-8")
+                assert "Keep description brief and triggers concise for compiled briefs." in b, \
+                    f"skill briefing rule missing from {adapter}"
+
+    def test_skill_manifest_brief_metadata_appears_in_codex_brief(self, runner):
+        with runner.isolated_filesystem():
+            runner.invoke(cli, ["init"])
+            runner.invoke(cli, ["adapter", "add", "codex"])
+            _add_skill(
+                Path("."),
+                "brief-skill",
+                "Short brief-safe summary.",
+                "when you need a concise workflow hint",
+            )
+            runner.invoke(cli, ["brief"])
+            brief = Path(".ai/adapters/codex/brief.md").read_text(encoding="utf-8")
+            assert "- Description: Short brief-safe summary." in brief
+            assert "- Use when: when you need a concise workflow hint" in brief
 
 
 # ─────────────────────────────────────────────────────────────────────────────

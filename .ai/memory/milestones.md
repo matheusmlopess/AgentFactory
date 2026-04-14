@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.6.0 -->
+<!-- version: 1.6.1 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -120,10 +120,10 @@ The CLI stays open-source. The platform is the paid surface.
 
 | # | Title | Type | PR | Commit | Tag |
 |---|-------|------|----|--------|-----|
-| #93 | bug: AGENTS.md symlinks to AgentFactory.md — Codex reads Claude instructions | bug | — | 3d83de5 | — |
-| #94 | bug: _ensure_adapter_wiring() gives Codex no skills symlink | bug | — | 3d83de5 | — |
-| #95 | feat: generate Codex-specific AGENTS.md with skill declarations on every sync | enhancement | — | 3d83de5 | — |
-| #96 | feat: FormatSwitch — per-CLI compiled briefs with adapter activation | feature | — | 3d83de5 | — |
+| #93 | bug: AGENTS.md symlinks to AgentFactory.md — Codex reads Claude instructions | bug | #97 | 3d83de5 | — |
+| #94 | bug: _ensure_adapter_wiring() gives Codex no skills symlink | bug | #97 | 3d83de5 | — |
+| #95 | feat: generate Codex-specific AGENTS.md with skill declarations on every sync | enhancement | #97 | 3d83de5 | — |
+| #96 | feat: FormatSwitch — per-CLI compiled briefs with adapter activation | feature | #97 | 3d83de5 | — |
 
 ---
 

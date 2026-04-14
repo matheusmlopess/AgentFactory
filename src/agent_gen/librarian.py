@@ -159,7 +159,7 @@ _FORMAT_REGISTRY: dict[str, dict] = {
             "prompts": "../../commands",
         },
         "config_file": "config.toml",
-        "config_default": 'model = "o4-mini"\n',
+        "config_default": 'model = "gpt-5.4"\n',
         "skill_path_template": ".codex/skills/{name}/SKILL.md",
         "command_prefix": "",
         "sections": {

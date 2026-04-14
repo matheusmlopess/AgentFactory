@@ -256,8 +256,8 @@ class TestFormatSwitchLibrarian(unittest.TestCase):
             Librarian._compile_adapter_briefs(str(root))
             brief = (root / HARNESS_ROOT / "adapters" / "codex" / "brief.md").read_text()
             self.assertIn("### block-skill", brief)
-            self.assertIn("- Description:", brief)
-            self.assertIn("- Use when:", brief)
+            self.assertIn("- Description: A block skill", brief)
+            self.assertIn("- Use when: when coding", brief)
 
     def test_gemini_brief_has_tools_section(self):
         with tempfile.TemporaryDirectory() as tmp:
