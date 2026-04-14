@@ -64,3 +64,24 @@ jobs:
 
       - name: Run integration stress tests
         run: pytest -m integration -v --no-cov
+
+  webapp:
+    name: Webapp (type-check + build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: Install dependencies
+        working-directory: webapp
+        run: npm ci
+
+      - name: Type-check and build
+        working-directory: webapp
+        run: npm run build
