@@ -159,7 +159,7 @@ _FORMAT_REGISTRY: dict[str, dict] = {
             "prompts": "../../commands",
         },
         "config_file": "config.toml",
-        "config_default": "",
+        "config_default": 'model = "o4-mini"\n',
         "skill_path_template": ".codex/skills/{name}/SKILL.md",
         "command_prefix": "",
         "sections": {
@@ -1169,7 +1169,7 @@ class Librarian:
     def _extract_first_bullet_or_line(content: str) -> str:
         for line in content.splitlines():
             stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
+            if not stripped or stripped.startswith("#") or stripped.startswith("<!--"):
                 continue
             if stripped.startswith("- ") or stripped.startswith("* "):
                 return stripped[2:].strip()

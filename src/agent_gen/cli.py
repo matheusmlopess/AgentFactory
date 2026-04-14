@@ -238,7 +238,13 @@ def init_project(project_root: str, primary: str):
     else:
         _echo(f"  [skip] {global_manifest_path.relative_to(project_path)} (already exists)")
 
-    # 4. Compile adapter briefs and wire adapter symlinks
+    # 4. Write default config files for all adapters (idempotent — never clobbers edited files)
+    for _adapter_name, _adapter_cfg in _FORMAT_REGISTRY.items():
+        _cfg_path = ai_root / "adapters" / _adapter_name / _adapter_cfg["config_file"]
+        if not _cfg_path.exists() and _adapter_cfg["config_default"]:
+            _cfg_path.write_text(_adapter_cfg["config_default"], encoding="utf-8")
+
+    # 5. Compile adapter briefs and wire adapter symlinks
     Librarian._ensure_adapter_wiring(str(project_path))
     Librarian._compile_adapter_briefs(str(project_path))
     _echo("  [wired] adapter capability symlinks + compiled briefs")
