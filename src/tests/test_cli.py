@@ -409,6 +409,135 @@ class TestCliCommands(unittest.TestCase):
             result = self.runner.invoke(cli, ["describe", "bare-agent", "--desc", "x"])
             self.assertNotEqual(result.exit_code, 0)
 
+    # --- FormatSwitch CLI tests (#93–#96) ---
+
+    def test_root_symlinks_point_to_briefs(self):
+        """After init, CLAUDE.md symlink points to .ai/adapters/claude/brief.md."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["init"])
+            self.assertEqual(result.exit_code, 0)
+            self.assertTrue(os.path.islink("CLAUDE.md"))
+            target = os.readlink("CLAUDE.md")
+            self.assertIn("brief.md", target)
+            self.assertIn("claude", target)
+
+    def test_init_primary_flag_codex(self):
+        """--primary codex links AGENTS.md and CODEX.md to codex brief."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["init", "--primary", "codex"])
+            self.assertEqual(result.exit_code, 0)
+            self.assertTrue(os.path.islink("AGENTS.md"))
+            agents_target = os.readlink("AGENTS.md")
+            self.assertIn("codex", agents_target)
+            self.assertIn("brief.md", agents_target)
+            self.assertTrue(os.path.islink("CODEX.md"))
+            codex_target = os.readlink("CODEX.md")
+            self.assertIn("codex", codex_target)
+            # CLAUDE.md should NOT be created (not primary)
+            self.assertFalse(os.path.exists("CLAUDE.md"))
+
+    def test_adapter_add_creates_dir_and_brief(self):
+        """adapter add creates the adapter dir, config, wiring, brief, and root symlinks."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init", "--primary", "claude"])
+            # codex was not activated at init (--primary claude)
+            result = self.runner.invoke(cli, ["adapter", "add", "codex"])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertTrue(os.path.isdir(f"{HARNESS_ROOT}/adapters/codex"))
+            self.assertTrue(os.path.exists(f"{HARNESS_ROOT}/adapters/codex/brief.md"))
+            self.assertTrue(os.path.islink("AGENTS.md"))
+            target = os.readlink("AGENTS.md")
+            self.assertIn("codex", target)
+
+    def test_adapter_add_idempotent(self):
+        """adapter add can be called twice without overwriting user-edited config."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init", "--primary", "claude"])
+            self.runner.invoke(cli, ["adapter", "add", "codex"])
+            # Edit the config
+            config_path = Path(f"{HARNESS_ROOT}/adapters/codex/config.toml")
+            config_path.write_text("[custom]\nmy_key = true\n", encoding="utf-8")
+            # Run adapter add again
+            result = self.runner.invoke(cli, ["adapter", "add", "codex"])
+            self.assertEqual(result.exit_code, 0)
+            # Config should not have been overwritten
+            self.assertIn("my_key", config_path.read_text())
+
+    def test_adapter_add_unknown_name_errors(self):
+        """adapter add with an unknown adapter name raises a usage error."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["adapter", "add", "foobar"])
+            self.assertNotEqual(result.exit_code, 0)
+
+    def test_adapter_add_symlinks_after_compile(self):
+        """Root symlinks are created only after brief.md compiles successfully."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init", "--primary", "claude"])
+            result = self.runner.invoke(cli, ["adapter", "add", "gemini"])
+            self.assertEqual(result.exit_code, 0)
+            brief_path = Path(f"{HARNESS_ROOT}/adapters/gemini/brief.md")
+            self.assertTrue(brief_path.exists())
+            self.assertTrue(os.path.islink("GEMINI.md"))
+
+    def test_adapter_add_skips_non_symlink_root_file(self):
+        """adapter add does not clobber an existing regular-file AGENTS.md."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init", "--primary", "claude"])
+            # Create a real file at AGENTS.md
+            Path("AGENTS.md").write_text("# Custom content\n")
+            result = self.runner.invoke(cli, ["adapter", "add", "codex"])
+            self.assertEqual(result.exit_code, 0)
+            # File should still exist and not be a symlink
+            self.assertFalse(os.path.islink("AGENTS.md"))
+            self.assertIn("Custom content", Path("AGENTS.md").read_text())
+
+    def test_brief_cmd_regenerates_all(self):
+        """brief command updates AgentFactory.md and all active adapter briefs."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            result = self.runner.invoke(cli, ["brief"])
+            self.assertEqual(result.exit_code, 0)
+            self.assertIn("brief.md", result.output)
+            self.assertIn("ok", result.output)
+
+    def test_brief_cmd_no_harness_errors(self):
+        """brief command exits non-zero when there is no .ai/ harness."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["brief"])
+            self.assertNotEqual(result.exit_code, 0)
+
+    def test_migration_updates_legacy_symlinks_via_init(self):
+        """Calling init twice after update migrates old AgentFactory.md symlinks."""
+        with self.runner.isolated_filesystem():
+            # Simulate legacy: CLAUDE.md → .ai/AgentFactory.md
+            os.makedirs(f"{HARNESS_ROOT}/adapters/claude", exist_ok=True)
+            os.makedirs(f"{HARNESS_ROOT}/adapters/codex", exist_ok=True)
+            os.makedirs(f"{HARNESS_ROOT}/adapters/gemini", exist_ok=True)
+            os.makedirs(f"{HARNESS_ROOT}/skills", exist_ok=True)
+            os.makedirs(f"{HARNESS_ROOT}/commands", exist_ok=True)
+            os.makedirs(f"{HARNESS_ROOT}/rules", exist_ok=True)
+            os.makedirs(f"{HARNESS_ROOT}/agents", exist_ok=True)
+            os.makedirs(f"{HARNESS_ROOT}/memory", exist_ok=True)
+            Path(f"{HARNESS_ROOT}/AgentFactory.md").write_text("# Context\n")
+            Path(f"{HARNESS_ROOT}/agent-manifest.json").write_text('{"factory":"AF","agents":{}}')
+            os.symlink(f"{HARNESS_ROOT}/AgentFactory.md", "CLAUDE.md")
+            # Run brief to trigger migration
+            from agent_gen.librarian import Librarian
+            Librarian.update_harness_files(".")
+            target = os.readlink("CLAUDE.md")
+            self.assertIn("brief.md", target)
+
+    def test_migration_skips_if_no_brief(self):
+        """Migration does not create a dangling symlink when brief.md doesn't exist."""
+        with self.runner.isolated_filesystem():
+            os.makedirs(f"{HARNESS_ROOT}/adapters/claude", exist_ok=True)
+            Path(f"{HARNESS_ROOT}/AgentFactory.md").write_text("# Context\n")
+            os.symlink(f"{HARNESS_ROOT}/AgentFactory.md", "CLAUDE.md")
+            from agent_gen.librarian import Librarian
+            Librarian._migrate_root_symlinks(".")
+            # Brief doesn't exist → symlink unchanged
+            self.assertIn("AgentFactory.md", os.readlink("CLAUDE.md"))
+
 
 if __name__ == '__main__':
     unittest.main()

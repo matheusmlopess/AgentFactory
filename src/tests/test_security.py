@@ -1,4 +1,4 @@
-"""Security regression tests — S2 through S5."""
+"""Security regression tests — S2 through S5, and FormatSwitch registry integrity."""
 
 import json
 import tempfile
@@ -8,7 +8,12 @@ from pathlib import Path
 import click
 
 from agent_gen.cli import _assert_within_root
-from agent_gen.librarian import _sanitize_for_markdown, Librarian
+from agent_gen.librarian import (
+    _sanitize_for_markdown, Librarian,
+    _FORMAT_REGISTRY, _FORMATTER_DISPATCH,
+    _fmt_skills_table, _fmt_skills_blocks, _fmt_skills_tools,
+    _fmt_commands_list, _fmt_agents_list, _fmt_rules_list,
+)
 
 
 class TestSanitizeForMarkdown(unittest.TestCase):
@@ -161,6 +166,50 @@ class TestRegisterInProjectSanitizes(unittest.TestCase):
             with open(manifest_path) as f:
                 stored = json.load(f)
             self.assertLessEqual(len(stored["agents"]["test-agent"]["description"]), 200)
+
+
+class TestFormatRegistryIntegrity(unittest.TestCase):
+    """FormatSwitch registry completeness and formatter robustness."""
+
+    _REQUIRED_KEYS = [
+        "output", "header", "root_files", "folder_symlink",
+        "wiring", "config_file", "config_default",
+        "skill_path_template", "command_prefix", "sections", "section_order",
+    ]
+
+    def test_format_registry_completeness(self):
+        """All formatter names referenced in _FORMAT_REGISTRY exist in _FORMATTER_DISPATCH."""
+        for adapter_name, config in _FORMAT_REGISTRY.items():
+            # Required keys present
+            for key in self._REQUIRED_KEYS:
+                self.assertIn(key, config, f"_FORMAT_REGISTRY['{adapter_name}'] missing key '{key}'")
+            # All referenced formatter names resolve
+            for section_key, formatter_name in config["sections"].items():
+                if formatter_name is None:
+                    continue
+                self.assertIn(
+                    formatter_name,
+                    _FORMATTER_DISPATCH,
+                    f"_FORMAT_REGISTRY['{adapter_name}']['sections']['{section_key}'] "
+                    f"references unknown formatter '{formatter_name}'",
+                )
+
+    def test_formatters_handle_empty_input(self):
+        """Each formatter returns valid (non-empty) markdown for an empty list."""
+        empty_config = {
+            "skill_path_template": ".cli/skills/{name}/SKILL.md",
+            "command_prefix": "/",
+        }
+        formatters = [
+            _fmt_skills_table, _fmt_skills_blocks, _fmt_skills_tools,
+            _fmt_commands_list, _fmt_agents_list, _fmt_rules_list,
+        ]
+        for fn in formatters:
+            result = fn([], empty_config)
+            self.assertIsInstance(result, str, f"{fn.__name__} did not return a string")
+            self.assertTrue(len(result) > 0, f"{fn.__name__} returned empty string for empty input")
+            # Must produce valid markdown (at least one heading)
+            self.assertIn("#", result, f"{fn.__name__} output has no markdown heading")
 
 
 if __name__ == "__main__":

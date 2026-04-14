@@ -162,6 +162,18 @@ git branch -d <branch-name>
 
 ### Step 8 — Tag and release (only when DEFAULT_BRANCH is stable)
 
+#### Pre-release integration gate (required for every tag)
+
+Before tagging, run the full integration stress suite and confirm it passes:
+
+```bash
+pytest -m integration -v --no-cov
+```
+
+If any test fails, **do not tag**. Fix the underlying behavior first and push a fix commit.
+The integration tests cover the complete FormatSwitch lifecycle (init, adapter-add, brief,
+sync, deploy, migration). A green run confirms the CLI behaves correctly end-to-end.
+
 Determine repo-level bump using the SemVer rules in `repo-state.md`, then run **all three commands** — tag, push, and release are a single atomic step:
 
 ```bash

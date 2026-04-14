@@ -10,7 +10,7 @@ from pathlib import Path
 
 import click
 
-from .librarian import TRACKED_DIRS, HARNESS_ROOT, CONTEXT_FILE, Librarian, _safe_extract
+from .librarian import TRACKED_DIRS, HARNESS_ROOT, CONTEXT_FILE, Librarian, _safe_extract, _FORMAT_REGISTRY
 
 
 # ---------------------------------------------------------------------------
@@ -142,7 +142,14 @@ def _echo(msg: str, *, err: bool = False) -> None:
     show_default=True,
     help="Root of the project to initialize (defaults to current directory).",
 )
-def init_project(project_root: str):
+@click.option(
+    "--primary",
+    default="claude",
+    show_default=True,
+    type=click.Choice(list(_FORMAT_REGISTRY.keys())),
+    help="Primary CLI adapter — root symlinks will point to this adapter's compiled brief.",
+)
+def init_project(project_root: str, primary: str):
     """
     Initialize the AgentFactory harness in a project.
 
@@ -231,29 +238,46 @@ def init_project(project_root: str):
     else:
         _echo(f"  [skip] {global_manifest_path.relative_to(project_path)} (already exists)")
 
-    # 4. Root symlinks — all four .md files point to .ai/AgentFactory.md
-    root_links = {
-        "CLAUDE.md":  f"{HARNESS_ROOT}/{CONTEXT_FILE}",
-        "AGENTS.md":  f"{HARNESS_ROOT}/{CONTEXT_FILE}",
-        "GEMINI.md":  f"{HARNESS_ROOT}/{CONTEXT_FILE}",
-        "CODEX.md":   f"{HARNESS_ROOT}/{CONTEXT_FILE}",
-        ".claude":    f"{HARNESS_ROOT}/adapters/claude",
-        ".gemini":    f"{HARNESS_ROOT}/adapters/gemini",
-        ".codex":     f"{HARNESS_ROOT}/adapters/codex",
-    }
-    for link_name, target in root_links.items():
-        link_path = project_path / link_name
+    # 4. Write default config files for all adapters (idempotent — never clobbers edited files)
+    for _adapter_name, _adapter_cfg in _FORMAT_REGISTRY.items():
+        _cfg_path = ai_root / "adapters" / _adapter_name / _adapter_cfg["config_file"]
+        if not _cfg_path.exists() and _adapter_cfg["config_default"]:
+            _cfg_path.write_text(_adapter_cfg["config_default"], encoding="utf-8")
+
+    # 5. Compile adapter briefs and wire adapter symlinks
+    Librarian._ensure_adapter_wiring(str(project_path))
+    Librarian._compile_adapter_briefs(str(project_path))
+    _echo("  [wired] adapter capability symlinks + compiled briefs")
+
+    # 5. Root symlinks — primary adapter's root files → its compiled brief
+    #    Folder symlinks for all adapters
+    primary_config = _FORMAT_REGISTRY[primary]
+    brief_target = f"{HARNESS_ROOT}/adapters/{primary}/{primary_config['output']}"
+    brief_exists = (project_path / brief_target).exists()
+    fallback_target = f"{HARNESS_ROOT}/{CONTEXT_FILE}"
+
+    # MD root files for the primary adapter only
+    for root_file in primary_config["root_files"]:
+        link_path = project_path / root_file
         if link_path.exists() or link_path.is_symlink():
-            _echo(f"  [skip] {link_name} (already exists)")
+            _echo(f"  [skip] {root_file} (already exists)")
+            continue
+        target = brief_target if brief_exists else fallback_target
+        link_path.symlink_to(target)
+        _echo(f"  [linked] {root_file} -> {target}")
+
+    # Folder symlinks for all adapters (not adapter-specific)
+    for adapter_name in _FORMAT_REGISTRY:
+        folder_symlink = _FORMAT_REGISTRY[adapter_name]["folder_symlink"]
+        link_path = project_path / folder_symlink
+        target = f"{HARNESS_ROOT}/adapters/{adapter_name}"
+        if link_path.exists() or link_path.is_symlink():
+            _echo(f"  [skip] {folder_symlink} (already exists)")
             continue
         link_path.symlink_to(target)
-        _echo(f"  [linked] {link_name} -> {target}")
+        _echo(f"  [linked] {folder_symlink} -> {target}")
 
-    # 5. Ensure adapter capability symlinks are wired
-    Librarian._ensure_adapter_wiring(str(project_path))
-    _echo("  [wired] adapter capability symlinks")
-
-    _echo("\n[librarian] Harness ready. Run 'agent-gen deploy <name>' to scaffold your first agent.")
+    _echo("\n[librarian] Harness ready. Run 'agentfactory-gen deploy <name>' to scaffold your first agent.")
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +306,11 @@ def deploy(name: str):
     # Initialise manifest
     librarian = Librarian(str(root))
     manifest = librarian.init(name)
+
+    # Register in the global project manifest so the agent appears in briefs
+    # Only when a harness exists (skip if running outside an init'd project)
+    if Librarian._global_manifest_path(str(Path.cwd())).exists():
+        Librarian.register_in_project(manifest, str(Path.cwd()))
 
     _echo(f"[librarian] Deployed '{name}'")
     _echo(f"  Root   : {root}")
@@ -688,6 +717,151 @@ def import_agent(zip_path: str, from_git: str, project_root: str):
         if claude_md:
             _echo(f"  Check {claude_md} for your new instructions.")
     _echo("=" * 60)
+
+# ---------------------------------------------------------------------------
+# adapter
+# ---------------------------------------------------------------------------
+
+@cli.group("adapter")
+def adapter_group():
+    """Manage CLI adapters (activate, rewire, recompile briefs)."""
+
+
+@adapter_group.command("add")
+@click.argument("name", type=click.Choice(list(_FORMAT_REGISTRY.keys())))
+@click.option(
+    "--project-root",
+    default=".",
+    show_default=True,
+    help="Root of the project to activate the adapter in.",
+)
+def adapter_add(name: str, project_root: str):
+    """
+    Activate a CLI adapter mid-project.
+
+    Creates the adapter directory, writes the default config file if absent,
+    wires capability symlinks, compiles brief.md, then creates root symlinks.
+    Idempotent — re-running recompiles the brief but does not overwrite edited configs.
+    """
+    project_path = Path(project_root).resolve()
+    ai_root = project_path / HARNESS_ROOT
+    if not ai_root.exists():
+        raise click.ClickException(
+            f"No harness found at {ai_root}. Run 'agentfactory-gen init' first."
+        )
+
+    config = _FORMAT_REGISTRY[name]
+    adapter_dir = ai_root / "adapters" / name
+
+    # 1. Create adapter directory
+    created = not adapter_dir.exists()
+    adapter_dir.mkdir(parents=True, exist_ok=True)
+    if created:
+        _echo(f"  [created] {adapter_dir.relative_to(project_path)}")
+    else:
+        _echo(f"  [exists] {adapter_dir.relative_to(project_path)}")
+
+    # 2. Write default config file if missing (don't clobber user-edited configs)
+    config_path = adapter_dir / config["config_file"]
+    if not config_path.exists():
+        config_path.write_text(config["config_default"], encoding="utf-8")
+        _echo(f"  [created] {config_path.relative_to(project_path)}")
+    else:
+        _echo(f"  [skip] {config_path.relative_to(project_path)} (already exists)")
+
+    # 3. Wire capability symlinks for this adapter
+    for link_name, link_target in config["wiring"].items():
+        link_path = adapter_dir / link_name
+        if link_path.is_symlink():
+            _echo(f"  [skip] {link_path.relative_to(project_path)} (already linked)")
+            continue
+        elif link_path.exists():
+            _echo(f"  [skip] {link_path.relative_to(project_path)} (real file — not clobbered)")
+            continue
+        link_path.symlink_to(link_target)
+        _echo(f"  [linked] {link_path.relative_to(project_path)} -> {link_target}")
+
+    # 4. Compile brief.md
+    from .librarian import _FORMATTER_DISPATCH  # noqa: F401 (already imported transitively)
+    data = {
+        "skills":   Librarian._collect_skills_data(str(project_path)),
+        "agents":   Librarian._collect_agents_data(str(project_path)),
+        "commands": Librarian._collect_commands_data(str(project_path)),
+        "rules":    Librarian._collect_rules_data(str(project_path)),
+    }
+    brief_path = adapter_dir / config["output"]
+    try:
+        new_content = Librarian._render_brief(name, config, data)
+        brief_path.write_text(new_content, encoding="utf-8")
+        _echo(f"  [compiled] {brief_path.relative_to(project_path)}")
+    except Exception as exc:
+        raise click.ClickException(f"Failed to compile brief for '{name}': {exc}") from exc
+
+    # 5. Create root symlink(s) only now that brief exists
+    brief_target = f"{HARNESS_ROOT}/adapters/{name}/{config['output']}"
+    for root_file in config["root_files"]:
+        root_path = project_path / root_file
+        if root_path.exists() and not root_path.is_symlink():
+            _echo(f"  [skip] {root_file} (regular file — not clobbered)")
+            continue
+        if root_path.is_symlink():
+            root_path.unlink()
+        root_path.symlink_to(brief_target)
+        _echo(f"  [linked] {root_file} -> {brief_target}")
+
+    # 6. Folder symlink
+    folder_symlink = config["folder_symlink"]
+    folder_path = project_path / folder_symlink
+    folder_target = f"{HARNESS_ROOT}/adapters/{name}"
+    if folder_path.exists() or folder_path.is_symlink():
+        _echo(f"  [skip] {folder_symlink} (already exists)")
+    else:
+        folder_path.symlink_to(folder_target)
+        _echo(f"  [linked] {folder_symlink} -> {folder_target}")
+
+    _echo(f"\n[librarian] Adapter '{name}' activated.")
+
+
+# ---------------------------------------------------------------------------
+# brief
+# ---------------------------------------------------------------------------
+
+@cli.command("brief")
+@click.option(
+    "--project-root",
+    default=".",
+    show_default=True,
+    help="Root of the project to recompile briefs for.",
+)
+def brief_cmd(project_root: str):
+    """
+    Recompile all active adapter briefs and update AgentFactory.md.
+
+    Regenerates brief.md for every adapter directory that exists, using the
+    current skills, agents, commands, and rules from .ai/.
+    """
+    project_path = Path(project_root).resolve()
+    ai_root = project_path / HARNESS_ROOT
+    if not ai_root.exists():
+        raise click.ClickException(
+            f"No harness found at {ai_root}. Run 'agentfactory-gen init' first."
+        )
+
+    Librarian.update_harness_files(str(project_path))
+
+    context_path = ai_root / CONTEXT_FILE
+    _echo(f"  [ok] {context_path.relative_to(project_path)}")
+
+    adapters_root = ai_root / "adapters"
+    for adapter_name, config in _FORMAT_REGISTRY.items():
+        adapter_dir = adapters_root / adapter_name
+        brief_path = adapter_dir / config["output"]
+        if brief_path.exists():
+            root_files_str = ", ".join(config["root_files"])
+            _echo(f"  [ok] {brief_path.relative_to(project_path)}  ({root_files_str})")
+
+    _echo("\n[librarian] Briefs regenerated.")
+
 
 if __name__ == "__main__":
     cli()

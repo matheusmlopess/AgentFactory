@@ -1,1 +1,1 @@
-.ai/AgentFactory.md
+.ai/adapters/codex/brief.md

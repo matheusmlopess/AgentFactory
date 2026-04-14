@@ -1,1 +1,1 @@
-.ai/AgentFactory.md
+.ai/adapters/claude/brief.md

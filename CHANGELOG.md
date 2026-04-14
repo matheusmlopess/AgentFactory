@@ -1,5 +1,18 @@
 # Changelog
-<!-- version: 2.6.0 -->
+<!-- version: 2.6.1 -->
+
+## [v2.5.2] - 2026-04-14
+
+### Fixed
+- Codex adapter init and `adapter add codex` now default to `model = "gpt-5.4"` instead of the unsupported `o4-mini`
+- Compiled Claude, Codex, and Gemini briefs now render actual behavior-rule summaries instead of placeholder version markers
+- `diff-visualizer` skill metadata was shortened so Codex can load it without rejecting the `SKILL.md` description field
+
+### Added
+- Shared `skill-briefing` rule to keep skill `description` and `triggers` metadata brief-safe for compiled briefs
+
+### Tests
+- Added coverage for generated Codex config defaults, Codex brief metadata rendering, and brief-rule propagation across adapters
 
 ## [v0.3.1] - 2026-04-13
 

@@ -1,1 +1,1 @@
-.ai/AgentFactory.md
+.ai/adapters/gemini/brief.md

@@ -1,32 +1,22 @@
 ---
 name: diff-visualizer
-version: 1.1.0
+version: 1.1.1
 description: >
-  Visualize what changed between two versions of the specbuilder-agent repo by
-  generating a self-contained HTML comparison page with color-coded Mermaid diagrams.
-  Covers the ENTIRE repo — skills, docs, dashboard, assets, and root files —
-  not just skill folders. Every file in every folder is tracked.
-  Use this skill whenever the user wants to see what changed since the last release,
-  compare two versions visually, understand what was added or modified anywhere in the repo,
-  or produce a shareable diff report.
-  Also trigger when the user says "show what changed", "compare versions",
-  "visualize the diff", "what changed since last release", "diff v2.1.0 to v2.2.0",
-  "what's new in this version", "generate a comparison page", "changelog as diagram",
-  or asks for a visual changelog between any two tags or commits.
-  This skill runs exact git commands to detect versions and categorize changes,
-  generates two Mermaid flowcharts (OLD state in blue, NEW state color-coded by
-  status), and writes a complete dark-theme HTML file to assets/ using the template
-  in references/html-template.md. It always produces a ready-to-open file.
+  Generates a self-contained HTML diff report between two repo versions using
+  Mermaid diagrams. It compares the full repository, categorizes changed files,
+  and writes a shareable visual changelog to `assets/`. Use it when the user
+  asks to compare versions, show what changed since a release, or generate a
+  visual diff between tags, commits, or `HEAD`.
 ---
 
-# Diff Visualizer — v1.1.0
+# Diff Visualizer — v1.1.1
 
 This skill compares two git-tagged versions of the entire specbuilder-agent repo,
 identifies what changed in every folder and file, generates Mermaid flowcharts
 for both states (all components color-coded by status), and writes a self-contained
 HTML comparison file to `assets/diff-<OLD>-to-<NEW>.html`.
 
-**v1.1.0 change:** scope expanded from skills/ only → full repo (all folders and files).
+**v1.1.1 change:** frontmatter description shortened to stay compatible with Codex skill manifest limits.
 
 ---
 

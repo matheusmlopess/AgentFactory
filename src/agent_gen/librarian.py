@@ -123,6 +123,160 @@ CONVERSION_PROFILES = {
     }
 }
 
+# ---------------------------------------------------------------------------
+# FormatSwitch — per-CLI compiled brief registry
+# ---------------------------------------------------------------------------
+
+_FORMAT_REGISTRY: dict[str, dict] = {
+    "claude": {
+        "output": "brief.md",
+        "header": "# AgentFactory Intelligence Brief — Claude Code",
+        "root_files": ["CLAUDE.md"],
+        "folder_symlink": ".claude",
+        "wiring": {
+            "skills": "../../skills",
+            "commands": "../../commands",
+        },
+        "config_file": "settings.json",
+        "config_default": "{}",
+        "skill_path_template": ".claude/skills/{name}/SKILL.md",
+        "command_prefix": "/",
+        "sections": {
+            "skills": "_fmt_skills_table",
+            "commands": "_fmt_commands_list",
+            "agents": "_fmt_agents_list",
+            "rules": "_fmt_rules_list",
+        },
+        "section_order": ["skills", "commands", "agents", "rules"],
+    },
+    "codex": {
+        "output": "brief.md",
+        "header": "# AgentFactory Intelligence Brief — Codex CLI",
+        "root_files": ["AGENTS.md", "CODEX.md"],
+        "folder_symlink": ".codex",
+        "wiring": {
+            "skills": "../../skills",
+            "prompts": "../../commands",
+        },
+        "config_file": "config.toml",
+        "config_default": 'model = "gpt-5.4"\n',
+        "skill_path_template": ".codex/skills/{name}/SKILL.md",
+        "command_prefix": "",
+        "sections": {
+            "skills": "_fmt_skills_blocks",
+            "commands": None,
+            "agents": "_fmt_agents_list",
+            "rules": "_fmt_rules_list",
+        },
+        "section_order": ["skills", "agents", "rules"],
+    },
+    "gemini": {
+        "output": "brief.md",
+        "header": "# AgentFactory Intelligence Brief — Gemini CLI",
+        "root_files": ["GEMINI.md"],
+        "folder_symlink": ".gemini",
+        "wiring": {
+            "tools": "../../skills",
+        },
+        "config_file": "config.json",
+        "config_default": "{}",
+        "skill_path_template": ".gemini/tools/{name}/SKILL.md",
+        "command_prefix": "",
+        "sections": {
+            "skills": "_fmt_skills_tools",
+            "commands": None,
+            "agents": "_fmt_agents_list",
+            "rules": "_fmt_rules_list",
+        },
+        "section_order": ["skills", "agents", "rules"],
+    },
+}
+
+
+def _fmt_skills_table(skills: list, config: dict) -> str:
+    if not skills:
+        return "## Available Skills\n\nNo skills imported yet."
+    template = config["skill_path_template"]
+    header = "## Available Skills\n\n| Skill | When to invoke | Path |\n|-------|----------------|------|"
+    rows = []
+    for s in skills:
+        path = template.replace("{name}", s["name"])
+        rows.append(f"| {s['name']} | {s.get('triggers', '')} | `{path}` |")
+    return header + "\n" + "\n".join(rows)
+
+
+def _fmt_skills_blocks(skills: list, config: dict) -> str:
+    if not skills:
+        return "## Available Skills\n\nNo skills imported yet."
+    template = config["skill_path_template"]
+    blocks = ["## Available Skills"]
+    for s in skills:
+        path = template.replace("{name}", s["name"])
+        block = (
+            f"### {s['name']}\n"
+            f"- Description: {s.get('description', 'No description')}\n"
+            f"- See: {path}\n"
+            f"- Use when: {s.get('triggers', 'see skill documentation')}"
+        )
+        blocks.append(block)
+    return "\n\n".join(blocks)
+
+
+def _fmt_skills_tools(skills: list, config: dict) -> str:
+    if not skills:
+        return "## Available Tools\n\nNo tools imported yet."
+    template = config["skill_path_template"]
+    blocks = ["## Available Tools"]
+    for s in skills:
+        path = template.replace("{name}", s["name"])
+        input_val = s.get('input_hint') or s.get('triggers') or 'see tool documentation'
+        block = (
+            f"### {s['name']}\n"
+            f"- Description: {s.get('description', 'No description')}\n"
+            f"- Input: {input_val}\n"
+            f"- See: {path}"
+        )
+        blocks.append(block)
+    return "\n\n".join(blocks)
+
+
+def _fmt_commands_list(commands: list, config: dict) -> str:
+    if not commands:
+        return "## Commands\n\nNo commands registered."
+    prefix = config.get("command_prefix", "")
+    lines = ["## Commands"]
+    for c in commands:
+        lines.append(f"- `{prefix}{c['name']}` — {c.get('description', 'No description')}")
+    return "\n".join(lines)
+
+
+def _fmt_agents_list(agents: list, config: dict) -> str:
+    if not agents:
+        return "## Registered Agents\n\nNo agents registered."
+    lines = ["## Registered Agents"]
+    for a in agents:
+        lines.append(f"- **{a['name']}**: {a.get('description', 'No description')}")
+    return "\n".join(lines)
+
+
+def _fmt_rules_list(rules: list, config: dict) -> str:
+    if not rules:
+        return "## Behavior Rules\n\nNo rules defined."
+    lines = ["## Behavior Rules"]
+    for r in rules:
+        lines.append(f"- {r['summary']}")
+    return "\n".join(lines)
+
+
+_FORMATTER_DISPATCH: dict = {
+    "_fmt_skills_table":  _fmt_skills_table,
+    "_fmt_skills_blocks": _fmt_skills_blocks,
+    "_fmt_skills_tools":  _fmt_skills_tools,
+    "_fmt_commands_list": _fmt_commands_list,
+    "_fmt_agents_list":   _fmt_agents_list,
+    "_fmt_rules_list":    _fmt_rules_list,
+}
+
 
 class Librarian:
     def __init__(self, agent_root: str):
@@ -850,6 +1004,8 @@ class Librarian:
 
         # Ensure adapter symlink wiring is complete after every harness update
         cls._ensure_adapter_wiring(project_root)
+        cls._compile_adapter_briefs(project_root)
+        cls._migrate_root_symlinks(project_root)
 
     # ------------------------------------------------------------------
     # Remote import helpers
@@ -939,28 +1095,194 @@ class Librarian:
                         "description": desc[:200],
                     }, indent=2))
 
-    @classmethod
-    def _ensure_adapter_wiring(cls, project_root: str) -> None:
-        """
-        Idempotently create missing adapter symlinks based on the capability matrix.
+    # ------------------------------------------------------------------
+    # FormatSwitch — data collectors
+    # ------------------------------------------------------------------
 
-        Expected wiring:
-          .ai/adapters/claude/commands -> ../../commands  (.ai/commands/)
-          .ai/adapters/claude/skills   -> ../../skills    (.ai/skills/)
-          .ai/adapters/gemini/tools    -> ../../skills    (.ai/skills/)
-          .ai/adapters/codex/prompts   -> ../../commands  (.ai/commands/)
-        """
-        adapters_root = Path(project_root).resolve() / HARNESS_ROOT / "adapters"
-        wiring = {
-            "claude": [("commands", "../../commands"), ("skills", "../../skills")],
-            "gemini": [("tools",    "../../skills")],
-            "codex":  [("prompts",  "../../commands")],
+    @classmethod
+    def _collect_skills_data(cls, project_root: str) -> list:
+        skills_dir = Path(project_root) / HARNESS_ROOT / "skills"
+        if not skills_dir.exists():
+            return []
+        skills = []
+        for skill_dir in sorted(skills_dir.iterdir()):
+            if not skill_dir.is_dir():
+                continue
+            manifest = skill_dir / "skill-manifest.json"
+            if manifest.exists():
+                try:
+                    data = json.loads(manifest.read_text(encoding="utf-8"))
+                except Exception:
+                    data = {}
+                skills.append({
+                    "name": skill_dir.name,
+                    "description": data.get("description", ""),
+                    "triggers": data.get("triggers", data.get("when_to_use", "")),
+                    "input_hint": data.get("input", ""),
+                })
+            else:
+                skills.append({"name": skill_dir.name, "description": "", "triggers": "", "input_hint": ""})
+        return skills
+
+    @classmethod
+    def _collect_agents_data(cls, project_root: str) -> list:
+        manifest_path = Path(project_root) / HARNESS_ROOT / "agent-manifest.json"
+        if not manifest_path.exists():
+            return []
+        try:
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+        return [
+            {"name": name, "description": info.get("description", "No description")}
+            for name, info in data.get("agents", {}).items()
+        ]
+
+    @classmethod
+    def _collect_commands_data(cls, project_root: str) -> list:
+        commands_dir = Path(project_root) / HARNESS_ROOT / "commands"
+        if not commands_dir.exists():
+            return []
+        commands = []
+        for cmd_file in sorted(commands_dir.glob("*.md")):
+            content = cmd_file.read_text(encoding="utf-8").strip()
+            commands.append({
+                "name": cmd_file.stem,
+                "description": cls._extract_first_description(content),
+            })
+        return commands
+
+    @classmethod
+    def _collect_rules_data(cls, project_root: str) -> list:
+        rules_dir = Path(project_root) / HARNESS_ROOT / "rules"
+        if not rules_dir.exists():
+            return []
+        rules = []
+        for rule_file in sorted(rules_dir.glob("*.md")):
+            content = rule_file.read_text(encoding="utf-8").strip()
+            summary = cls._extract_first_bullet_or_line(content)
+            if summary:
+                rules.append({"name": rule_file.stem, "summary": summary})
+        return rules
+
+    @staticmethod
+    def _extract_first_bullet_or_line(content: str) -> str:
+        for line in content.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or stripped.startswith("<!--"):
+                continue
+            if stripped.startswith("- ") or stripped.startswith("* "):
+                return stripped[2:].strip()
+            return stripped
+        return ""
+
+    @staticmethod
+    def _extract_first_description(content: str) -> str:
+        lines = content.splitlines()
+        in_frontmatter = False
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if i == 0 and stripped == "---":
+                in_frontmatter = True
+                continue
+            if in_frontmatter:
+                if stripped == "---":
+                    in_frontmatter = False
+                    continue
+                if stripped.startswith("description:"):
+                    return stripped.split(":", 1)[1].strip().strip('"').strip("'")
+                continue
+            if stripped and not stripped.startswith("#"):
+                return stripped
+        return "No description"
+
+    # ------------------------------------------------------------------
+    # FormatSwitch — compilation driver
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def _render_brief(cls, adapter_name: str, config: dict, data: dict) -> str:
+        sections = []
+        header = (
+            f"{config['header']}\n"
+            f"<!-- @compiled-by: agentfactory-gen -->\n"
+            f"<!-- @source: .ai/ -->\n"
+            f"<!-- @adapter: {adapter_name} -->\n"
+            f"<!-- @recompile: agentfactory-gen brief -->"
+        )
+        sections.append(header)
+        for section_key in config["section_order"]:
+            formatter_name = config["sections"].get(section_key)
+            if formatter_name is None:
+                continue
+            formatter_fn = _FORMATTER_DISPATCH.get(formatter_name)
+            if formatter_fn is None:
+                continue
+            rendered = formatter_fn(data.get(section_key, []), config)
+            if rendered:
+                sections.append(rendered)
+        return "\n\n".join(sections) + "\n"
+
+    @classmethod
+    def _compile_adapter_briefs(cls, project_root: str) -> None:
+        """Compile brief.md for every activated adapter using FormatSwitch."""
+        import click as _click
+        adapters_root = Path(project_root) / HARNESS_ROOT / "adapters"
+        if not adapters_root.exists():
+            return
+
+        data = {
+            "skills":   cls._collect_skills_data(project_root),
+            "agents":   cls._collect_agents_data(project_root),
+            "commands": cls._collect_commands_data(project_root),
+            "rules":    cls._collect_rules_data(project_root),
         }
-        for adapter_name, links in wiring.items():
+
+        for adapter_name, config in _FORMAT_REGISTRY.items():
             adapter_dir = adapters_root / adapter_name
             if not adapter_dir.exists():
                 continue
-            for link_name, link_target in links:
+            brief_path = adapter_dir / config["output"]
+            try:
+                new_content = cls._render_brief(adapter_name, config, data)
+                if brief_path.exists() and brief_path.read_text(encoding="utf-8") == new_content:
+                    continue
+                brief_path.write_text(new_content, encoding="utf-8")
+            except Exception as e:
+                _click.echo(f"Warning: failed to compile brief for {adapter_name}: {e}", err=True)
+
+    @classmethod
+    def _migrate_root_symlinks(cls, project_root: str) -> None:
+        """Update legacy root symlinks that point to AgentFactory.md → per-CLI brief.md."""
+        root = Path(project_root)
+        for adapter_name, config in _FORMAT_REGISTRY.items():
+            adapter_dir = root / HARNESS_ROOT / "adapters" / adapter_name
+            brief_path = adapter_dir / config["output"]
+            if not adapter_dir.exists() or not brief_path.exists():
+                continue
+            brief_target = f"{HARNESS_ROOT}/adapters/{adapter_name}/{config['output']}"
+            for root_file in config["root_files"]:
+                root_path = root / root_file
+                if root_path.is_symlink():
+                    current = os.readlink(str(root_path))
+                    if "AgentFactory.md" in current:
+                        root_path.unlink()
+                        root_path.symlink_to(brief_target)
+
+    @classmethod
+    def _ensure_adapter_wiring(cls, project_root: str) -> None:
+        """
+        Idempotently create missing adapter symlinks driven by _FORMAT_REGISTRY.
+
+        Reads each adapter's wiring map from the registry — no hardcoded lists.
+        This fixes #94 by automatically including the Codex skills symlink.
+        """
+        adapters_root = Path(project_root).resolve() / HARNESS_ROOT / "adapters"
+        for adapter_name, config in _FORMAT_REGISTRY.items():
+            adapter_dir = adapters_root / adapter_name
+            if not adapter_dir.exists():
+                continue
+            for link_name, link_target in config["wiring"].items():
                 link_path = adapter_dir / link_name
                 if link_path.is_symlink():
                     if os.readlink(str(link_path)) == link_target:
