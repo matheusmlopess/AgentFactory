@@ -1,4 +1,5 @@
 import { featureCards, lifecycleSteps } from "./data/harness";
+import { HarnessExplorer } from "./components/HarnessExplorer";
 
 function App() {
   return (
@@ -30,6 +31,8 @@ function App() {
           </article>
         ))}
       </section>
+
+      <HarnessExplorer />
 
       <section className="split">
         <article className="surface">

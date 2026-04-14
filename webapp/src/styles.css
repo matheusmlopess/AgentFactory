@@ -194,6 +194,142 @@ code {
   color: var(--ce-accent-strong);
 }
 
+/* ── Harness Explorer ─────────────────────────────── */
+
+.explorer {
+  margin-top: 1.25rem;
+}
+
+.explorer-intro {
+  margin-bottom: 1rem;
+}
+
+.explorer-lede {
+  color: var(--ce-text-soft);
+  margin: 0.4rem 0 0;
+}
+
+.explorer-panels {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.explorer-tree {
+  border-right: 1px solid var(--ce-border);
+  padding: 1rem 0.5rem;
+  overflow-y: auto;
+  max-height: 480px;
+}
+
+/* tree */
+
+.tree-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-item {
+  margin: 0;
+}
+
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.3rem 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--ce-text);
+  font-family: var(--ce-font-body);
+  font-size: 0.85rem;
+  transition: background 0.12s;
+}
+
+.tree-node:hover {
+  background: var(--ce-surface-strong);
+}
+
+.tree-node--selected {
+  background: var(--ce-surface-strong);
+  color: var(--ce-accent-strong);
+  font-weight: 600;
+}
+
+.tree-icon {
+  font-size: 0.7rem;
+  width: 0.9rem;
+  flex-shrink: 0;
+  color: var(--ce-text-soft);
+}
+
+.tree-node--selected .tree-icon {
+  color: var(--ce-accent);
+}
+
+.tree-name {
+  font-family: "SFMono-Regular", "Consolas", monospace;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* doc pane */
+
+.doc-pane {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.doc-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.badge-kind--dir    { background: rgba(86, 211, 199, 0.15); color: var(--ce-accent-strong); }
+.badge-kind--file   { background: rgba(206, 137, 34, 0.15); color: #8a5a00; }
+.badge-kind--symlink { background: rgba(120, 80, 200, 0.12); color: #5b3ea6; }
+.badge-tag          { background: var(--ce-surface-strong); color: var(--ce-text-soft); }
+
+@media (prefers-color-scheme: dark) {
+  .badge-kind--file   { color: #f5c76a; }
+  .badge-kind--symlink { color: #c4aaff; }
+}
+
+.doc-path {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--ce-text-soft);
+  font-family: "SFMono-Regular", "Consolas", monospace;
+}
+
+.doc-title {
+  font-family: var(--ce-font-display);
+  font-size: 1.4rem;
+  margin: 0;
+  line-height: 1.1;
+}
+
+.doc-description {
+  color: var(--ce-text-soft);
+  line-height: 1.65;
+  margin: 0;
+}
+
+/* ── end Harness Explorer ─────────────────────────── */
+
 @media (max-width: 900px) {
   .panel-grid,
   .split {
@@ -207,5 +343,15 @@ code {
 
   .hero {
     padding: 1.4rem;
+  }
+
+  .explorer-panels {
+    grid-template-columns: 1fr;
+  }
+
+  .explorer-tree {
+    border-right: none;
+    border-bottom: 1px solid var(--ce-border);
+    max-height: 240px;
   }
 }
