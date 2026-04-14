@@ -15,6 +15,14 @@ build/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+
+# Webapp artifacts
+webapp/node_modules/
+webapp/dist/
+webapp/*.tsbuildinfo
+webapp/*.js
+webapp/*.d.ts
 
 # AI Harness — ephemeral & local
 .ai/adapters/*/settings.local.json
