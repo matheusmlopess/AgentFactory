@@ -301,6 +301,11 @@ def deploy(name: str):
     librarian = Librarian(str(root))
     manifest = librarian.init(name)
 
+    # Register in the global project manifest so the agent appears in briefs
+    # Only when a harness exists (skip if running outside an init'd project)
+    if Librarian._global_manifest_path(str(Path.cwd())).exists():
+        Librarian.register_in_project(manifest, str(Path.cwd()))
+
     _echo(f"[librarian] Deployed '{name}'")
     _echo(f"  Root   : {root}")
     _echo(f"  Version: {manifest['version']}")
