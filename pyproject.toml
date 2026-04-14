@@ -24,6 +24,9 @@ dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.4"]
 
 [tool.pytest.ini_options]
 testpaths = ["src/tests"]
+markers = [
+    "integration: end-to-end stress tests that exercise the full CLI lifecycle (slow, deselect with -m 'not integration')",
+]
 
 [tool.coverage.run]
 source = ["agent_gen"]
