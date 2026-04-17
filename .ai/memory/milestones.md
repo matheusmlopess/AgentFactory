@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.6.7 -->
+<!-- version: 1.6.8 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -136,7 +136,7 @@ The CLI stays open-source. The platform is the paid surface.
 | #101 | skill-completeness dedicated CI job | feature | done | feature/101-skill-completeness-ci-job | #107 | 5b8337e | — |
 | #102 | integrate completeness gate into adapter-add command | feature | pending | — | — | — | — |
 | #103 | per-adapter completeness thresholds in harness config | feature | pending | — | — | — | — |
-| #104 | webapp completeness report viewer (static, no API key) | feature | pending | — | — | — | — |
+| #104 | webapp completeness report viewer (static, no API key) | feature | done | feature/104-webapp-completeness-viewer | #108 | 4f2822b | — |
 | #105 | BYOK live completeness checker in webapp [pro] | feature | pending | — | — | — | — |
 
 ## Pending (legacy / non-platform)
