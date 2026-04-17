@@ -22,6 +22,7 @@ QUIET=0
 CI_MODE=0
 JSON_OUTPUT=0
 SNAPSHOT_ONLY=0
+COMPLETENESS_CHECK=0
 AI_ROOT=".ai"
 SNAPSHOT_PATH="${AI_ROOT}/.harness-health.json"
 
@@ -38,11 +39,12 @@ declare -a CRITICALS=()
 # ---------------------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --target)   TARGET_CLI="$2"; shift 2 ;;
-    --quiet)    QUIET=1; shift ;;
-    --ci)       CI_MODE=1; shift ;;
-    --json)     JSON_OUTPUT=1; shift ;;
+    --target)       TARGET_CLI="$2"; shift 2 ;;
+    --quiet)        QUIET=1; shift ;;
+    --ci)           CI_MODE=1; shift ;;
+    --json)         JSON_OUTPUT=1; shift ;;
     --snapshot-only) SNAPSHOT_ONLY=1; shift ;;
+    --completeness) COMPLETENESS_CHECK=1; shift ;;
     *) echo "[harness-doctor] Unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -149,6 +151,40 @@ check_version_markers() {
   [[ $missing -eq 0 ]] && ok "Version markers present in all rules/*.md and skills/*.md"
 }
 
+check_skills_completeness() {
+  [[ $COMPLETENESS_CHECK -eq 0 ]] && return
+  if ! command -v python3 &>/dev/null; then
+    warn "Skill completeness: python3 not found — skipping"
+    return
+  fi
+  if ! python3 -c "import anthropic" 2>/dev/null; then
+    warn "Skill completeness: anthropic SDK not installed — skipping"
+    return
+  fi
+  if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
+    warn "Skill completeness: ANTHROPIC_API_KEY not set — skipping"
+    return
+  fi
+  local skills_dir="${AI_ROOT}/skills"
+  if [[ ! -d "${skills_dir}" ]]; then return; fi
+  while IFS= read -r -d '' skill_dir; do
+    local name; name=$(basename "${skill_dir}")
+    local out="${AI_ROOT}/reports/skill-${name}-completeness.json"
+    local stderr_out rc score reason
+    stderr_out=$(python3 "${AI_ROOT}/scripts/skill-completeness-check.py" \
+        --skill "${name}" --threshold 90 --out "${out}" --quiet 2>&1) && rc=0 || rc=$?
+    score=$(python3 -c "import json; d=json.load(open('${out}')); print(d['score'])" 2>/dev/null || echo "?")
+    if [[ $rc -eq 0 ]]; then
+      ok "Skill completeness: ${name} (${score}%)"
+    elif [[ $rc -eq 2 ]]; then
+      reason=$(echo "${stderr_out}" | grep -o 'Error:[^'$'\033'']*' | head -1 | sed 's/\x1b\[[0-9;]*m//g' || echo "API error")
+      warn "Skill completeness skipped: ${name} — ${reason}"
+    else
+      warn "Skill completeness below threshold: ${name} (${score}%)"
+    fi
+  done < <(find "${skills_dir}" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
+}
+
 # ---------------------------------------------------------------------------
 # Run checks
 # ---------------------------------------------------------------------------
@@ -166,6 +202,7 @@ check_milestones
 check_adapter_wiring
 check_skills_budget
 check_version_markers
+check_skills_completeness
 
 # ---------------------------------------------------------------------------
 # Summary

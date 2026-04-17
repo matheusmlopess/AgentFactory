@@ -25,6 +25,7 @@ webapp/*.js
 webapp/*.d.ts
 
 # AI Harness — ephemeral & local
+.claude/settings.local.json
 .ai/adapters/*/settings.local.json
 .ai/adapters/*/cache/
 .ai/adapters/*/history/
