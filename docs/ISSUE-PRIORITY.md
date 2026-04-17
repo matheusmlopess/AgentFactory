@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-04-17 16:24 UTC -->
-<!-- open-issues: 18 -->
+<!-- generated: 2026-04-17 16:38 UTC -->
+<!-- open-issues: 16 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
@@ -12,7 +12,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ┌──────────────────┬───────────────────────────────────────────┐
   │  Track           │  Issues                                    │
   ├──────────────────┼───────────────────────────────────────────┤
-  │  Harness / CLI   │  #96  #102  #103                            │
+  │  Harness / CLI   │  #103                                       │
   │  Webapp / UI     │  #80  #83  #88  #105                        │
   │  Platform Core   │  #77  #81  #82  #84  #85  #86               │
   │  Platform Upper  │  #87  #89  #90  #91  #92                    │
@@ -38,9 +38,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #90     #77 #81 #83 #85           #92                       feat[P4]: marketplace — paid agent listings +
   #91     #77 #81                   —                         feat[P4]: verified agent badge — automated Li
   #92     #77 #89 #90               —                         feat[P4]: publisher revenue share — Stripe Co
-  #96     —                         #102                      feat: FormatSwitch — per-CLI compiled briefs 
-  #102    #96                       #103                      feat: integrate completeness gate into adapte
-  #103    #102                      —                         feat: per-adapter completeness thresholds in 
+  #103    —                         —                         feat: per-adapter completeness thresholds in 
   #105    #83 #85                   —                         feat[pro]: BYOK live completeness checker in 
 ```
 
@@ -53,7 +51,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
   #77     epic      Platform Core     #80 #82 #83 #84 …     epic: AgentFactory production platform — free
   #81     large     Platform Core     #82 #83 #87 #88 …     feat[P1]: public agent registry — browse, sea
-  #96     large     Harness / CLI     #102                  feat: FormatSwitch — per-CLI compiled briefs 
+  #103    small     Harness / CLI     —                     feat: per-adapter completeness thresholds in 
 ```
 
 ### Wave 2 — After Wave 1
@@ -64,7 +62,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #80     medium    Webapp / UI       #88                   feat[P1]: lifecycle stepper + manifest inspec
   #83     medium    Webapp / UI       #82 #84 #85 #86 …     feat[P2]: GitHub OAuth authentication — login
   #91     medium    Platform Upper    —                     feat[P4]: verified agent badge — automated Li
-  #102    medium    Harness / CLI     #103                  feat: integrate completeness gate into adapte
 ```
 
 ### Wave 3 — After Wave 2
@@ -75,7 +72,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #82     medium    Platform Core     —                     feat[P1]: CLI extensions — agentfactory-gen p
   #84     large     Platform Core     #85 #87 #89           feat[P2]: private org workspaces + RBAC (owne
   #86     small     Platform Core     —                     feat[P2]: agentfactory-gen login / logout CLI
-  #103    small     Harness / CLI     —                     feat: per-adapter completeness thresholds in 
 ```
 
 ### Wave 4 — Monetisation ceiling
@@ -127,5 +123,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-04-17 16:24 UTC by `generate-priority-report.py`._
+_Generated 2026-04-17 16:38 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
