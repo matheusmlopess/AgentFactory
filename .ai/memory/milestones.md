@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.6.6 -->
+<!-- version: 1.6.7 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -133,7 +133,7 @@ The CLI stays open-source. The platform is the paid surface.
 |---|-------|------|--------|--------|----|--------|-----|
 | #79  | harness explorer UI + quality layer (skill completeness, issue tracker, feature workflow SOP) | feature | done | feature/harness-explorer-ui-p1-79 | #99 | eb75c686 | — |
 | #100 | pre-commit hook for SKILL.md completeness warning | feature | done | feature/100-skill-completeness-precommit | #106 | cc8f5a8e | — |
-| #101 | skill-completeness dedicated CI job | feature | pending | — | — | — | — |
+| #101 | skill-completeness dedicated CI job | feature | done | feature/101-skill-completeness-ci-job | #107 | 5b8337e | — |
 | #102 | integrate completeness gate into adapter-add command | feature | pending | — | — | — | — |
 | #103 | per-adapter completeness thresholds in harness config | feature | pending | — | — | — | — |
 | #104 | webapp completeness report viewer (static, no API key) | feature | pending | — | — | — | — |

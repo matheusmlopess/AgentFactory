@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-04-17 15:52 UTC -->
-<!-- open-issues: 20 -->
+<!-- generated: 2026-04-17 16:05 UTC -->
+<!-- open-issues: 19 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
@@ -12,7 +12,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ┌──────────────────┬───────────────────────────────────────────┐
   │  Track           │  Issues                                    │
   ├──────────────────┼───────────────────────────────────────────┤
-  │  Harness / CLI   │  #96  #101  #102  #103                      │
+  │  Harness / CLI   │  #96  #102  #103                            │
   │  Webapp / UI     │  #80  #83  #88  #104  #105                  │
   │  Platform Core   │  #77  #81  #82  #84  #85  #86               │
   │  Platform Upper  │  #87  #89  #90  #91  #92                    │
@@ -39,10 +39,9 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #91     #77 #81                   —                         feat[P4]: verified agent badge — automated Li
   #92     #77 #89 #90               —                         feat[P4]: publisher revenue share — Stripe Co
   #96     —                         #102                      feat: FormatSwitch — per-CLI compiled briefs 
-  #101    —                         #102 #104                 feat: skill-completeness dedicated CI job
-  #102    #96 #101                  #103                      feat: integrate completeness gate into adapte
+  #102    #96                       #103                      feat: integrate completeness gate into adapte
   #103    #102                      —                         feat: per-adapter completeness thresholds in 
-  #104    #101                      #105                      feat: webapp completeness report viewer (stat
+  #104    —                         #105                      feat: webapp completeness report viewer (stat
   #105    #83 #85 #104              —                         feat[pro]: BYOK live completeness checker in 
 ```
 
@@ -56,7 +55,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #77     epic      Platform Core     #80 #82 #83 #84 …     epic: AgentFactory production platform — free
   #81     large     Platform Core     #82 #83 #87 #88 …     feat[P1]: public agent registry — browse, sea
   #96     large     Harness / CLI     #102                  feat: FormatSwitch — per-CLI compiled briefs 
-  #101    small     Harness / CLI     #102 #104             feat: skill-completeness dedicated CI job
+  #104    small     Webapp / UI       #105                  feat: webapp completeness report viewer (stat
 ```
 
 ### Wave 2 — After Wave 1
@@ -68,7 +67,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #83     medium    Webapp / UI       #82 #84 #85 #86 …     feat[P2]: GitHub OAuth authentication — login
   #91     medium    Platform Upper    —                     feat[P4]: verified agent badge — automated Li
   #102    medium    Harness / CLI     #103                  feat: integrate completeness gate into adapte
-  #104    small     Webapp / UI       #105                  feat: webapp completeness report viewer (stat
 ```
 
 ### Wave 3 — After Wave 2
@@ -131,5 +129,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-04-17 15:52 UTC by `generate-priority-report.py`._
+_Generated 2026-04-17 16:05 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
