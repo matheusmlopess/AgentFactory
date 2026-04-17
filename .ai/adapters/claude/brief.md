@@ -10,6 +10,7 @@
 |-------|----------------|------|
 | diff-visualizer |  | `.claude/skills/diff-visualizer/SKILL.md` |
 | git-versioning |  | `.claude/skills/git-versioning/SKILL.md` |
+| issue-tracker | regenerate priority report, show dependency matrix, what to work on next | `.claude/skills/issue-tracker/SKILL.md` |
 
 ## Commands
 - `/git-workflow` — <!-- version: 1.0.0 -->
@@ -27,3 +28,5 @@
 - **Secrets:** Never log, print, or commit API keys or secrets.
 - **Skill Briefing:** Skill metadata used in compiled briefs must stay brief-safe: keep `description` to a short summary line and `triggers` or `when_to_use` to a short invocation hint instead of procedural detail.
 - **Coverage:** Aim for 80%+ test coverage for new logic.
+- **Feature Workflow:** Every feature follows docs/FEATURE-WORKFLOW.md — issue → branch → implement → CI → PR → merge → milestones → regen priority report. Never skip steps ⑦ and ⑧.
+- **Priority Report:** After every merged PR run `python3 .ai/scripts/generate-priority-report.py`. CI does this automatically on push to dev/main via `issue-tracker.yml`.
