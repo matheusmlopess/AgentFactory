@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-04-17 18:59 UTC -->
-<!-- open-issues: 12 -->
+<!-- generated: 2026-04-17 19:44 UTC -->
+<!-- open-issues: 13 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
@@ -14,7 +14,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ├──────────────────┼───────────────────────────────────────────┤
   │  Harness / CLI   │                                             │
   │  Webapp / UI     │  #88  #105                                  │
-  │  Platform Core   │  #77  #82  #84  #85  #86                    │
+  │  Platform Core   │  #77  #82  #84  #85  #86  #114              │
   │  Platform Upper  │  #87  #89  #90  #91  #92                    │
   └──────────────────┴───────────────────────────────────────────┘
 ```
@@ -36,6 +36,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #91     #77                       —                         feat[P4]: verified agent badge — automated Li
   #92     #77 #89 #90               —                         feat[P4]: publisher revenue share — Stripe Co
   #105    #85                       —                         feat[pro]: BYOK live completeness checker in 
+  #114    —                         —                         feat[P2]: auth backend — FastAPI OAuth server
 ```
 
 ## Priority Waves
@@ -46,6 +47,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #       Effort    Track             Unblocks              Title
   ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
   #77     epic      Platform Core     #82 #84 #85 #86 …     epic: AgentFactory production platform — free
+  #114    ?         Platform Core     —                     feat[P2]: auth backend — FastAPI OAuth server
 ```
 
 ### Wave 2 — After Wave 1
@@ -108,5 +110,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-04-17 18:59 UTC by `generate-priority-report.py`._
+_Generated 2026-04-17 19:44 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_

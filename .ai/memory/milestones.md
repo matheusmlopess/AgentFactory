@@ -138,6 +138,7 @@ The CLI stays open-source. The platform is the paid surface.
 | #103 | per-adapter completeness thresholds in harness config | feature | done | feature/103-per-adapter-completeness-thresholds | #110 | 8e37e66 | — |
 | #104 | webapp completeness report viewer (static, no API key) | feature | done | feature/104-webapp-completeness-viewer | #108 | 4f2822b | — |
 | #105 | BYOK live completeness checker in webapp [pro] | feature | pending | — | — | — | — |
+| #114 | auth backend — FastAPI OAuth server (GitHub + Google), JWT sessions | platform | pending | — | — | — | — |
 
 ## Pending (legacy / non-platform)
 
