@@ -1,0 +1,52 @@
+name: Skill Completeness
+
+on:
+  push:
+    paths:
+      - ".ai/skills/**/SKILL.md"
+  pull_request:
+    paths:
+      - ".ai/skills/**/SKILL.md"
+  workflow_dispatch:
+    inputs:
+      skill:
+        description: "Skill name to check (overrides matrix)"
+        required: false
+        default: "diff-visualizer"
+
+jobs:
+  completeness:
+    name: Check ${{ matrix.skill }}
+    strategy:
+      matrix:
+        skill: [diff-visualizer, git-versioning]
+      fail-fast: false
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install --quiet anthropic
+
+      - name: Run completeness check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 .ai/scripts/skill-completeness-check.py \
+            --skill ${{ matrix.skill }} \
+            --threshold 90
+
+      - name: Upload completeness report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: completeness-${{ matrix.skill }}
+          path: .ai/reports/skill-${{ matrix.skill }}-completeness.json
+          if-no-files-found: warn
