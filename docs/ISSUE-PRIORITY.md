@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-04-17 18:12 UTC -->
-<!-- open-issues: 14 -->
+<!-- generated: 2026-04-17 18:36 UTC -->
+<!-- open-issues: 13 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
@@ -13,7 +13,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   │  Track           │  Issues                                    │
   ├──────────────────┼───────────────────────────────────────────┤
   │  Harness / CLI   │                                             │
-  │  Webapp / UI     │  #80  #83  #88  #105                        │
+  │  Webapp / UI     │  #83  #88  #105                             │
   │  Platform Core   │  #77  #82  #84  #85  #86                    │
   │  Platform Upper  │  #87  #89  #90  #91  #92                    │
   └──────────────────┴───────────────────────────────────────────┘
@@ -24,15 +24,14 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Depends on                Unblocks                  Title
   ──────  ────────────────────────  ────────────────────────  ────────────────────────────────────────
-  #77     —                         #80 #82 #83 #84 #85 #86 #87 #88 #89 #90 #91 #92  epic: AgentFactory production platform — free
-  #80     #77                       #88                       feat[P1]: lifecycle stepper + manifest inspec
+  #77     —                         #82 #83 #84 #85 #86 #87 #88 #89 #90 #91 #92  epic: AgentFactory production platform — free
   #82     #77 #83                   —                         feat[P1]: CLI extensions — agentfactory-gen p
   #83     #77                       #82 #84 #85 #86 #87 #90 #105  feat[P2]: GitHub OAuth authentication — login
   #84     #77 #83                   #85 #87 #89               feat[P2]: private org workspaces + RBAC (owne
   #85     #77 #83 #84               #89 #90 #105              feat[P2]: Pro tier billing — Stripe seat-base
   #86     #77 #83                   —                         feat[P2]: agentfactory-gen login / logout CLI
   #87     #77 #83 #84               #88 #89                   feat[P3]: per-agent audit history dashboard
-  #88     #77 #80 #87               —                         feat[P3]: agent dependency graph visualizatio
+  #88     #77 #87                   —                         feat[P3]: agent dependency graph visualizatio
   #89     #77 #84 #85 #87           #92                       feat[P3]: Enterprise compliance export — audi
   #90     #77 #83 #85               #92                       feat[P4]: marketplace — paid agent listings +
   #91     #77                       —                         feat[P4]: verified agent badge — automated Li
@@ -47,7 +46,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Effort    Track             Unblocks              Title
   ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #77     epic      Platform Core     #80 #82 #83 #84 …     epic: AgentFactory production platform — free
+  #77     epic      Platform Core     #82 #83 #84 #85 …     epic: AgentFactory production platform — free
 ```
 
 ### Wave 2 — After Wave 1
@@ -55,7 +54,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Effort    Track             Unblocks              Title
   ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #80     medium    Webapp / UI       #88                   feat[P1]: lifecycle stepper + manifest inspec
   #83     medium    Webapp / UI       #82 #84 #85 #86 …     feat[P2]: GitHub OAuth authentication — login
   #91     medium    Platform Upper    —                     feat[P4]: verified agent badge — automated Li
 ```
@@ -119,5 +117,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-04-17 18:12 UTC by `generate-priority-report.py`._
+_Generated 2026-04-17 18:36 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
