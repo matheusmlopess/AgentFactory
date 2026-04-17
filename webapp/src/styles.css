@@ -976,3 +976,424 @@ code {
 }
 
 /* ── end Registry Browser ─────────────────────────── */
+
+/* ── Lifecycle Stepper ────────────────────────────── */
+
+.lifecycle {
+  margin-top: 1.25rem;
+}
+
+.lifecycle-intro {
+  margin-bottom: 1rem;
+}
+
+.lifecycle-title {
+  font-family: var(--ce-font-display);
+  font-size: 1.5rem;
+  margin: 0 0 0.4rem;
+}
+
+.lifecycle-lede {
+  color: var(--ce-text-soft);
+  margin: 0;
+}
+
+/* two-panel */
+
+.lc-panels {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* step rail */
+
+.lc-rail {
+  border-right: 1px solid var(--ce-border);
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 0;
+  overflow-y: auto;
+}
+
+.lc-step {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.7rem 1rem 0.7rem 0.75rem;
+  cursor: pointer;
+  text-align: left;
+  color: var(--ce-text);
+  font-family: var(--ce-font-body);
+  transition: background 0.1s;
+}
+
+.lc-step:hover {
+  background: var(--ce-surface-strong);
+}
+
+.lc-step--active {
+  background: var(--ce-surface-strong);
+  border-left: 2px solid var(--ce-accent);
+}
+
+.lc-step-icon {
+  font-size: 0.78rem;
+  width: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  font-family: "SFMono-Regular", "Consolas", monospace;
+}
+
+.lc-step-icon--done    { color: var(--ce-accent); }
+.lc-step-icon--active  { color: var(--ce-accent-strong); font-weight: 700; }
+.lc-step-icon--pending { color: var(--ce-text-soft); }
+
+.lc-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.lc-step-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ce-text);
+}
+
+.lc-step--active .lc-step-title {
+  color: var(--ce-accent-strong);
+}
+
+.lc-step-cmd {
+  font-size: 0.7rem;
+  color: var(--ce-text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+/* detail panel */
+
+.lc-detail {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  overflow-y: auto;
+}
+
+.lc-detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.lc-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+.lc-status--active  { background: rgba(86, 211, 199, 0.15); color: var(--ce-accent-strong); }
+.lc-status--done    { background: rgba(86, 211, 199, 0.1);  color: var(--ce-accent); }
+.lc-status--pending { background: var(--ce-surface-strong); color: var(--ce-text-soft); }
+
+.lc-detail-title {
+  font-family: var(--ce-font-display);
+  font-size: 1.3rem;
+  margin: 0;
+}
+
+.lc-detail-summary {
+  color: var(--ce-text-soft);
+  margin: 0;
+  line-height: 1.55;
+}
+
+.lc-block-label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ce-accent-strong);
+  margin-bottom: 0.4rem;
+}
+
+/* command block */
+
+.lc-command-block,
+.lc-internal-block,
+.lc-files-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.lc-command-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--ce-surface-strong);
+  border: 1px solid var(--ce-border);
+  border-radius: 10px;
+  padding: 0.55rem 0.8rem;
+}
+
+.lc-command {
+  flex: 1;
+  font-size: 0.85rem;
+  color: var(--ce-accent-strong);
+  word-break: break-all;
+}
+
+.lc-internal-text {
+  font-size: 0.88rem;
+  color: var(--ce-text-soft);
+  line-height: 1.65;
+  margin: 0;
+  background: var(--ce-surface-strong);
+  border: 1px solid var(--ce-border);
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+}
+
+/* file list */
+
+.lc-file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--ce-surface-strong);
+  border: 1px solid var(--ce-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.lc-file-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.8rem;
+  border-bottom: 1px solid var(--ce-border);
+  font-size: 0.82rem;
+}
+
+.lc-file-row:last-child { border-bottom: none; }
+
+.lc-file-action {
+  font-family: "SFMono-Regular", "Consolas", monospace;
+  font-weight: 700;
+  width: 1rem;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.lc-file--created  .lc-file-action { color: var(--ce-accent); }
+.lc-file--modified .lc-file-action { color: #ce8922; }
+.lc-file--deleted  .lc-file-action { color: #c03030; }
+
+@media (prefers-color-scheme: dark) {
+  .lc-file--modified .lc-file-action { color: #f5c76a; }
+  .lc-file--deleted  .lc-file-action { color: #ff8080; }
+}
+
+.lc-file-path {
+  color: var(--ce-text-soft);
+  font-size: 0.8rem;
+}
+
+.lc-no-files {
+  font-size: 0.82rem;
+  color: var(--ce-text-soft);
+  font-style: italic;
+  margin: 0;
+  padding: 0.5rem 0;
+}
+
+@media (max-width: 900px) {
+  .lc-panels {
+    grid-template-columns: 1fr;
+  }
+  .lc-rail {
+    border-right: none;
+    border-bottom: 1px solid var(--ce-border);
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0.5rem;
+    gap: 0.25rem;
+  }
+  .lc-step {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    padding: 0.5rem 0.6rem;
+    min-width: 80px;
+    border-left: none;
+    border-bottom: 2px solid transparent;
+  }
+  .lc-step--active {
+    border-left: none;
+    border-bottom-color: var(--ce-accent);
+  }
+  .lc-step-cmd { display: none; }
+}
+
+/* ── end Lifecycle Stepper ────────────────────────── */
+
+/* ── Manifest Inspector ───────────────────────────── */
+
+.manifest-inspector {
+  margin-top: 1.25rem;
+}
+
+.manifest-intro {
+  margin-bottom: 1rem;
+}
+
+.manifest-title {
+  font-family: var(--ce-font-display);
+  font-size: 1.5rem;
+  margin: 0 0 0.4rem;
+}
+
+.manifest-lede {
+  color: var(--ce-text-soft);
+  margin: 0;
+}
+
+.manifest-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+/* toolbar */
+
+.manifest-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--ce-border);
+}
+
+.manifest-variants {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.mf-variant-btn {
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--ce-border);
+  background: transparent;
+  color: var(--ce-text-soft);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.mf-variant-btn:hover {
+  background: var(--ce-surface-strong);
+  color: var(--ce-text);
+}
+
+.mf-variant-btn--active {
+  background: var(--ce-accent);
+  color: #fffdf8;
+  border-color: transparent;
+}
+
+/* JSON viewer */
+
+.mj-viewer {
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  font-family: "SFMono-Regular", "Consolas", monospace;
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+
+.mj-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  min-height: 1.7em;
+}
+
+.mj-indent {
+  white-space: pre;
+  flex-shrink: 0;
+}
+
+.mj-key {
+  color: var(--ce-accent-strong);
+}
+
+.mj-key[data-annotated="true"] {
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+.mj-colon { color: var(--ce-text-soft); }
+
+.mj-value {
+  color: var(--ce-text);
+}
+
+.mj-bracket { color: var(--ce-text-soft); }
+.mj-comma   { color: var(--ce-text-soft); }
+
+.mj-annotation {
+  font-size: 0.74rem;
+  color: var(--ce-text-soft);
+  opacity: 0.7;
+  margin-left: 0.5rem;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+/* legend */
+
+.mj-legend {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 0.6rem 1.25rem;
+  border-top: 1px solid var(--ce-border);
+  flex-wrap: wrap;
+}
+
+.mj-legend-item {
+  font-size: 0.75rem;
+  color: var(--ce-text-soft);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mj-annotation-sample {
+  font-family: "SFMono-Regular", "Consolas", monospace;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* ── end Manifest Inspector ───────────────────────── */
