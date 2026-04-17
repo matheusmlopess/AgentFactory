@@ -491,6 +491,48 @@ class TestCliCommands(unittest.TestCase):
             self.assertFalse(os.path.islink("AGENTS.md"))
             self.assertIn("Custom content", Path("AGENTS.md").read_text())
 
+    def test_adapter_add_ok_message_when_skills_within_budget(self):
+        """adapter add prints ok message when no skills exceed the adapter's char limit."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init", "--primary", "claude"])
+            result = self.runner.invoke(cli, ["adapter", "add", "codex"])
+            self.assertEqual(result.exit_code, 0, result.output)
+            # No skills are imported yet — all-clear message should appear
+            self.assertIn("ok", result.output.lower())
+
+    def test_adapter_add_warns_when_skill_over_budget(self):
+        """adapter add emits a warning when a SKILL.md exceeds the adapter's char limit."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init", "--primary", "claude"])
+            # Create a skill that exceeds the codex char limit (10,000 bytes)
+            skill_dir = Path(f"{HARNESS_ROOT}/skills/big-skill")
+            skill_dir.mkdir(parents=True)
+            oversized = "x" * 11_000
+            (skill_dir / "SKILL.md").write_text(
+                f"---\nname: big-skill\ndescription: test\n---\n{oversized}\n"
+            )
+            result = self.runner.invoke(cli, ["adapter", "add", "codex"])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("exceed", result.output)
+            self.assertIn("big-skill", result.output)
+
+    def test_adapter_add_check_completeness_missing_script_warns(self):
+        """--check-completeness when script is absent prints a warning and exits 0."""
+        with self.runner.isolated_filesystem():
+            # init without creating the completeness script
+            self.runner.invoke(cli, ["init", "--primary", "claude"])
+            skill_dir = Path(f"{HARNESS_ROOT}/skills/big-skill")
+            skill_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text(
+                "---\nname: big-skill\ndescription: test\n---\n" + "x" * 11_000
+            )
+            result = self.runner.invoke(
+                cli, ["adapter", "add", "codex", "--check-completeness"]
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            # Script is not present in isolated filesystem → script-not-found warning
+            self.assertIn("completeness script not found", result.output)
+
     def test_brief_cmd_regenerates_all(self):
         """brief command updates AgentFactory.md and all active adapter briefs."""
         with self.runner.isolated_filesystem():

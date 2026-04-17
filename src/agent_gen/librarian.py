@@ -148,6 +148,10 @@ _FORMAT_REGISTRY: dict[str, dict] = {
             "rules": "_fmt_rules_list",
         },
         "section_order": ["skills", "commands", "agents", "rules"],
+        # Per-skill character budget (bytes). Warn if SKILL.md exceeds this.
+        "skill_char_limit": 18_000,
+        # Completeness score threshold (0–100) for --check-completeness.
+        "completeness_threshold": 90,
     },
     "codex": {
         "output": "brief.md",
@@ -169,6 +173,9 @@ _FORMAT_REGISTRY: dict[str, dict] = {
             "rules": "_fmt_rules_list",
         },
         "section_order": ["skills", "agents", "rules"],
+        # Codex has a tighter context window — stricter per-skill budget.
+        "skill_char_limit": 10_000,
+        "completeness_threshold": 95,
     },
     "gemini": {
         "output": "brief.md",
@@ -189,6 +196,8 @@ _FORMAT_REGISTRY: dict[str, dict] = {
             "rules": "_fmt_rules_list",
         },
         "section_order": ["skills", "agents", "rules"],
+        "skill_char_limit": 18_000,
+        "completeness_threshold": 90,
     },
 }
 

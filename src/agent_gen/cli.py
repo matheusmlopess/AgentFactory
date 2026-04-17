@@ -735,7 +735,19 @@ def adapter_group():
     show_default=True,
     help="Root of the project to activate the adapter in.",
 )
-def adapter_add(name: str, project_root: str):
+@click.option(
+    "--check-completeness",
+    is_flag=True,
+    default=False,
+    help="After compiling, run skill-completeness-check.py on over-budget skills (requires ANTHROPIC_API_KEY).",
+)
+@click.option(
+    "--strict",
+    is_flag=True,
+    default=False,
+    help="With --check-completeness: exit non-zero if any skill scores below the adapter threshold.",
+)
+def adapter_add(name: str, project_root: str, check_completeness: bool, strict: bool):
     """
     Activate a CLI adapter mid-project.
 
@@ -820,6 +832,111 @@ def adapter_add(name: str, project_root: str):
         _echo(f"  [linked] {folder_symlink} -> {folder_target}")
 
     _echo(f"\n[librarian] Adapter '{name}' activated.")
+
+    # 7. Completeness gate — check skill sizes against adapter budget
+    _adapter_completeness_gate(
+        name=name,
+        config=config,
+        project_path=project_path,
+        ai_root=ai_root,
+        check_completeness=check_completeness,
+        strict=strict,
+    )
+
+
+def _adapter_completeness_gate(
+    name: str,
+    config: dict,
+    project_path: Path,
+    ai_root: Path,
+    check_completeness: bool,
+    strict: bool,
+) -> None:
+    """Warn when skill files exceed the adapter's character budget.
+
+    With check_completeness=True, also runs skill-completeness-check.py on
+    each over-budget skill (requires ANTHROPIC_API_KEY).  With strict=True,
+    exits non-zero if any skill scores below the adapter threshold.
+    """
+    import subprocess
+    import sys
+
+    skills_dir = ai_root / "skills"
+    if not skills_dir.exists():
+        return
+
+    char_limit: int = config.get("skill_char_limit", 18_000)
+    threshold: int = config.get("completeness_threshold", 90)
+    reports_dir = ai_root / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+
+    over_budget: list[tuple[str, int]] = []
+    for skill_dir in sorted(skills_dir.iterdir()):
+        skill_md = skill_dir / "SKILL.md"
+        if not skill_md.is_file():
+            continue
+        size = skill_md.stat().st_size
+        if size > char_limit:
+            over_budget.append((skill_dir.name, size))
+
+    if not over_budget:
+        _echo(f"  [ok] all skills within {char_limit:,} byte limit for '{name}'")
+        return
+
+    _echo(f"\n  ⚠  {len(over_budget)} skill(s) exceed the '{name}' adapter limit ({char_limit:,} bytes):")
+    for skill_name, size in over_budget:
+        excess = size - char_limit
+        _echo(f"     {skill_name}: {size:,} bytes (+{excess:,} over budget)")
+        _echo(f"     → python3 .ai/scripts/skill-completeness-check.py --skill {skill_name} --threshold {threshold}")
+
+    if not check_completeness:
+        _echo("\n  Tip: re-run with --check-completeness to score each skill automatically.")
+        return
+
+    # Run completeness check for each over-budget skill
+    import os
+
+    check_script = project_path / ".ai" / "scripts" / "skill-completeness-check.py"
+    if not check_script.exists():
+        _echo(f"\n  ⚠  completeness script not found: {check_script}")
+        return
+
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        _echo("\n  ⚠  --check-completeness requires ANTHROPIC_API_KEY to be set.")
+        return
+
+    _echo("\n  Running completeness checks …")
+    any_failed = False
+    for skill_name, _ in over_budget:
+        report_path = reports_dir / f"skill-{skill_name}-{name}-completeness.json"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(check_script),
+                "--skill", skill_name,
+                "--threshold", str(threshold),
+                "--out", str(report_path),
+                "--quiet",
+            ],
+            cwd=str(project_path),
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            _echo(f"  [pass] {skill_name}")
+        elif result.returncode == 1:
+            _echo(f"  [warn] {skill_name} — score below {threshold}%")
+            if strict:
+                any_failed = True
+        else:
+            _echo(f"  [error] {skill_name} — {result.stderr.strip()[:120]}")
+
+    _echo(f"\n  Reports saved to {reports_dir.relative_to(project_path)}/")
+    if any_failed and strict:
+        raise click.ClickException(
+            f"One or more skills scored below the {threshold}% threshold for '{name}'. "
+            "Trim the skill(s) and re-run, or use --no-strict to treat as warning."
+        )
 
 
 # ---------------------------------------------------------------------------
