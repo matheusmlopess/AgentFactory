@@ -1,5 +1,5 @@
 # AgentFactory
-<!-- version: 2.6.0 -->
+<!-- version: 2.6.1 -->
 
 A lightweight Python CLI (`agentfactory-gen`) for building, packaging, and deploying AI agents as portable, framework-agnostic units.
 
@@ -144,8 +144,11 @@ Exit codes: `0` clean · `1` warnings · `2` critical violations.
 |---|---|---|
 | Push / PR to `dev` or `main` | `ci.yml` | ruff lint → pytest (3.11 + 3.12) → coverage ≥ 80% |
 | `git tag v*` | `release.yml` | build wheel/sdist → GitHub Release → PyPI publish |
+| `git tag v*` | `deploy-webapp.yml` | install webapp deps → `npm run build` → publish `webapp/dist` to GitHub Pages |
 
 Branch protection on `dev` requires the **Tests + Coverage** status check to pass before any PR can merge.
+
+Live demo placeholder: `https://matheusmlopess.github.io/AgentFactory/`
 
 ---
 

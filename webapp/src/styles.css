@@ -1,0 +1,357 @@
+:root {
+  color-scheme: light dark;
+  --ce-bg: #f3efe5;
+  --ce-surface: rgba(255, 252, 245, 0.78);
+  --ce-surface-strong: rgba(255, 248, 235, 0.92);
+  --ce-border: rgba(56, 39, 23, 0.14);
+  --ce-accent: #0f766e;
+  --ce-accent-strong: #0b4f4a;
+  --ce-text: #241812;
+  --ce-text-soft: #5d4a3a;
+  --ce-badge-ready: #d6f5ef;
+  --ce-badge-next: #fce8bf;
+  --ce-shadow: 0 18px 45px rgba(52, 34, 23, 0.12);
+  --ce-font-display: "Georgia", "Times New Roman", serif;
+  --ce-font-body: "Trebuchet MS", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(15, 118, 110, 0.16), transparent 30%),
+    radial-gradient(circle at right center, rgba(206, 137, 34, 0.12), transparent 28%),
+    linear-gradient(180deg, #fcf8ef 0%, #efe4d2 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ce-bg: #181411;
+    --ce-surface: rgba(32, 24, 20, 0.82);
+    --ce-surface-strong: rgba(42, 31, 24, 0.92);
+    --ce-border: rgba(255, 240, 223, 0.1);
+    --ce-accent: #56d3c7;
+    --ce-accent-strong: #a0fff6;
+    --ce-text: #f5ebdd;
+    --ce-text-soft: #c5b29d;
+    --ce-badge-ready: rgba(86, 211, 199, 0.15);
+    --ce-badge-next: rgba(252, 232, 191, 0.15);
+    --ce-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+    background:
+      radial-gradient(circle at top left, rgba(86, 211, 199, 0.12), transparent 26%),
+      radial-gradient(circle at right center, rgba(206, 137, 34, 0.12), transparent 30%),
+      linear-gradient(180deg, #171210 0%, #231a15 100%);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--ce-bg);
+  color: var(--ce-text);
+  font-family: var(--ce-font-body);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+code {
+  font-family: "SFMono-Regular", "Consolas", monospace;
+}
+
+.shell {
+  width: min(1100px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 3rem 0 4rem;
+}
+
+.hero,
+.surface,
+.panel-card {
+  border: 1px solid var(--ce-border);
+  background: var(--ce-surface);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--ce-shadow);
+}
+
+.hero {
+  padding: 2rem;
+  border-radius: 28px;
+}
+
+.eyebrow,
+.section-label {
+  margin: 0 0 0.75rem;
+  color: var(--ce-accent-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.78rem;
+}
+
+.hero h1,
+.surface h2,
+.panel-card h2 {
+  font-family: var(--ce-font-display);
+  line-height: 1.02;
+  margin: 0 0 1rem;
+}
+
+.hero h1 {
+  font-size: clamp(2.8rem, 7vw, 5.6rem);
+  max-width: 11ch;
+}
+
+.lede,
+.panel-card p,
+.surface p,
+.surface li,
+.steps span {
+  color: var(--ce-text-soft);
+}
+
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.75rem;
+}
+
+.button {
+  padding: 0.9rem 1.25rem;
+  border-radius: 999px;
+  border: 1px solid var(--ce-border);
+  font-weight: 700;
+}
+
+.primary {
+  background: var(--ce-accent);
+  color: #fffdf8;
+}
+
+.secondary {
+  background: var(--ce-surface-strong);
+}
+
+.panel-grid,
+.split {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.panel-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.panel-card,
+.surface {
+  border-radius: 24px;
+  padding: 1.5rem;
+}
+
+.badge {
+  display: inline-flex;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  margin-bottom: 1rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.badge-ready {
+  background: var(--ce-badge-ready);
+}
+
+.badge-next {
+  background: var(--ce-badge-next);
+}
+
+.checklist,
+.steps {
+  margin: 1rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.steps li {
+  margin-bottom: 1rem;
+}
+
+.steps code,
+.steps strong,
+.steps span {
+  display: block;
+}
+
+.steps code {
+  margin-bottom: 0.35rem;
+  color: var(--ce-accent-strong);
+}
+
+/* ── Harness Explorer ─────────────────────────────── */
+
+.explorer {
+  margin-top: 1.25rem;
+}
+
+.explorer-intro {
+  margin-bottom: 1rem;
+}
+
+.explorer-lede {
+  color: var(--ce-text-soft);
+  margin: 0.4rem 0 0;
+}
+
+.explorer-panels {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.explorer-tree {
+  border-right: 1px solid var(--ce-border);
+  padding: 1rem 0.5rem;
+  overflow-y: auto;
+  max-height: 480px;
+}
+
+/* tree */
+
+.tree-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-item {
+  margin: 0;
+}
+
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0.3rem 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--ce-text);
+  font-family: var(--ce-font-body);
+  font-size: 0.85rem;
+  transition: background 0.12s;
+}
+
+.tree-node:hover {
+  background: var(--ce-surface-strong);
+}
+
+.tree-node--selected {
+  background: var(--ce-surface-strong);
+  color: var(--ce-accent-strong);
+  font-weight: 600;
+}
+
+.tree-icon {
+  font-size: 0.7rem;
+  width: 0.9rem;
+  flex-shrink: 0;
+  color: var(--ce-text-soft);
+}
+
+.tree-node--selected .tree-icon {
+  color: var(--ce-accent);
+}
+
+.tree-name {
+  font-family: "SFMono-Regular", "Consolas", monospace;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* doc pane */
+
+.doc-pane {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.doc-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.badge-kind--dir    { background: rgba(86, 211, 199, 0.15); color: var(--ce-accent-strong); }
+.badge-kind--file   { background: rgba(206, 137, 34, 0.15); color: #8a5a00; }
+.badge-kind--symlink { background: rgba(120, 80, 200, 0.12); color: #5b3ea6; }
+.badge-tag          { background: var(--ce-surface-strong); color: var(--ce-text-soft); }
+
+@media (prefers-color-scheme: dark) {
+  .badge-kind--file   { color: #f5c76a; }
+  .badge-kind--symlink { color: #c4aaff; }
+}
+
+.doc-path {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--ce-text-soft);
+  font-family: "SFMono-Regular", "Consolas", monospace;
+}
+
+.doc-title {
+  font-family: var(--ce-font-display);
+  font-size: 1.4rem;
+  margin: 0;
+  line-height: 1.1;
+}
+
+.doc-description {
+  color: var(--ce-text-soft);
+  line-height: 1.65;
+  margin: 0;
+}
+
+/* ── end Harness Explorer ─────────────────────────── */
+
+@media (max-width: 900px) {
+  .panel-grid,
+  .split {
+    grid-template-columns: 1fr;
+  }
+
+  .shell {
+    width: min(100% - 1.25rem, 1100px);
+    padding-top: 1.25rem;
+  }
+
+  .hero {
+    padding: 1.4rem;
+  }
+
+  .explorer-panels {
+    grid-template-columns: 1fr;
+  }
+
+  .explorer-tree {
+    border-right: none;
+    border-bottom: 1px solid var(--ce-border);
+    max-height: 240px;
+  }
+}

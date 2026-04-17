@@ -1,5 +1,5 @@
 {
   "name": "diff-visualizer",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Generates HTML diff reports visualizing what changed between two versions of the repo."
 }

@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.6.1 -->
+<!-- version: 1.6.4 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -75,8 +75,8 @@ The CLI stays open-source. The platform is the paid surface.
 | # | Title | Type | Status | Branch | PR | Commit | Tag |
 |---|-------|------|--------|--------|----|--------|-----|
 | #77 | epic: AgentFactory production platform | epic | pending | — | — | — | — |
-| #78 | feat[P1]: webapp scaffold — Vite + React 19 + TS + GitHub Pages | webapp | pending | — | — | — | — |
-| #79 | feat[P1]: harness explorer UI — two-panel file tree + doc pane | webapp | pending | — | — | — | — |
+| #78 | feat[P1]: webapp scaffold — Vite + React 19 + TS + GitHub Pages | webapp | in-progress | feature/webapp-scaffold-p1-78 | — | — | — |
+| #79 | feat[P1]: harness explorer UI — two-panel file tree + doc pane | webapp | in-progress | feature/harness-explorer-p1-79 | — | — | — |
 | #80 | feat[P1]: lifecycle stepper + manifest inspector UI components | webapp | pending | — | — | — | — |
 | #81 | feat[P1]: public agent registry — browse, search, publish Portable Units | registry | pending | — | — | — | — |
 | #82 | feat[P1]: CLI extensions — agentfactory-gen publish + import --from-registry | cli | pending | — | — | — | — |
@@ -126,6 +126,17 @@ The CLI stays open-source. The platform is the paid surface.
 | #96 | feat: FormatSwitch — per-CLI compiled briefs with adapter activation | feature | #97 | 3d83de5 | — |
 
 ---
+
+## Pending
+
+| # | Title | Type | Status | Branch | PR | Commit | Tag |
+|---|-------|------|--------|--------|----|--------|-----|
+| #100 | pre-commit hook for SKILL.md completeness warning | feature | pending | — | — | — | — |
+| #101 | skill-completeness dedicated CI job | feature | pending | — | — | — | — |
+| #102 | integrate completeness gate into adapter-add command | feature | pending | — | — | — | — |
+| #103 | per-adapter completeness thresholds in harness config | feature | pending | — | — | — | — |
+| #104 | webapp completeness report viewer (static, no API key) | feature | pending | — | — | — | — |
+| #105 | BYOK live completeness checker in webapp [pro] | feature | pending | — | — | — | — |
 
 ## Pending (legacy / non-platform)
 
