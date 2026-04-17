@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.7.2 -->
+<!-- version: 1.7.3 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -85,7 +85,7 @@ The CLI stays open-source. The platform is the paid surface.
 
 | # | Title | Type | Status | Branch | PR | Commit | Tag |
 |---|-------|------|--------|--------|----|--------|-----|
-| #83 | feat[P2]: GitHub OAuth authentication | platform | pending | — | — | — | — |
+| #83 | feat[P2]: GitHub OAuth authentication | platform | done | feature/83-github-oauth-auth-ui | #113 | d0ea86b | — |
 | #84 | feat[P2]: private org workspaces + RBAC | platform | pending | — | — | — | — |
 | #85 | feat[P2]: Pro tier billing — Stripe seat-based subscription | billing | pending | — | — | — | — |
 | #86 | feat[P2]: agentfactory-gen login / logout CLI commands | cli | pending | — | — | — | — |
