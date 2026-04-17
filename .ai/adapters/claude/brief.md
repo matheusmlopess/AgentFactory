@@ -4,13 +4,38 @@
 <!-- @adapter: claude -->
 <!-- @recompile: agentfactory-gen brief -->
 
+## Harness
+
+AgentFactory project. All adapters share the same harness context.
+
+```
+  Harness root : .ai/
+  This adapter : claude
+  Recompile    : agentfactory-gen brief
+```
+
+Shared context (read these to understand the project):
+
+  .ai/skills/               ← skill specs (symlinked per adapter)
+  .ai/rules/                ← behavior rules compiled into this brief
+  .ai/agent-manifest.json   ← global agent registry
+  .ai/memory/milestones.md  ← issue and milestone tracking
+
+All adapter briefs (same project, different CLI):
+
+  claude   CLAUDE.md            → .ai/adapters/claude/brief.md ← YOU ARE HERE
+  codex    AGENTS.md / CODEX.md → .ai/adapters/codex/brief.md
+  gemini   GEMINI.md            → .ai/adapters/gemini/brief.md
+
+If switching CLI: run `agentfactory-gen brief` to recompile all active adapter briefs.
+
 ## Available Skills
 
 | Skill | When to invoke | Path |
 |-------|----------------|------|
 | diff-visualizer |  | `.claude/skills/diff-visualizer/SKILL.md` |
 | git-versioning |  | `.claude/skills/git-versioning/SKILL.md` |
-| issue-tracker | regenerate priority report, show dependency matrix, what to work on next | `.claude/skills/issue-tracker/SKILL.md` |
+| issue-tracker |  | `.claude/skills/issue-tracker/SKILL.md` |
 
 ## Commands
 - `/git-workflow` — <!-- version: 1.0.0 -->
@@ -28,5 +53,3 @@
 - **Secrets:** Never log, print, or commit API keys or secrets.
 - **Skill Briefing:** Skill metadata used in compiled briefs must stay brief-safe: keep `description` to a short summary line and `triggers` or `when_to_use` to a short invocation hint instead of procedural detail.
 - **Coverage:** Aim for 80%+ test coverage for new logic.
-- **Feature Workflow:** Every feature follows docs/FEATURE-WORKFLOW.md — issue → branch → implement → CI → PR → merge → milestones → regen priority report. Never skip steps ⑦ and ⑧.
-- **Priority Report:** After every merged PR run `python3 .ai/scripts/generate-priority-report.py`. CI does this automatically on push to dev/main via `issue-tracker.yml`.

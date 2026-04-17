@@ -579,6 +579,34 @@ class TestCliCommands(unittest.TestCase):
             self.assertIn("brief.md", result.output)
             self.assertIn("ok", result.output)
 
+    def test_brief_contains_harness_identity_block(self):
+        """Every compiled brief contains the universal harness identity block."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init", "--primary", "claude"])
+            brief = Path(f"{HARNESS_ROOT}/adapters/claude/brief.md")
+            content = brief.read_text()
+            # Block header present
+            self.assertIn("## Harness", content)
+            # Self-reference marker
+            self.assertIn("YOU ARE HERE", content)
+            # Cross-adapter references for all registry adapters
+            self.assertIn("codex", content)
+            self.assertIn("gemini", content)
+            # Key harness paths present
+            self.assertIn("agent-manifest.json", content)
+            self.assertIn("milestones.md", content)
+            self.assertIn("agentfactory-gen brief", content)
+
+    def test_harness_identity_you_are_here_per_adapter(self):
+        """The YOU ARE HERE marker points to the correct adapter in each brief."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init", "--primary", "claude"])
+            self.runner.invoke(cli, ["adapter", "add", "codex"])
+            claude_brief = Path(f"{HARNESS_ROOT}/adapters/claude/brief.md").read_text()
+            codex_brief  = Path(f"{HARNESS_ROOT}/adapters/codex/brief.md").read_text()
+            self.assertIn("claude", claude_brief.split("YOU ARE HERE")[0].split("\n")[-1])
+            self.assertIn("codex",  codex_brief.split("YOU ARE HERE")[0].split("\n")[-1])
+
     def test_brief_cmd_no_harness_errors(self):
         """brief command exits non-zero when there is no .ai/ harness."""
         with self.runner.isolated_filesystem():

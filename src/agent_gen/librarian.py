@@ -277,6 +277,49 @@ def _fmt_rules_list(rules: list, config: dict) -> str:
     return "\n".join(lines)
 
 
+def _fmt_harness_identity(adapter_name: str) -> str:
+    """Universal harness identity block — injected into every adapter brief.
+
+    Tells any AI agent (regardless of which CLI it is running in) that this
+    is an AgentFactory project, where the canonical context lives, and how to
+    find the briefs for all other adapters. This is the cross-adapter navigation
+    header that survives a CLI swap.
+    """
+    lines = [
+        "## Harness",
+        "",
+        "AgentFactory project. All adapters share the same harness context.",
+        "",
+        "```",
+        f"  Harness root : {HARNESS_ROOT}/",
+        f"  This adapter : {adapter_name}",
+        f"  Recompile    : agentfactory-gen brief",
+        "```",
+        "",
+        "Shared context (read these to understand the project):",
+        "",
+        f"  {HARNESS_ROOT}/skills/               ← skill specs (symlinked per adapter)",
+        f"  {HARNESS_ROOT}/rules/                ← behavior rules compiled into this brief",
+        f"  {HARNESS_ROOT}/agent-manifest.json   ← global agent registry",
+        f"  {HARNESS_ROOT}/memory/milestones.md  ← issue and milestone tracking",
+        "",
+        "All adapter briefs (same project, different CLI):",
+        "",
+    ]
+    for name, cfg in _FORMAT_REGISTRY.items():
+        root_files = cfg.get("root_files", [])
+        root_display = " / ".join(root_files) if root_files else cfg["output"]
+        marker = " ← YOU ARE HERE" if name == adapter_name else ""
+        lines.append(
+            f"  {name:<8} {root_display:<20} → {HARNESS_ROOT}/adapters/{name}/{cfg['output']}{marker}"
+        )
+    lines += [
+        "",
+        "If switching CLI: run `agentfactory-gen brief` to recompile all active adapter briefs.",
+    ]
+    return "\n".join(lines)
+
+
 _FORMATTER_DISPATCH: dict = {
     "_fmt_skills_table":  _fmt_skills_table,
     "_fmt_skills_blocks": _fmt_skills_blocks,
@@ -1220,6 +1263,7 @@ class Librarian:
             f"<!-- @recompile: agentfactory-gen brief -->"
         )
         sections.append(header)
+        sections.append(_fmt_harness_identity(adapter_name))
         for section_key in config["section_order"]:
             formatter_name = config["sections"].get(section_key)
             if formatter_name is None:
