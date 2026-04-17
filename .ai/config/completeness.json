@@ -1,0 +1,10 @@
+{
+  "completeness": {
+    "thresholds": {
+      "claude":  90,
+      "codex":   95,
+      "gemini":  90
+    },
+    "default": 90
+  }
+}

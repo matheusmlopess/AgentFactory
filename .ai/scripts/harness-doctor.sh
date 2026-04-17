@@ -172,7 +172,7 @@ check_skills_completeness() {
     local out="${AI_ROOT}/reports/skill-${name}-completeness.json"
     local stderr_out rc score reason
     stderr_out=$(python3 "${AI_ROOT}/scripts/skill-completeness-check.py" \
-        --skill "${name}" --threshold 90 --out "${out}" --quiet 2>&1) && rc=0 || rc=$?
+        --skill "${name}" --adapter claude --out "${out}" --quiet 2>&1) && rc=0 || rc=$?
     score=$(python3 -c "import json; d=json.load(open('${out}')); print(d['score'])" 2>/dev/null || echo "?")
     if [[ $rc -eq 0 ]]; then
       ok "Skill completeness: ${name} (${score}%)"
