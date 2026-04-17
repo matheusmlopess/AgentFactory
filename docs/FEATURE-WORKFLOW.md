@@ -1,5 +1,5 @@
 # Feature Workflow — Standard Operating Procedure
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 
 Every feature, integration, or significant piece of new functionality follows this
 lifecycle. It is enforced through skills, CI gates, and post-merge automation.
@@ -125,6 +125,29 @@ model executes. Trimming it is not like trimming a README. The completeness chec
 uses a second LLM call as the test oracle because only a language model can judge
 semantic equivalence of LLM instructions. Score < 90% means the LLM will behave
 differently after the change.
+
+If the feature introduces new public behaviour, config, or user-facing UI:
+
+```
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  FEATURE DOCUMENTATION CHECKLIST                                     │
+  │                                                                       │
+  │  [ ] docs/FEATURE-<name>.md exists and is committed                  │
+  │  [ ] <!-- version: 1.0.0 --> marker present                         │
+  │  [ ] §1 Overview written (purpose + what it unlocks)                │
+  │  [ ] §2 Architecture written (file map + flow diagram)              │
+  │  [ ] §3 Configuration written (env vars, config files)              │
+  │  [ ] At least one ASCII box-drawing diagram showing the main flow   │
+  │  [ ] §7 Troubleshooting table present                               │
+  │  [ ] Template: docs/FEATURE-DOC-TEMPLATE.md                         │
+  └─────────────────────────────────────────────────────────────────────┘
+```
+
+**★ Insight — docs as contracts:**
+A feature doc written alongside the code captures the *why* and *how* at the moment
+when the author understands them best. It also defines the API contract for downstream
+features: the backend team building `/auth/github` knows exactly what endpoints the
+frontend expects by reading `docs/FEATURE-AUTH.md §6` — no Slack thread required.
 
 ---
 
@@ -337,6 +360,7 @@ Copy this into any PR description for a major feature or integration:
   - [ ] ② Branch named feature/<issue>-<slug>
   - [ ] ③ Tests written (80%+ coverage for new logic)
   - [ ] ③ SKILL.md completeness check run if skill was modified
+  - [ ] ③ docs/FEATURE-<name>.md written if feature introduces new public behaviour
   - [ ] ④ All CI gates green
   - [ ] ⑤ PR opened — "Closes #<issue>" in body
   - [ ] ⑥ Merged
