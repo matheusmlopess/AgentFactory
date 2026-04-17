@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.7.0 -->
+<!-- version: 1.7.1 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -78,7 +78,7 @@ The CLI stays open-source. The platform is the paid surface.
 | #78 | feat[P1]: webapp scaffold — Vite + React 19 + TS + GitHub Pages | webapp | in-progress | feature/webapp-scaffold-p1-78 | — | — | — |
 | #79 | feat[P1]: harness explorer UI — two-panel file tree + doc pane | webapp | in-progress | feature/harness-explorer-p1-79 | — | — | — |
 | #80 | feat[P1]: lifecycle stepper + manifest inspector UI components | webapp | pending | — | — | — | — |
-| #81 | feat[P1]: public agent registry — browse, search, publish Portable Units | registry | pending | — | — | — | — |
+| #81 | feat[P1]: public agent registry — browse, search, publish Portable Units | registry | done | feature/81-public-agent-registry | #111 | 17ae0e3 | — |
 | #82 | feat[P1]: CLI extensions — agentfactory-gen publish + import --from-registry | cli | pending | — | — | — | — |
 
 ### Phase 2 — Auth & Workspaces
