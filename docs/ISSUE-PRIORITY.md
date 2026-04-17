@@ -1,0 +1,137 @@
+# Issue Priority Report
+<!-- version: 1.0.0 -->
+<!-- generated: 2026-04-17 10:42 UTC -->
+<!-- open-issues: 21 -->
+
+Living priority matrix — regenerated automatically on every merge to `dev`.
+Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
+
+## Track Overview
+
+```
+  ┌──────────────────┬───────────────────────────────────────────┐
+  │  Track           │  Issues                                    │
+  ├──────────────────┼───────────────────────────────────────────┤
+  │  Harness / CLI   │  #96  #100  #101  #102  #103                │
+  │  Webapp / UI     │  #80  #83  #88  #104  #105                  │
+  │  Platform Core   │  #77  #81  #82  #84  #85  #86               │
+  │  Platform Upper  │  #87  #89  #90  #91  #92                    │
+  └──────────────────┴───────────────────────────────────────────┘
+```
+
+## Dependency Matrix
+
+```
+  #       Depends on                Unblocks                  Title
+  ──────  ────────────────────────  ────────────────────────  ────────────────────────────────────────
+  #77     —                         #80 #82 #83 #84 #85 #86 #87 #88 #89 #90 #91 #92  epic: AgentFactory production platform — free
+  #80     #77                       #88                       feat[P1]: lifecycle stepper + manifest inspec
+  #81     —                         #82 #83 #87 #88 #90 #91   feat[P1]: public agent registry — browse, sea
+  #82     #77 #81 #83               —                         feat[P1]: CLI extensions — agentfactory-gen p
+  #83     #77 #81                   #82 #84 #85 #86 #87 #90 #105  feat[P2]: GitHub OAuth authentication — login
+  #84     #77 #83                   #85 #87 #89               feat[P2]: private org workspaces + RBAC (owne
+  #85     #77 #83 #84               #89 #90 #105              feat[P2]: Pro tier billing — Stripe seat-base
+  #86     #77 #83                   —                         feat[P2]: agentfactory-gen login / logout CLI
+  #87     #77 #81 #83 #84           #88 #89                   feat[P3]: per-agent audit history dashboard
+  #88     #77 #80 #81 #87           —                         feat[P3]: agent dependency graph visualizatio
+  #89     #77 #84 #85 #87           #92                       feat[P3]: Enterprise compliance export — audi
+  #90     #77 #81 #83 #85           #92                       feat[P4]: marketplace — paid agent listings +
+  #91     #77 #81                   —                         feat[P4]: verified agent badge — automated Li
+  #92     #77 #89 #90               —                         feat[P4]: publisher revenue share — Stripe Co
+  #96     —                         #102                      feat: FormatSwitch — per-CLI compiled briefs 
+  #100    —                         #101                      feat: pre-commit hook for SKILL.md completene
+  #101    #100                      #102 #104                 feat: skill-completeness dedicated CI job
+  #102    #96 #101                  #103                      feat: integrate completeness gate into adapte
+  #103    #102                      —                         feat: per-adapter completeness thresholds in 
+  #104    #101                      #105                      feat: webapp completeness report viewer (stat
+  #105    #83 #85 #104              —                         feat[pro]: BYOK live completeness checker in 
+```
+
+## Priority Waves
+
+### Wave 1 — Start now — no blockers
+
+```
+  #       Effort    Track             Unblocks              Title
+  ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
+  #77     epic      Platform Core     #80 #82 #83 #84 …     epic: AgentFactory production platform — free
+  #81     large     Platform Core     #82 #83 #87 #88 …     feat[P1]: public agent registry — browse, sea
+  #96     large     Harness / CLI     #102                  feat: FormatSwitch — per-CLI compiled briefs 
+  #100    small     Harness / CLI     #101                  feat: pre-commit hook for SKILL.md completene
+```
+
+### Wave 2 — After Wave 1
+
+```
+  #       Effort    Track             Unblocks              Title
+  ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
+  #80     medium    Webapp / UI       #88                   feat[P1]: lifecycle stepper + manifest inspec
+  #83     medium    Webapp / UI       #82 #84 #85 #86 …     feat[P2]: GitHub OAuth authentication — login
+  #91     medium    Platform Upper    —                     feat[P4]: verified agent badge — automated Li
+  #101    small     Harness / CLI     #102 #104             feat: skill-completeness dedicated CI job
+```
+
+### Wave 3 — After Wave 2
+
+```
+  #       Effort    Track             Unblocks              Title
+  ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
+  #82     medium    Platform Core     —                     feat[P1]: CLI extensions — agentfactory-gen p
+  #84     large     Platform Core     #85 #87 #89           feat[P2]: private org workspaces + RBAC (owne
+  #86     small     Platform Core     —                     feat[P2]: agentfactory-gen login / logout CLI
+  #102    medium    Harness / CLI     #103                  feat: integrate completeness gate into adapte
+  #104    small     Webapp / UI       #105                  feat: webapp completeness report viewer (stat
+```
+
+### Wave 4 — Monetisation ceiling
+
+```
+  #       Effort    Track             Unblocks              Title
+  ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
+  #85     large     Platform Core     #89 #90 #105          feat[P2]: Pro tier billing — Stripe seat-base
+  #87     medium    Platform Upper    #88 #89               feat[P3]: per-agent audit history dashboard
+  #103    small     Harness / CLI     —                     feat: per-adapter completeness thresholds in 
+```
+
+### Wave 5 — Wave 5
+
+```
+  #       Effort    Track             Unblocks              Title
+  ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
+  #88     medium    Webapp / UI       —                     feat[P3]: agent dependency graph visualizatio
+  #89     medium    Platform Upper    #92                   feat[P3]: Enterprise compliance export — audi
+  #90     large     Platform Upper    #92                   feat[P4]: marketplace — paid agent listings +
+  #105    medium    Webapp / UI       —                     feat[pro]: BYOK live completeness checker in 
+```
+
+### Wave 6 — Wave 6
+
+```
+  #       Effort    Track             Unblocks              Title
+  ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
+  #92     large     Platform Upper    —                     feat[P4]: publisher revenue share — Stripe Co
+```
+
+## Cross-Track Dependencies
+
+Key dependencies that span tracks — these are the critical path risks:
+
+```
+  #96  FormatSwitch  ──────────────────────►  #102  adapter-add gate
+  (harness/CLI)                               (harness/CLI)
+
+  #83  GitHub OAuth  ─┬────────────────────►  #84  RBAC
+  (platform-core)     ├────────────────────►  #85  Pro billing
+                      └────────────────────►  #86  login/logout CLI
+
+  #85  Pro billing   ─┬────────────────────►  #105 BYOK live checker
+  (platform-core)     └────────────────────►  #90  marketplace
+
+  #101 CI job        ──────────────────────►  #104 webapp report viewer
+  (harness/CLI)                               (webapp/UI)
+```
+
+---
+
+_Generated 2026-04-17 10:42 UTC by `generate-priority-report.py`._
+_Run manually: `python3 .ai/scripts/generate-priority-report.py`_

@@ -1,0 +1,5 @@
+{
+  "name": "issue-tracker",
+  "version": "1.0.0",
+  "description": "Regenerates the issue priority report and dependency matrix from live GitHub data."
+}

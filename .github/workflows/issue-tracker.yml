@@ -1,0 +1,41 @@
+name: Issue Priority Report
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: read
+
+jobs:
+  generate-report:
+    name: Regenerate priority report
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate priority report
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .ai/scripts/generate-priority-report.py
+
+      - name: Commit updated report
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/ISSUE-PRIORITY.md
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "docs: regenerate issue priority report [skip ci]"
+          git push
