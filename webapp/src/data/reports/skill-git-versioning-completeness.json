@@ -1,0 +1,332 @@
+{
+  "skill": "git-versioning",
+  "old_ref": "HEAD",
+  "old_version": "1.3.0",
+  "new_version": "1.3.1",
+  "generated_at": "2026-04-16T11:17:39.883540+00:00",
+  "score": 98,
+  "threshold": 90,
+  "passed": true,
+  "summary": {
+    "preserved": 44,
+    "degraded": 0,
+    "missing": 1
+  },
+  "atoms": [
+    {
+      "id": "load_repo_state",
+      "type": "external_ref",
+      "description": "Read project context from skills/git-versioning/references/repo-state.md for REMOTE_URL, DEFAULT_BRANCH, LATEST_TAG, and ARTIFACT_VERSIONS.",
+      "status": "preserved",
+      "evidence": "Step 0 reads `skills/git-versioning/references/repo-state.md` for REMOTE_URL, DEFAULT_BRANCH, LATEST_TAG, and ARTIFACT_VERSIONS"
+    },
+    {
+      "id": "check_milestones",
+      "type": "external_ref",
+      "description": "Optionally read .ai/memory/milestones.md Pending table to confirm branch name and scope when user asks what to do next.",
+      "status": "preserved",
+      "evidence": "Step 0 mentions 'Also check `.ai/memory/milestones.md` (if it exists) \u2014 the **Pending** table shows open issues'"
+    },
+    {
+      "id": "session_branch_gate",
+      "type": "constraint",
+      "description": "Never allow edits directly on DEFAULT_BRANCH; enforce branch creation or stashing before any modifications.",
+      "status": "preserved",
+      "evidence": "Step 0.5 'Never skip this gate. Direct commits to `DEFAULT_BRANCH` are always wrong.'"
+    },
+    {
+      "id": "gate_decision_table",
+      "type": "decision_path",
+      "description": "Route behavior based on four states: DEFAULT_BRANCH clean, DEFAULT_BRANCH dirty, non-default clean, non-default dirty.",
+      "status": "preserved",
+      "evidence": "Step 0.5 contains state table: clean/dirty \u00d7 DEFAULT_BRANCH/non-default with corresponding actions"
+    },
+    {
+      "id": "workflow_selector",
+      "type": "decision_path",
+      "description": "Route user intent (commit, upgrade, rollback, tag, merge, PR, inspect, or next-step) to correct workflow part.",
+      "status": "preserved",
+      "evidence": "Step 1 routes user intent (commit, upgrade, rollback, tag, merge, PR, inspect, next-step) to correct workflow"
+    },
+    {
+      "id": "branch_naming_rules",
+      "type": "data_table",
+      "description": "Branch name templates: upgrade/<artifact-name>-vX.Y.Z, feature/<description>, docs/<topic>, fix/<description>.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 2: 'Branch name rules: `upgrade/<artifact>-vX.Y.Z` | `feature/<desc>` | `docs/<topic>` | `fix/<desc>`'"
+    },
+    {
+      "id": "commit_message_types",
+      "type": "data_table",
+      "description": "Commit type values: upgrade, feature, docs, fix, chore with required format <type>: <summary> \u2014 <impact>.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 3: 'Types: `upgrade` | `feature` | `docs` | `fix` | `chore`. Always stage specific files'"
+    },
+    {
+      "id": "git_checkout_default",
+      "type": "command",
+      "description": "Execute 'git checkout DEFAULT_BRANCH' to switch to default branch (value from repo-state.md).",
+      "status": "preserved",
+      "evidence": "Part 1 Step 1: '`git checkout DEFAULT_BRANCH`' command shown"
+    },
+    {
+      "id": "git_pull",
+      "type": "command",
+      "description": "Execute 'git pull' to sync local default branch with remote.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 1: '`git pull`' command shown"
+    },
+    {
+      "id": "git_branch_current",
+      "type": "command",
+      "description": "Execute 'git branch --show-current' to check current branch at session start.",
+      "status": "preserved",
+      "evidence": "Step 0.5: '`git branch --show-current`' command shown"
+    },
+    {
+      "id": "git_status_check",
+      "type": "command",
+      "description": "Execute 'git status --short' to detect uncommitted changes at session start.",
+      "status": "preserved",
+      "evidence": "Step 0.5: '`git status --short`' command shown"
+    },
+    {
+      "id": "git_create_branch",
+      "type": "command",
+      "description": "Execute 'git checkout -b <branch-name>' with user-suggested name following naming rules.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 2: '`git checkout -b <branch-name>`' command shown"
+    },
+    {
+      "id": "git_stage_specific",
+      "type": "constraint",
+      "description": "Always stage specific files via 'git add <files>' \u2014 never use 'git add .' or 'git add -A'.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 3: 'Always stage specific files \u2014 never `git add .` or `git add -A`'"
+    },
+    {
+      "id": "git_commit",
+      "type": "command",
+      "description": "Execute 'git commit -m' with message format <type>: <summary> \u2014 <impact>.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 3: '`git commit -m \"<type>: <summary> \u2014 <impact>\"`'"
+    },
+    {
+      "id": "git_push_branch",
+      "type": "command",
+      "description": "Execute 'git push -u origin <branch-name>' to push feature branch.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 4: '`git push -u origin <branch-name>`'"
+    },
+    {
+      "id": "pre_commit_hook",
+      "type": "external_ref",
+      "description": "Pre-commit hook (.claude/hooks/pre-commit-check.sh) blocks commits if staged .md files lack version markers.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 3: 'Pre-commit hook (`.claude/hooks/pre-commit-check.sh`) blocks commits if staged `.md` files lack version markers'"
+    },
+    {
+      "id": "issue_writer_handoff",
+      "type": "decision_path",
+      "description": "If issue-writer skill installed, delegate PR body generation; otherwise create PR directly via gh cli.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 5: 'If **issue-writer** skill is installed, delegate PR body generation'"
+    },
+    {
+      "id": "gh_pr_create",
+      "type": "command",
+      "description": "Execute 'gh pr create' with title and body format including Summary and Test plan sections.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 5: '`gh pr create` with title and body format including Summary and Test plan sections'"
+    },
+    {
+      "id": "gh_pr_merge",
+      "type": "command",
+      "description": "Execute 'gh pr merge <number> --merge' to merge PR via GitHub CLI.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 6: '`gh pr merge <number> --merge`'"
+    },
+    {
+      "id": "git_cleanup_branch",
+      "type": "command",
+      "description": "Execute 'git checkout DEFAULT_BRANCH && git pull && git branch -d <branch-name>' after merge.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 7: '`git checkout DEFAULT_BRANCH && git pull && git branch -d <branch-name>`'"
+    },
+    {
+      "id": "integration_test_gate",
+      "type": "constraint",
+      "description": "Run full integration test suite before tagging; do not tag if tests fail.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 8: 'Run integration tests first: `pytest -m integration -v --no-cov`. If any fail, do not tag.'"
+    },
+    {
+      "id": "pytest_integration",
+      "type": "command",
+      "description": "Execute 'pytest -m integration -v --no-cov' to validate repo state before release.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 8: '`pytest -m integration -v --no-cov`' command shown"
+    },
+    {
+      "id": "semver_rules",
+      "type": "external_ref",
+      "description": "Apply SemVer bump rules from repo-state.md to determine vX.Y.Z increment.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 8: 'Determine SemVer bump from `repo-state.md`'"
+    },
+    {
+      "id": "git_tag",
+      "type": "command",
+      "description": "Execute 'git tag -a vX.Y.Z -m' with annotated tag and message vX.Y.Z: <summary>.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 8: '`git tag -a vX.Y.Z -m \"vX.Y.Z: <one-line summary>\"`'"
+    },
+    {
+      "id": "git_push_tag",
+      "type": "command",
+      "description": "Execute 'git push origin vX.Y.Z' to push tag to remote.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 8: '`git push origin vX.Y.Z`'"
+    },
+    {
+      "id": "gh_release_create",
+      "type": "constraint",
+      "description": "Never skip 'gh release create' \u2014 it is mandatory to make tag visible on GitHub Releases page.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 8: '**`gh release create` is mandatory \u2014 never skip it.**'"
+    },
+    {
+      "id": "gh_release_command",
+      "type": "command",
+      "description": "Execute 'gh release create vX.Y.Z' with title and notes including What's new and Breaking changes sections.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 8: '`gh release create vX.Y.Z --title --notes` with What's new and Breaking changes sections'"
+    },
+    {
+      "id": "update_repo_state",
+      "type": "command",
+      "description": "After tag, update repo-state.md Current version tags row and Latest tag on new PR branch \u2192 merge.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 8: 'After tagging, update `repo-state.md` (new branch \u2192 PR \u2192 merge): add tag row, update \"Latest tag\"'"
+    },
+    {
+      "id": "milestones_update",
+      "type": "constraint",
+      "description": "After every merged PR or release, update .ai/memory/milestones.md \u2014 move issues Pending \u2192 Completed with branch, PR#, commit SHA, version tag.",
+      "status": "preserved",
+      "evidence": "Step 8.5: 'Move closed issues from **Pending \u2192 Completed**; fill Branch, PR#, commit SHA, tag' and 'Never skip this step'"
+    },
+    {
+      "id": "milestones_version_bump",
+      "type": "command",
+      "description": "Bump <!-- version: X.Y.Z --> marker on milestones.md with PATCH version and commit alongside release docs.",
+      "status": "preserved",
+      "evidence": "Step 8.5: 'Bump `<!-- version: X.Y.Z -->` on `milestones.md` (PATCH bump)'"
+    },
+    {
+      "id": "devlog_update",
+      "type": "external_ref",
+      "description": "Invoke project-documenter agent to log release to docs/DEVLOG.md \u2014 never write DEVLOG manually.",
+      "status": "missing",
+      "evidence": "No reference to invoking project-documenter agent or updating DEVLOG.md found in trimmed version"
+    },
+    {
+      "id": "artifact_upgrade_checklist",
+      "type": "constraint",
+      "description": "Before artifact upgrade: verify dependencies, interfaces, references, bump scope, CLAUDE.md, repo-state.md, optional docs.",
+      "status": "preserved",
+      "evidence": "Part 2 Pre-upgrade checklist covers dependencies, interfaces, references, bump scope, CLAUDE.md, repo-state.md"
+    },
+    {
+      "id": "version_enforcer_invocation",
+      "type": "external_ref",
+      "description": "Run version-enforcer skill to apply version bump, scan unversioned files, update CLAUDE.md and repo-state.md.",
+      "status": "preserved",
+      "evidence": "Part 2 Upgrade steps: 'run version-enforcer skill' and Part 1 Step 3 mentions 'Fix with version-enforcer skill'"
+    },
+    {
+      "id": "artifact_reinstall_gate",
+      "type": "constraint",
+      "description": "After artifact upgrade merge, re-install skill in Claude.ai project \u2014 git workflow complete does not mean Claude has new version loaded.",
+      "status": "preserved",
+      "evidence": "Part 2: 'Re-install in Claude.ai \u2192 Project \u2192 Skills \u2190 DO NOT SKIP' and Part 3 Step 2: 'Re-install in Claude (Part 2)'"
+    },
+    {
+      "id": "git_show_artifact_history",
+      "type": "command",
+      "description": "Execute 'git log --oneline skills/<artifact-name>/SKILL.md' to find version history for rollback.",
+      "status": "preserved",
+      "evidence": "Part 3: '`git log --oneline skills/<artifact-name>/SKILL.md`'"
+    },
+    {
+      "id": "git_restore_artifact",
+      "type": "command",
+      "description": "Execute 'git show <tag-or-hash>:skills/<artifact-name>/SKILL.md > skills/<artifact-name>/SKILL.md' to restore artifact at specific tag.",
+      "status": "preserved",
+      "evidence": "Part 3: '`git show <tag-or-hash>:skills/<artifact-name>/SKILL.md > skills/<artifact-name>/SKILL.md`'"
+    },
+    {
+      "id": "rollback_merge_gate",
+      "type": "constraint",
+      "description": "After artifact rollback, PR \u2192 merge and re-install in Claude; no new tag needed for rollback.",
+      "status": "preserved",
+      "evidence": "Part 3: 'Commit forward \u2192 PR \u2192 merge (Part 1 Steps 3\u20137) then Re-install in Claude'"
+    },
+    {
+      "id": "inspection_commands",
+      "type": "data_table",
+      "description": "Available inspection commands: git tag, git show, git log, git diff, git checkout, gh pr list, gh release view, scan-versions.sh.",
+      "status": "preserved",
+      "evidence": "Part 4 lists all inspection commands: git tag, git log, git diff, gh pr list, gh release view, scan-versions.sh"
+    },
+    {
+      "id": "state_assessment_steps",
+      "type": "decision_path",
+      "description": "For 'what should I do next': infer uncommitted changes, branch location, open PRs, tag status; output exact next command.",
+      "status": "preserved",
+      "evidence": "Part 5: 'Check: uncommitted changes? feature branch or DEFAULT_BRANCH? open PRs? current DEFAULT_BRANCH tagged? Output the exact next command'"
+    },
+    {
+      "id": "smoke_test_plan",
+      "type": "data_table",
+      "description": "Post-upgrade smoke tests: standard trigger, edge/boundary trigger, negative test; rollback if any fails.",
+      "status": "preserved",
+      "evidence": "Part 5: 'send three prompts: a standard trigger, an edge/boundary case, and a non-trigger. If any fails: rollback'"
+    },
+    {
+      "id": "repo_state_unfilled_error",
+      "type": "error_case",
+      "description": "If repo-state.md has unfilled placeholders, stop and ask user to fill Remote section before continuing.",
+      "status": "preserved",
+      "evidence": "Step 0: 'If `repo-state.md` has unfilled placeholders, stop' with exact message to output"
+    },
+    {
+      "id": "default_branch_direct_edit_error",
+      "type": "error_case",
+      "description": "If on DEFAULT_BRANCH with clean working tree, stop and instruct user to create branch before proceeding.",
+      "status": "preserved",
+      "evidence": "Step 0.5: 'On `DEFAULT_BRANCH`, clean | **STOP.** Output branch creation command. Do not proceed.'"
+    },
+    {
+      "id": "default_branch_dirty_error",
+      "type": "error_case",
+      "description": "If on DEFAULT_BRANCH with uncommitted changes, emergency stop and instruct stash \u2192 branch \u2192 pop workflow.",
+      "status": "preserved",
+      "evidence": "Step 0.5: 'On `DEFAULT_BRANCH`, dirty | **EMERGENCY STOP.** Output stash + branch + pop commands'"
+    },
+    {
+      "id": "integration_test_failure_error",
+      "type": "error_case",
+      "description": "If integration tests fail before tag, do not tag; fix underlying behavior first and push fix commit.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 8: 'If any fail, do not tag' with instruction to fix behavior first"
+    },
+    {
+      "id": "pre_commit_version_marker_error",
+      "type": "error_case",
+      "description": "If pre-commit hook detects missing version markers in staged .md files, fix with version-enforcer skill and re-stage.",
+      "status": "preserved",
+      "evidence": "Part 1 Step 3: 'Fix with version-enforcer skill, then re-stage and retry'"
+    }
+  ]
+}

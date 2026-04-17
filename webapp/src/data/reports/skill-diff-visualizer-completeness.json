@@ -1,0 +1,227 @@
+{
+  "skill": "diff-visualizer",
+  "old_ref": "HEAD",
+  "old_version": "1.1.1",
+  "new_version": "1.1.2",
+  "generated_at": "2026-04-16T11:16:56.180533+00:00",
+  "score": 100,
+  "threshold": 90,
+  "passed": true,
+  "summary": {
+    "preserved": 30,
+    "degraded": 0,
+    "missing": 0
+  },
+  "atoms": [
+    {
+      "id": "version_detection_routing",
+      "type": "decision_path",
+      "description": "Routes to different version-detection logic based on user input: explicit versions, auto-detect, or last two releases.",
+      "status": "preserved",
+      "evidence": "Step 0 table shows all three routing paths: no versions given \u2192 auto-detect, explicit versions \u2192 skip Step 1, and 'last two releases' \u2192 Step 1."
+    },
+    {
+      "id": "auto_detect_commands",
+      "type": "command",
+      "description": "Three git commands to extract most recent and second-most-recent tags for auto-detection: git tag --sort, git describe, and git tag with sed.",
+      "status": "preserved",
+      "evidence": "Step 1 includes all three commands: 'git tag --sort=-version:refname | head -5', 'git describe --tags --abbrev=0', and 'git tag --sort=-version:refname | sed -n '2p''."
+    },
+    {
+      "id": "no_tags_error",
+      "type": "error_case",
+      "description": "When no git tags exist, stop and instruct user to create initial tag with git tag -a command.",
+      "status": "preserved",
+      "evidence": "Step 1 states 'If no tags: stop and show `git tag -a v1.0.0 -m 'Initial release'`.' Error handling table repeats this action."
+    },
+    {
+      "id": "single_tag_fallback",
+      "type": "constraint",
+      "description": "When only one tag exists, use that tag as OLD and HEAD as NEW.",
+      "status": "preserved",
+      "evidence": "Step 1 specifies: 'If one tag: `$OLD` = that tag, `$NEW` = `HEAD`'."
+    },
+    {
+      "id": "repo_diff_commands",
+      "type": "command",
+      "description": "Four git commands to build complete change catalog: git diff with name-status, git diff with stat, and two git ls-tree commands.",
+      "status": "preserved",
+      "evidence": "Step 2 includes all four commands: 'git diff $OLD $NEW --name-status', 'git diff $OLD $NEW --stat', 'git ls-tree --name-only $OLD', and 'git ls-tree --name-only $NEW'."
+    },
+    {
+      "id": "component_taxonomy",
+      "type": "data_table",
+      "description": "Lookup table mapping file path patterns to component keys: skills/, docs/, dashboard/, assets/, and root.",
+      "status": "preserved",
+      "evidence": "Component taxonomy table lists all five mappings: skills/, docs/, dashboard/, assets/, and root with their matching patterns."
+    },
+    {
+      "id": "component_status_rules",
+      "type": "data_table",
+      "description": "Rules for assigning component-level status (NEW, REMOVED, MODIFIED, UNCHANGED) based on file existence and changes.",
+      "status": "preserved",
+      "evidence": "Component-level status explanation provided: NEW (dir didn't exist), REMOVED (gone), MODIFIED (\u22651 file changed), UNCHANGED (no files changed), with root-specific rule."
+    },
+    {
+      "id": "git_status_codes",
+      "type": "data_table",
+      "description": "Maps git status codes (A, M, D, R) to file change types (added, modified, deleted, renamed).",
+      "status": "preserved",
+      "evidence": "Per-file catalog section states: 'Git Status (`A`=NEW, `M`=MODIFIED, `D`=REMOVED, `R`=renamed)'."
+    },
+    {
+      "id": "skill_version_extraction",
+      "type": "command",
+      "description": "Commands to extract version field from SKILL.md front matter: git show for OLD version and head for NEW version.",
+      "status": "preserved",
+      "evidence": "Step 3 specifies both commands: 'git show $OLD:skills/<name>/SKILL.md | head -10' for OLD version and 'head -10 skills/<name>/SKILL.md' for NEW version."
+    },
+    {
+      "id": "missing_version_fallback",
+      "type": "constraint",
+      "description": "When version field is missing from SKILL.md, use 'unknown' in diagrams and tables.",
+      "status": "preserved",
+      "evidence": "Step 3 states: 'No `version:` \u2192 use `\"unknown\"`. Error handling table confirms: 'No `version:` in SKILL.md | Use `\"unknown\"`'."
+    },
+    {
+      "id": "git_show_failure_handling",
+      "type": "error_case",
+      "description": "When git show fails for a skill file, treat skill as NEW regardless of catalog classification.",
+      "status": "preserved",
+      "evidence": "Step 3 notes: 'If `git show $OLD:...` fails, treat skill as NEW.' Error handling table provides identical rule."
+    },
+    {
+      "id": "mermaid_node_id_convention",
+      "type": "constraint",
+      "description": "Node IDs must be camelCase only with no hyphens or spaces; map skill names with hyphens to camelCase equivalents.",
+      "status": "preserved",
+      "evidence": "Node structure section states: 'Node IDs: camelCase, no hyphens (e.g. `sdd-orchestrator` \u2192 `sddOrchestrator`, `docs/` \u2192 `docsNode`)' and formatting rules repeat: 'Node IDs: camelCase, no hyphens, no spaces'."
+    },
+    {
+      "id": "mermaid_node_label_format",
+      "type": "constraint",
+      "description": "Node labels must use double quotes and newline character \\n for line breaks.",
+      "status": "preserved",
+      "evidence": "Node structure section specifies: 'Node labels: `\"Label\\n(details)\"` \u2014 skill nodes: `\"sdd-orchestrator\\nv2.0.0\"`, component nodes: `\"docs/\\n3 files changed\"'."
+    },
+    {
+      "id": "status_color_mapping",
+      "type": "data_table",
+      "description": "Color scheme for Mermaid nodes by status: UNCHANGED (blue-gray), MODIFIED (amber), NEW (green), REMOVED (red) with fill, stroke, and text colors.",
+      "status": "preserved",
+      "evidence": "Style colors table provides all four status rows with fill, stroke, and color values: UNCHANGED (#1e293b/#60a5fa/#e2e8f0), MODIFIED (#1c1507/#f59e0b/#fef3c7), NEW (#052e16/#22c55e/#dcfce7), REMOVED (#1c0707/#f87171/#fee2e2)."
+    },
+    {
+      "id": "old_diagram_rules",
+      "type": "constraint",
+      "description": "OLD diagram includes only components/skills existing at OLD version; excludes NEW items; marks REMOVED items with REMOVED color.",
+      "status": "preserved",
+      "evidence": "OLD diagram section states: 'Include all components/skills that existed at `$OLD`. Exclude NEW items. Mark REMOVED items with REMOVED color'."
+    },
+    {
+      "id": "new_diagram_rules",
+      "type": "constraint",
+      "description": "NEW diagram includes all components at current state; applies color per component/skill status; separates standalone skills into subgraph.",
+      "status": "preserved",
+      "evidence": "NEW diagram section specifies: 'Include ALL components at current state. Apply color per status. Standalone skills go in a separate subgraph'."
+    },
+    {
+      "id": "mermaid_formatting_rules",
+      "type": "constraint",
+      "description": "Mermaid formatting requirements: camelCase IDs, double-quoted labels, individual style statements (no classDef), wrap in pre.mermaid tags in HTML.",
+      "status": "preserved",
+      "evidence": "Mermaid formatting rules section lists all requirements: camelCase IDs, double-quoted labels, individual style statements (no classDef), and wrap in `<pre class=\"mermaid\">` with escaped `<`/`>` characters."
+    },
+    {
+      "id": "placeholder_variables",
+      "type": "data_table",
+      "description": "All template placeholders with their sources: OLD_VERSION, NEW_VERSION, GENERATED_DATE, OLD_DIAGRAM, NEW_DIAGRAM, skill counts, step counts, and file change counts.",
+      "status": "preserved",
+      "evidence": "Step 5 placeholder table documents all variables with sources: OLD_VERSION, NEW_VERSION, GENERATED_DATE, diagram placeholders, skill/step counts, file change counts, and UNCHANGED_COUNT."
+    },
+    {
+      "id": "change_table_structure",
+      "type": "data_table",
+      "description": "HTML table row format for changed files: component group headers, file name, badge status, version columns, and notes; sorted by component.",
+      "status": "preserved",
+      "evidence": "Step 5 change table specification describes row format: path | badge status | version columns | notes, with component group headers and badge classes (badge-new, badge-modified, badge-removed)."
+    },
+    {
+      "id": "change_table_grouping",
+      "type": "constraint",
+      "description": "Change table rows must be grouped by component in order: skills/, docs/, dashboard/, assets/, root files; with group-header separator rows.",
+      "status": "preserved",
+      "evidence": "Step 5 states: 'Sort: `skills/` \u2192 `docs/` \u2192 `dashboard/` \u2192 `assets/` \u2192 root. Add `<tr class=\"group-header\">` before each group'."
+    },
+    {
+      "id": "badge_class_mapping",
+      "type": "data_table",
+      "description": "Badge CSS classes by git status: badge-new (A), badge-modified (M), badge-removed (D).",
+      "status": "preserved",
+      "evidence": "Change table section specifies: 'Badge class: `badge-new` (A) | `badge-modified` (M) | `badge-removed` (D)'."
+    },
+    {
+      "id": "version_column_rules",
+      "type": "constraint",
+      "description": "Version columns populate only for skill SKILL.md files; all other files use '\u2014' as placeholder.",
+      "status": "preserved",
+      "evidence": "Change table section states: 'Version columns only for SKILL.md files; others use `<span class=\"na\">\u2014</span>`'."
+    },
+    {
+      "id": "output_filename_format",
+      "type": "constraint",
+      "description": "Output HTML file path: assets/diff-VERSION1-to-VERSION2.html; use HEAD if NEW is HEAD.",
+      "status": "preserved",
+      "evidence": "Step 6 specifies: 'Write to: `assets/diff-$OLD-to-$NEW.html` (HEAD variant: `assets/diff-vX.Y.Z-to-HEAD.html`)'."
+    },
+    {
+      "id": "html_template_dependency",
+      "type": "external_ref",
+      "description": "Requires template file at references/html-template.md; must be read and placeholders replaced before writing output.",
+      "status": "preserved",
+      "evidence": "Step 6 requires: 'Read template from `references/html-template.md`'. References section confirms: 'HTML template: `references/html-template.md`'."
+    },
+    {
+      "id": "self_contained_html_constraint",
+      "type": "constraint",
+      "description": "HTML file must be self-contained with no local file references; only CDN links allowed.",
+      "status": "preserved",
+      "evidence": "Step 6 states: 'Self-contained \u2014 CDN links only, no local file references'."
+    },
+    {
+      "id": "template_missing_error",
+      "type": "error_case",
+      "description": "When template file is missing, stop and report error with expected path.",
+      "status": "preserved",
+      "evidence": "Error handling table states: 'Template missing | Stop. Report path and suggest reinstalling skill'."
+    },
+    {
+      "id": "no_changes_error",
+      "type": "error_case",
+      "description": "When no files differ between versions, report and stop.",
+      "status": "preserved",
+      "evidence": "Error handling table specifies: 'No files changed | Report: \"No differences found between $OLD and $NEW.\"'."
+    },
+    {
+      "id": "mermaid_size_limit",
+      "type": "constraint",
+      "description": "When Mermaid text exceeds ~4000 characters, split into two sub-diagrams stacked vertically.",
+      "status": "preserved",
+      "evidence": "Error handling table includes: 'Mermaid text > ~4000 chars | Split into two sub-diagrams stacked vertically'."
+    },
+    {
+      "id": "placeholder_verification",
+      "type": "constraint",
+      "description": "Before writing file, verify no remaining {{...}} tokens and no unescaped <> characters in node labels.",
+      "status": "preserved",
+      "evidence": "Step 6 includes verification: 'Verify no remaining `{{...}}` tokens'."
+    },
+    {
+      "id": "report_format",
+      "type": "data_table",
+      "description": "User-facing report structure: file path, change summary counts, component status list, and optional next steps.",
+      "status": "preserved",
+      "evidence": "Step 7 provides user report structure: 'Report output path, change summary (added/modified/removed counts per component), and that it opens in any browser without a server.'"
+    }
+  ]
+}
