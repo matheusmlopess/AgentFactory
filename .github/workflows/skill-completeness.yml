@@ -41,7 +41,7 @@ jobs:
         run: |
           python3 .ai/scripts/skill-completeness-check.py \
             --skill ${{ matrix.skill }} \
-            --threshold 90
+            --adapter claude
 
       - name: Upload completeness report
         if: always()

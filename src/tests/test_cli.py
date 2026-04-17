@@ -533,6 +533,43 @@ class TestCliCommands(unittest.TestCase):
             # Script is not present in isolated filesystem → script-not-found warning
             self.assertIn("completeness script not found", result.output)
 
+    def test_adapter_add_reads_threshold_from_config(self):
+        """adapter-add uses per-adapter threshold from .ai/config/completeness.json."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init", "--primary", "claude"])
+            # Write a completeness config with a tight codex threshold
+            config_dir = Path(f"{HARNESS_ROOT}/config")
+            config_dir.mkdir(parents=True)
+            (config_dir / "completeness.json").write_text(
+                '{"completeness": {"thresholds": {"codex": 99}, "default": 80}}'
+            )
+            # Over-budget skill for codex (10k limit)
+            skill_dir = Path(f"{HARNESS_ROOT}/skills/big-skill")
+            skill_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text("---\nname: big-skill\ndescription: t\n---\n" + "x" * 11_000)
+            result = self.runner.invoke(cli, ["adapter", "add", "codex"])
+            self.assertEqual(result.exit_code, 0, result.output)
+            # The warning should mention threshold 99
+            self.assertIn("99", result.output)
+
+    def test_adapter_add_falls_back_to_default_threshold(self):
+        """adapter-add uses 'default' threshold when adapter is not listed in config."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init", "--primary", "claude"])
+            config_dir = Path(f"{HARNESS_ROOT}/config")
+            config_dir.mkdir(parents=True)
+            # No 'claude' key — should fall back to default 85
+            (config_dir / "completeness.json").write_text(
+                '{"completeness": {"thresholds": {}, "default": 85}}'
+            )
+            skill_dir = Path(f"{HARNESS_ROOT}/skills/big-skill")
+            skill_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text("---\nname: big-skill\ndescription: t\n---\n" + "x" * 19_000)
+            result = self.runner.invoke(cli, ["adapter", "add", "claude"])
+            self.assertEqual(result.exit_code, 0, result.output)
+            # Falls back to default 85 from config
+            self.assertIn("85", result.output)
+
     def test_brief_cmd_regenerates_all(self):
         """brief command updates AgentFactory.md and all active adapter briefs."""
         with self.runner.isolated_filesystem():

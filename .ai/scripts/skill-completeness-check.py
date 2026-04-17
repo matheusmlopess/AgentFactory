@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # skill-completeness-check.py — Semantic completeness checker for SKILL.md files
-# <!-- version: 1.0.0 -->
+# <!-- version: 1.1.0 -->
 #
 # Usage:
 #   python3 .ai/scripts/skill-completeness-check.py --skill <name> [options]
@@ -10,7 +10,14 @@
 #   --old <git-ref>    Git ref for original (default: HEAD)
 #   --new <path>       Path to trimmed version (default: .ai/skills/<name>/SKILL.md)
 #   --out <path>       JSON report path (default: .ai/reports/skill-<name>-completeness.json)
-#   --threshold <int>  Minimum completeness % to exit 0 (default: 90)
+#   --threshold <int>  Minimum completeness % to exit 0 (explicit override; skips config lookup)
+#   --adapter <name>   Adapter name — selects threshold from .ai/config/completeness.json
+#
+# Threshold resolution order:
+#   1. Explicit --threshold value
+#   2. --adapter name looked up in .ai/config/completeness.json
+#   3. "default" key in .ai/config/completeness.json
+#   4. Hardcoded fallback: 90
 #
 # Requires:
 #   - ANTHROPIC_API_KEY environment variable
@@ -23,8 +30,30 @@ import os
 import subprocess
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 import anthropic
+
+
+# ---------------------------------------------------------------------------
+# Config helpers
+# ---------------------------------------------------------------------------
+
+_CONFIG_PATH = ".ai/config/completeness.json"
+_DEFAULT_THRESHOLD = 90
+
+
+def load_threshold(adapter: str | None, config_path: str = _CONFIG_PATH) -> int:
+    """Return threshold for adapter from config file, or the global default."""
+    try:
+        with open(config_path) as fh:
+            data = json.load(fh)
+        block = data.get("completeness", {})
+        if adapter:
+            return int(block.get("thresholds", {}).get(adapter, block.get("default", _DEFAULT_THRESHOLD)))
+        return int(block.get("default", _DEFAULT_THRESHOLD))
+    except (FileNotFoundError, KeyError, ValueError, json.JSONDecodeError):
+        return _DEFAULT_THRESHOLD
 
 # ---------------------------------------------------------------------------
 # ANSI colour helpers
@@ -248,7 +277,10 @@ def main() -> int:
     parser.add_argument("--old",       default="HEAD",  help="Git ref for original (default: HEAD)")
     parser.add_argument("--new",       default=None,    help="Path to trimmed version")
     parser.add_argument("--out",       default=None,    help="JSON report output path")
-    parser.add_argument("--threshold", type=int, default=90, help="Min % to exit 0 (default: 90)")
+    parser.add_argument("--threshold", type=int, default=None,
+                        help="Explicit min %% to exit 0 (overrides config/adapter lookup)")
+    parser.add_argument("--adapter",   default=None,
+                        help="Adapter name — selects threshold from .ai/config/completeness.json")
     parser.add_argument("--quiet", action="store_true", help="Suppress terminal output (JSON report still written)")
     args = parser.parse_args()
 
@@ -256,8 +288,13 @@ def main() -> int:
     old_ref      = args.old
     new_path     = args.new or f".ai/skills/{skill_name}/SKILL.md"
     out_path     = args.out or f".ai/reports/skill-{skill_name}-completeness.json"
-    threshold    = args.threshold
     skill_git    = f".ai/skills/{skill_name}/SKILL.md"
+
+    # Threshold resolution: explicit → adapter config → config default → 90
+    if args.threshold is not None:
+        threshold = args.threshold
+    else:
+        threshold = load_threshold(args.adapter)
 
     global _QUIET
     _QUIET = args.quiet

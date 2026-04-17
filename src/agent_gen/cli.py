@@ -844,6 +844,23 @@ def adapter_add(name: str, project_root: str, check_completeness: bool, strict: 
     )
 
 
+def _load_completeness_threshold(adapter: str, ai_root: Path) -> int:
+    """Read per-adapter threshold from .ai/config/completeness.json.
+
+    Resolution order: adapter-specific → default key → 90.
+    Falls back to 90 on any read/parse error.
+    """
+    import json as _json
+
+    config_path = ai_root / "config" / "completeness.json"
+    try:
+        data = _json.loads(config_path.read_text(encoding="utf-8"))
+        block = data.get("completeness", {})
+        return int(block.get("thresholds", {}).get(adapter, block.get("default", 90)))
+    except (FileNotFoundError, KeyError, ValueError, _json.JSONDecodeError):
+        return 90
+
+
 def _adapter_completeness_gate(
     name: str,
     config: dict,
@@ -866,7 +883,8 @@ def _adapter_completeness_gate(
         return
 
     char_limit: int = config.get("skill_char_limit", 18_000)
-    threshold: int = config.get("completeness_threshold", 90)
+    # Config file takes precedence over FORMAT_REGISTRY default
+    threshold: int = _load_completeness_threshold(name, ai_root)
     reports_dir = ai_root / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
 
