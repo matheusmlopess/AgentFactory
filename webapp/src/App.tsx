@@ -1,7 +1,9 @@
-import { featureCards, lifecycleSteps } from "./data/harness";
+import { featureCards } from "./data/harness";
 import { HarnessExplorer } from "./components/HarnessExplorer";
 import { CompletenessViewer } from "./components/CompletenessViewer";
 import { RegistryBrowser } from "./components/RegistryBrowser";
+import { LifecycleStepper } from "./components/LifecycleStepper";
+import { ManifestInspector } from "./components/ManifestInspector";
 
 function App() {
   return (
@@ -40,32 +42,9 @@ function App() {
 
       <RegistryBrowser />
 
-      <section className="split">
-        <article className="surface">
-          <p className="section-label">Phase 1 foundation</p>
-          <h2>What this scaffold already provides</h2>
-          <ul className="checklist">
-            <li>React 19 + TypeScript strict-mode baseline</li>
-            <li>CSS variable design tokens for light and dark themes</li>
-            <li>Static data module for issue-driven UI work</li>
-            <li>GitHub Pages deployment workflow on release tags</li>
-          </ul>
-        </article>
+      <LifecycleStepper />
 
-        <article className="surface">
-          <p className="section-label">Lifecycle snapshot</p>
-          <h2>Core CLI flow</h2>
-          <ol className="steps">
-            {lifecycleSteps.map((step) => (
-              <li key={step.command}>
-                <code>{step.command}</code>
-                <strong>{step.title}</strong>
-                <span>{step.detail}</span>
-              </li>
-            ))}
-          </ol>
-        </article>
-      </section>
+      <ManifestInspector />
     </main>
   );
 }
