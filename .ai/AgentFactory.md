@@ -64,6 +64,7 @@ Claude, Codex, and Gemini share the same `.ai/` directory for shared context wit
 <!-- @skills-registry:start -->
 - **diff-visualizer**: Generates HTML diff reports visualizing what changed between two versions of the repo. (See: `.ai/skills/diff-visualizer/SKILL.md`)
 - **git-versioning**: Manages project-wide versioning and repo-state.md updates. (See: `.ai/skills/git-versioning/SKILL.md`)
+- **issue-tracker**: Regenerates the issue priority report and dependency matrix from live GitHub data. (See: `.ai/skills/issue-tracker/SKILL.md`)
 <!-- @skills-registry:end -->
 
 ## Registered Agents

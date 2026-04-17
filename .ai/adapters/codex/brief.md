@@ -4,6 +4,31 @@
 <!-- @adapter: codex -->
 <!-- @recompile: agentfactory-gen brief -->
 
+## Harness
+
+AgentFactory project. All adapters share the same harness context.
+
+```
+  Harness root : .ai/
+  This adapter : codex
+  Recompile    : agentfactory-gen brief
+```
+
+Shared context (read these to understand the project):
+
+  .ai/skills/               ← skill specs (symlinked per adapter)
+  .ai/rules/                ← behavior rules compiled into this brief
+  .ai/agent-manifest.json   ← global agent registry
+  .ai/memory/milestones.md  ← issue and milestone tracking
+
+All adapter briefs (same project, different CLI):
+
+  claude   CLAUDE.md            → .ai/adapters/claude/brief.md
+  codex    AGENTS.md / CODEX.md → .ai/adapters/codex/brief.md ← YOU ARE HERE
+  gemini   GEMINI.md            → .ai/adapters/gemini/brief.md
+
+If switching CLI: run `agentfactory-gen brief` to recompile all active adapter briefs.
+
 ## Available Skills
 
 ### diff-visualizer
@@ -14,6 +39,11 @@
 ### git-versioning
 - Description: Manages project-wide versioning and repo-state.md updates.
 - See: .codex/skills/git-versioning/SKILL.md
+- Use when: 
+
+### issue-tracker
+- Description: Regenerates the issue priority report and dependency matrix from live GitHub data.
+- See: .codex/skills/issue-tracker/SKILL.md
 - Use when: 
 
 ## Registered Agents
