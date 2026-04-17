@@ -4,10 +4,16 @@ import { CompletenessViewer } from "./components/CompletenessViewer";
 import { RegistryBrowser } from "./components/RegistryBrowser";
 import { LifecycleStepper } from "./components/LifecycleStepper";
 import { ManifestInspector } from "./components/ManifestInspector";
+import { AuthBar } from "./components/AuthBar";
 
 function App() {
   return (
     <main className="shell">
+      <header className="site-header">
+        <span className="site-header-brand">AgentFactory</span>
+        <AuthBar />
+      </header>
+
       <section className="hero">
         <p className="eyebrow">AgentFactory Platform</p>
         <h1>Production-ready scaffold for the AgentFactory web experience.</h1>
