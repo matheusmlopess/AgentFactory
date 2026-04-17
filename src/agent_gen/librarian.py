@@ -293,7 +293,7 @@ def _fmt_harness_identity(adapter_name: str) -> str:
         "```",
         f"  Harness root : {HARNESS_ROOT}/",
         f"  This adapter : {adapter_name}",
-        f"  Recompile    : agentfactory-gen brief",
+        "  Recompile    : agentfactory-gen brief",
         "```",
         "",
         "Shared context (read these to understand the project):",
