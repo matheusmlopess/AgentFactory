@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 
 from agent_gen.librarian import (
-    Librarian, MANIFEST_FILE, HARNESS_ROOT, _safe_extract,
+    Librarian, MANIFEST_FILE, HARNESS_ROOT, CONTEXT_FILE, _safe_extract,
 )
 
 class TestLibrarianLifecycle(unittest.TestCase):
@@ -397,6 +397,55 @@ class TestFormatSwitchLibrarian(unittest.TestCase):
             Librarian._migrate_root_symlinks(str(root))
             # Symlink should still point to AgentFactory.md
             self.assertIn("AgentFactory.md", os.readlink(str(legacy_link)))
+
+
+    def test_update_harness_files_injects_skills_registry_when_marker_absent(self):
+        """update_harness_files appends @skills-registry block to README when marker absent (#121)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_harness(root)
+            # README without @skills-registry marker
+            readme = root / "README.md"
+            readme.write_text("# My Project\n\nSome content.\n", encoding="utf-8")
+            # Also create required AgentFactory.md
+            (root / HARNESS_ROOT / CONTEXT_FILE).write_text(
+                "<!-- @agent-registry:start -->\n<!-- @agent-registry:end -->\n"
+                "<!-- @skills-registry:start -->\n<!-- @skills-registry:end -->\n",
+                encoding="utf-8",
+            )
+            (root / HARNESS_ROOT / "agent-manifest.json").write_text(
+                '{"factory":"AF","agents":{}}', encoding="utf-8"
+            )
+            self._add_skill(root, "my-skill", "A test skill")
+            Librarian.update_harness_files(str(root))
+            content = readme.read_text(encoding="utf-8")
+            self.assertIn("<!-- @skills-registry:start -->", content)
+            self.assertIn("my-skill", content)
+
+    def test_update_harness_files_updates_skills_registry_when_marker_present(self):
+        """update_harness_files replaces existing @skills-registry block in README."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_harness(root)
+            readme = root / "README.md"
+            readme.write_text(
+                "# My Project\n\n"
+                "<!-- @skills-registry:start -->\nold content\n<!-- @skills-registry:end -->\n",
+                encoding="utf-8",
+            )
+            (root / HARNESS_ROOT / CONTEXT_FILE).write_text(
+                "<!-- @agent-registry:start -->\n<!-- @agent-registry:end -->\n"
+                "<!-- @skills-registry:start -->\n<!-- @skills-registry:end -->\n",
+                encoding="utf-8",
+            )
+            (root / HARNESS_ROOT / "agent-manifest.json").write_text(
+                '{"factory":"AF","agents":{}}', encoding="utf-8"
+            )
+            self._add_skill(root, "updated-skill", "Updated")
+            Librarian.update_harness_files(str(root))
+            content = readme.read_text(encoding="utf-8")
+            self.assertNotIn("old content", content)
+            self.assertIn("updated-skill", content)
 
 
 if __name__ == '__main__':

@@ -96,13 +96,14 @@ class TestInitDefaultPrimary:
             target = os.readlink("CLAUDE.md")
             assert "claude" in target and "brief.md" in target
 
-    def test_non_primary_root_files_absent(self, runner):
-        """Only the primary CLI's root files are created on init."""
+    def test_all_adapter_root_files_created(self, runner):
+        """init creates root symlinks for all adapters since all briefs compile (#120)."""
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init"])
-            assert not Path("AGENTS.md").exists()
-            assert not Path("GEMINI.md").exists()
-            assert not Path("CODEX.md").exists()
+            assert Path("AGENTS.md").is_symlink()
+            assert Path("CODEX.md").is_symlink()
+            assert Path("GEMINI.md").is_symlink()
+            assert Path("CLAUDE.md").is_symlink()
 
     def test_folder_symlinks_all_created(self, runner):
         with runner.isolated_filesystem():
@@ -179,10 +180,13 @@ class TestInitAlternatePrimary:
             assert Path("CODEX.md").is_symlink()
             assert "codex" in os.readlink("CODEX.md")
 
-    def test_codex_primary_omits_claude_md(self, runner):
+    def test_codex_primary_creates_all_root_files(self, runner):
+        """--primary codex still creates CLAUDE.md and GEMINI.md (all briefs compile)."""
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init", "--primary", "codex"])
-            assert not Path("CLAUDE.md").exists()
+            assert Path("CLAUDE.md").is_symlink()
+            assert Path("AGENTS.md").is_symlink()
+            assert Path("GEMINI.md").is_symlink()
 
     def test_codex_brief_no_commands_section(self, runner):
         """Codex format omits commands — they'd need / prefix which Codex doesn't use."""
@@ -197,11 +201,13 @@ class TestInitAlternatePrimary:
             assert Path("GEMINI.md").is_symlink()
             assert "gemini" in os.readlink("GEMINI.md")
 
-    def test_gemini_primary_omits_claude_agents_md(self, runner):
+    def test_gemini_primary_creates_all_root_files(self, runner):
+        """--primary gemini still creates CLAUDE.md and AGENTS.md (all briefs compile)."""
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init", "--primary", "gemini"])
-            assert not Path("CLAUDE.md").exists()
-            assert not Path("AGENTS.md").exists()
+            assert Path("CLAUDE.md").is_symlink()
+            assert Path("AGENTS.md").is_symlink()
+            assert Path("GEMINI.md").is_symlink()
 
     def test_unknown_primary_fails(self, runner):
         with runner.isolated_filesystem():
@@ -297,6 +303,9 @@ class TestAdapterAdd:
         """A real file at AGENTS.md is never clobbered by adapter add codex."""
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init", "--primary", "claude"])
+            # Replace the symlink created by init with a real file
+            if Path("AGENTS.md").is_symlink():
+                Path("AGENTS.md").unlink()
             Path("AGENTS.md").write_text("# Custom\n")
             r = runner.invoke(cli, ["adapter", "add", "codex"])
             assert r.exit_code == 0
@@ -653,15 +662,14 @@ class TestFullLifecycle:
                     f"lifecycle-agent missing from {adapter} after wrap"
 
     def test_codex_then_claude_activation(self, runner):
-        """Start with codex primary, then add claude mid-project."""
+        """Start with codex primary — all root files exist; claude symlink verified."""
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init", "--primary", "codex"])
             assert Path("AGENTS.md").is_symlink()
-            assert not Path("CLAUDE.md").exists()
-            runner.invoke(cli, ["adapter", "add", "claude"])
+            # CLAUDE.md is created on init (all adapters compile)
             assert Path("CLAUDE.md").is_symlink()
             assert "claude" in os.readlink("CLAUDE.md")
-            # AGENTS.md still points to codex
+            # AGENTS.md points to codex
             assert "codex" in os.readlink("AGENTS.md")
 
 

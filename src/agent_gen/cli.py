@@ -249,22 +249,18 @@ def init_project(project_root: str, primary: str):
     Librarian._compile_adapter_briefs(str(project_path))
     _echo("  [wired] adapter capability symlinks + compiled briefs")
 
-    # 5. Root symlinks — primary adapter's root files → its compiled brief
-    #    Folder symlinks for all adapters
-    primary_config = _FORMAT_REGISTRY[primary]
-    brief_target = f"{HARNESS_ROOT}/adapters/{primary}/{primary_config['output']}"
-    brief_exists = (project_path / brief_target).exists()
+    # 5. Root symlinks — all adapters whose brief has been compiled
     fallback_target = f"{HARNESS_ROOT}/{CONTEXT_FILE}"
-
-    # MD root files for the primary adapter only
-    for root_file in primary_config["root_files"]:
-        link_path = project_path / root_file
-        if link_path.exists() or link_path.is_symlink():
-            _echo(f"  [skip] {root_file} (already exists)")
-            continue
-        target = brief_target if brief_exists else fallback_target
-        link_path.symlink_to(target)
-        _echo(f"  [linked] {root_file} -> {target}")
+    for _name, _cfg in _FORMAT_REGISTRY.items():
+        _brief_target = f"{HARNESS_ROOT}/adapters/{_name}/{_cfg['output']}"
+        _target = _brief_target if (project_path / _brief_target).exists() else fallback_target
+        for root_file in _cfg["root_files"]:
+            link_path = project_path / root_file
+            if link_path.exists() or link_path.is_symlink():
+                _echo(f"  [skip] {root_file} (already exists)")
+                continue
+            link_path.symlink_to(_target)
+            _echo(f"  [linked] {root_file} -> {_target}")
 
     # Folder symlinks for all adapters (not adapter-specific)
     for adapter_name in _FORMAT_REGISTRY:
