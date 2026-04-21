@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-04-17 19:44 UTC -->
-<!-- open-issues: 13 -->
+<!-- generated: 2026-04-21 11:34 UTC -->
+<!-- open-issues: 16 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
@@ -14,7 +14,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ├──────────────────┼───────────────────────────────────────────┤
   │  Harness / CLI   │                                             │
   │  Platform Core   │  #77  #82  #84  #85  #86  #114              │
-  │  Platform Upper  │  #87  #89  #90  #91  #92                    │
+  │  Platform Upper  │  #87  #89  #90  #91  #92  #116  #117  #118  │
   └──────────────────┴───────────────────────────────────────────┘
 ```
 
@@ -34,7 +34,10 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #90     #77 #85                   #92                       feat[P4]: marketplace — paid agent listings +
   #91     #77                       —                         feat[P4]: verified agent badge — automated Li
   #92     #77 #89 #90               —                         feat[P4]: publisher revenue share — Stripe Co
-  #114    —                         —                         feat[P2]: auth backend — FastAPI OAuth server
+  #114    —                         #117                      feat[P2]: auth backend — FastAPI OAuth server
+  #116    —                         —                         feat(webapp): professional architecture upgra
+  #117    #114                      —                         feat(webapp): agent converter — transform Age
+  #118    —                         —                         docs(webapp): completeness system study — 3-t
 ```
 
 ## Priority Waves
@@ -45,7 +48,9 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #       Effort    Track             Unblocks              Title
   ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
   #77     epic      Platform Core     #82 #84 #85 #86 …     epic: AgentFactory production platform — free
-  #114    ?         Platform Core     —                     feat[P2]: auth backend — FastAPI OAuth server
+  #114    ?         Platform Core     #117                  feat[P2]: auth backend — FastAPI OAuth server
+  #116    ?         Platform Upper    —                     feat(webapp): professional architecture upgra
+  #118    ?         Platform Upper    —                     docs(webapp): completeness system study — 3-t
 ```
 
 ### Wave 2 — After Wave 1
@@ -57,6 +62,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #84     large     Platform Core     #85 #87 #89           feat[P2]: private org workspaces + RBAC (owne
   #86     small     Platform Core     —                     feat[P2]: agentfactory-gen login / logout CLI
   #91     medium    Platform Upper    —                     feat[P4]: verified agent badge — automated Li
+  #117    ?         Platform Upper    —                     feat(webapp): agent converter — transform Age
 ```
 
 ### Wave 3 — After Wave 2
@@ -104,5 +110,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-04-17 19:44 UTC by `generate-priority-report.py`._
+_Generated 2026-04-21 11:34 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
