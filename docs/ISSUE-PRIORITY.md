@@ -1,6 +1,6 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-04-21 11:34 UTC -->
+<!-- generated: 2026-04-21 11:49 UTC -->
 <!-- open-issues: 16 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
@@ -13,6 +13,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   │  Track           │  Issues                                    │
   ├──────────────────┼───────────────────────────────────────────┤
   │  Harness / CLI   │                                             │
+  │  Webapp / UI     │  #88  #105                                  │
   │  Platform Core   │  #77  #82  #84  #85  #86  #114              │
   │  Platform Upper  │  #87  #89  #90  #91  #92  #116  #117  #118  │
   └──────────────────┴───────────────────────────────────────────┘
@@ -34,6 +35,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #90     #77 #85                   #92                       feat[P4]: marketplace — paid agent listings +
   #91     #77                       —                         feat[P4]: verified agent badge — automated Li
   #92     #77 #89 #90               —                         feat[P4]: publisher revenue share — Stripe Co
+  #105    #85                       —                         feat[pro]: BYOK live completeness checker in 
   #114    —                         #117                      feat[P2]: auth backend — FastAPI OAuth server
   #116    —                         —                         feat(webapp): professional architecture upgra
   #117    #114                      —                         feat(webapp): agent converter — transform Age
@@ -79,9 +81,10 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Effort    Track             Unblocks              Title
   ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #88     medium    Platform Upper    —                     feat[P3]: agent dependency graph visualizatio
+  #88     medium    Webapp / UI       —                     feat[P3]: agent dependency graph visualizatio
   #89     medium    Platform Upper    #92                   feat[P3]: Enterprise compliance export — audi
   #90     large     Platform Upper    #92                   feat[P4]: marketplace — paid agent listings +
+  #105    medium    Webapp / UI       —                     feat[pro]: BYOK live completeness checker in 
 ```
 
 ### Wave 5 — Wave 5
@@ -104,11 +107,14 @@ Key dependencies that span tracks — these are the critical path risks:
   (platform-core)     ├────────────────────►  #85  Pro billing
                       └────────────────────►  #86  login/logout CLI
 
-  #85  Pro billing   ──────────────────────►  #90  marketplace
-  (platform-core)
+  #85  Pro billing   ─┬────────────────────►  #105 BYOK live checker
+  (platform-core)     └────────────────────►  #90  marketplace
+
+  #101 CI job        ──────────────────────►  #104 webapp report viewer
+  (harness/CLI)                               (webapp/UI)
 ```
 
 ---
 
-_Generated 2026-04-21 11:34 UTC by `generate-priority-report.py`._
+_Generated 2026-04-21 11:49 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
