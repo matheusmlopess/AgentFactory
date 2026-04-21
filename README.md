@@ -1,8 +1,9 @@
 # AgentFactory
 <!-- version: 2.7.0 -->
 
-A Python CLI (`agentfactory-gen`) and growing SaaS platform for building, packaging,
-and deploying AI agents as portable, framework-agnostic units.
+A Python CLI (`agentfactory-gen`) for building, packaging, and deploying AI agents
+as portable, framework-agnostic units. The web platform lives at
+[agentfactory-webapp](https://github.com/matheusmlopess/agentfactory-webapp) (private).
 
 AgentFactory provides a **Unified AI Harness** — a single `.ai/` directory that lets
 Claude, Codex, and Gemini work on the same project simultaneously, each reading a
@@ -130,6 +131,12 @@ agentfactory-gen uninstall <name>            # remove agent cleanly
 agentfactory-gen import-skill <path>                  # import skill into .ai/skills/
 agentfactory-gen import-skill <path> --to <agent>     # import into a specific agent
 agentfactory-gen retrofit <path>                      # convert Claude/Gemini/Codex layout
+
+# Skill completeness oracle
+python3 .ai/scripts/skill-completeness-check.py --skill <name> --adapter <adapter>
+python3 .ai/scripts/skill-completeness-check.py --agent <name> --adapter <adapter>
+python3 .ai/scripts/skill-completeness-check.py --skill <name> --mode new   # new skill self-check [pro]
+python3 .ai/scripts/skill-completeness-check.py --skill <name> --oracle-model claude-sonnet-4-6
 ```
 
 ### Global flag
@@ -161,16 +168,38 @@ Recompile all active briefs: `agentfactory-gen brief`
 ### Skill Completeness Oracle
 
 A two-phase Claude Haiku oracle that verifies a trimmed `SKILL.md` preserves all
-functional capability of the original:
+functional capability of the original. Supports global skills, agents, and new
+uncommitted skills via Phase 0 auto-trim (pro plan).
 
 ```bash
+# Existing committed skill (free)
 python3 .ai/scripts/skill-completeness-check.py \
   --skill git-versioning --adapter claude
+
+# New/uncommitted skill self-check (pro)
+python3 .ai/scripts/skill-completeness-check.py \
+  --skill my-new-skill --mode new --adapter claude
+
+# All skills in an agent (pro)
+python3 .ai/scripts/skill-completeness-check.py \
+  --agent test-agent --adapter claude
+
+# Higher accuracy
+python3 .ai/scripts/skill-completeness-check.py \
+  --skill git-versioning --oracle-model claude-sonnet-4-6
 ```
 
 Phase 1 extracts **functional atoms** (commands, decision paths, error cases,
-constraints) from the original. Phase 2 verifies each atom is present in the
-trimmed version. Score ≥ threshold → pass.
+constraints) from the original using ephemeral prompt cache. Phase 2 verifies each
+atom is present in the trimmed version. Score ≥ threshold → pass.
+
+**Modes:** `--mode auto` (default, detects new vs committed) · `--mode new` (force
+Phase 0 trim, pro) · `--mode diff` (force git baseline, fails if no baseline)
+
+**Models:** Haiku ~1× cost (default) · Sonnet ~6× · Opus ~20×
+
+**Pro plan gate:** `--mode new`, auto-detected new skills, and `--agent` require
+`{"plan":"pro"}` in `.ai/config/user.json`. Exit code `3` = plan gate triggered.
 
 Per-adapter thresholds in `.ai/config/completeness.json`:
 
@@ -179,6 +208,8 @@ Per-adapter thresholds in `.ai/config/completeness.json`:
 ```
 
 Integrated into: pre-commit hook · dedicated CI job · `adapter add --check-completeness`
+
+Full how-to: [`docs/HOWTO-COMPLETENESS-CHECK.md`](docs/HOWTO-COMPLETENESS-CHECK.md)
 
 ### Harness Doctor
 
@@ -204,47 +235,16 @@ result in the harness.
 
 ---
 
-## Platform & Webapp
-
-The AgentFactory platform is being built as a freemium SaaS on top of the open-source
-CLI. Current status:
-
-| Feature | Status |
-|---------|--------|
-| Webapp scaffold (Vite + React 19 + TS) | Live |
-| Harness Explorer (file tree + doc pane) | Live |
-| Skill Completeness Viewer (cached reports) | Live |
-| Agent Registry (browse + search + install command) | Live — static scaffold |
-| Lifecycle Stepper + Manifest Inspector | Live |
-| GitHub + Google OAuth (frontend) | Live — demo mode |
-| Auth backend (FastAPI, GitHub + Google) | Planned — #114 |
-| Private workspaces + RBAC | Planned — #84 |
-| Pro billing (Stripe) | Planned — #85 |
-| BYOK live completeness checker | Planned — #105 |
-
-Run the webapp locally:
-
-```bash
-cd webapp
-npm install
-npm run dev      # http://localhost:5173
-```
-
----
-
 ## CI/CD
 
 | Trigger | Workflow | What runs |
 |---------|----------|-----------|
-| Push / PR (any branch) | `ci.yml` | ruff lint → pytest (3.11 + 3.12) → coverage ≥ 80% → webapp tsc + build → harness-doctor |
+| Push / PR (any branch) | `ci.yml` | ruff lint → pytest (3.11 + 3.12) → coverage ≥ 80% → harness-doctor |
 | Push / PR (SKILL.md changed) | `skill-completeness.yml` | two-phase completeness oracle per skill |
 | Push to `dev` / `main` | `issue-tracker.yml` | regenerate `docs/ISSUE-PRIORITY.md` |
 | `git tag v*` | `release.yml` | build wheel + sdist → GitHub Release → PyPI |
-| `git tag v*` | `deploy-webapp.yml` | `npm run build` → GitHub Pages |
 
 Branch protection on `dev` requires **Tests + Coverage** to pass before merge.
-
-Live demo: `https://matheusmlopess.github.io/AgentFactory/`
 
 ---
 
@@ -254,12 +254,13 @@ Live demo: `https://matheusmlopess.github.io/AgentFactory/`
 |-----|---------------|
 | [`docs/FEATURE-WORKFLOW.md`](docs/FEATURE-WORKFLOW.md) | 8-step feature lifecycle (issue → branch → implement → CI → PR → merge → milestones → report) |
 | [`docs/SKILL-COMPLETENESS-SPEC.md`](docs/SKILL-COMPLETENESS-SPEC.md) | Two-phase oracle, CLI reference, all integration points |
-| [`docs/HOWTO.md`](docs/HOWTO.md) | Workflow diagrams: deploy, retrofit, wrap, import, uninstall, webapp |
+| [`docs/HOWTO.md`](docs/HOWTO.md) | Workflow diagrams: deploy, retrofit, wrap, import, uninstall |
 | [`docs/FEATURE-AUTH.md`](docs/FEATURE-AUTH.md) | GitHub + Google OAuth system: states, API contract, plan gating |
 | [`docs/FEATURE-HARNESS-IDENTITY.md`](docs/FEATURE-HARNESS-IDENTITY.md) | Cross-adapter navigation block: how it works, swap walkthrough |
 | [`docs/FEATURE-DOC-TEMPLATE.md`](docs/FEATURE-DOC-TEMPLATE.md) | Blank template — every new feature ships one of these |
 | [`docs/ISSUE-PRIORITY.md`](docs/ISSUE-PRIORITY.md) | Live issue priority + wave map (auto-regenerated on every merge) |
 | [`docs/SPEC.md`](docs/SPEC.md) | Technical specification: manifest schema, intelligence layer |
+| [`docs/HOWTO-COMPLETENESS-CHECK.md`](docs/HOWTO-COMPLETENESS-CHECK.md) | All completeness check modes: skill, agent, new-skill, model selection |
 
 ---
 

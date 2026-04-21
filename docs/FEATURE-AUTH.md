@@ -39,10 +39,13 @@ With auth, they gain a persistent identity, billing tier, and write access.
   │  FILE LAYOUT                                                           │
   └──────────────────────────────────────────────────────────────────────┘
 
-  webapp/src/types/auth.ts              ← User, Plan, AuthState types
-  webapp/src/context/AuthContext.tsx    ← AuthProvider, useAuth() hook
-  webapp/src/components/AuthBar.tsx     ← UI: sign-in button / user badge
-  webapp/src/main.tsx                   ← AuthProvider wraps the app root
+  src/types/auth.ts              ← User, Plan, AuthState types        (agentfactory-webapp)
+  src/context/AuthContext.tsx    ← AuthProvider, useAuth() hook       (agentfactory-webapp)
+  src/components/AuthBar.tsx     ← UI: sign-in button / user badge    (agentfactory-webapp)
+  src/main.tsx                   ← AuthProvider wraps the app root    (agentfactory-webapp)
+
+  All auth UI files are in the private agentfactory-webapp repo:
+  https://github.com/matheusmlopess/agentfactory-webapp
 ```
 
 ### 2.2 React tree
