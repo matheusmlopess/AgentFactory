@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-04-21 14:51 UTC -->
-<!-- open-issues: 17 -->
+<!-- generated: 2026-04-21 15:21 UTC -->
+<!-- open-issues: 16 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
@@ -15,7 +15,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   │  Harness / CLI   │                                             │
   │  Webapp / UI     │  #88  #105                                  │
   │  Platform Core   │  #77  #82  #84  #85  #86  #114              │
-  │  Platform Upper  │  #87  #89  #90  #91  #92  #116  #117  #118  #121│
+  │  Platform Upper  │  #87  #89  #90  #91  #92  #116  #117  #118  │
   └──────────────────┴───────────────────────────────────────────┘
 ```
 
@@ -40,7 +40,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #116    —                         —                         feat(webapp): professional architecture upgra
   #117    #114                      —                         feat(webapp): agent converter — transform Age
   #118    —                         —                         docs(webapp): completeness system study — 3-t
-  #121    —                         —                         bug: update_harness_files skips @skills-regis
 ```
 
 ## Priority Waves
@@ -54,7 +53,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #114    ?         Platform Core     #117                  feat[P2]: auth backend — FastAPI OAuth server
   #116    ?         Platform Upper    —                     feat(webapp): professional architecture upgra
   #118    ?         Platform Upper    —                     docs(webapp): completeness system study — 3-t
-  #121    ?         Platform Upper    —                     bug: update_harness_files skips @skills-regis
 ```
 
 ### Wave 2 — After Wave 1
@@ -118,5 +116,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-04-21 14:51 UTC by `generate-priority-report.py`._
+_Generated 2026-04-21 15:21 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
