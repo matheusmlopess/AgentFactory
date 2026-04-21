@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.7.3 -->
+<!-- version: 1.7.4 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -152,6 +152,8 @@ Issues below are tracked in the private webapp repo as of 2026-04-21.
 | #104 | webapp completeness report viewer (static, no API key) | feature | done | feature/104-webapp-completeness-viewer | #108 | 4f2822b | — |
 | #105 | BYOK live completeness checker in webapp [pro] | feature | pending | — | — | — | — |
 | #114 | auth backend — FastAPI OAuth server (GitHub + Google), JWT sessions | platform | pending | — | — | — | — |
+| #120 | bug: init creates root MD symlinks for primary adapter only | bug | done | fix/120-121-harness-init-gaps | #123 | 47f8e46 | — |
+| #121 | bug: update_harness_files skips @skills-registry injection in README when marker absent | bug | done | fix/120-121-harness-init-gaps | #123 | 47f8e46 | — |
 
 ## Pending (legacy / non-platform)
 
