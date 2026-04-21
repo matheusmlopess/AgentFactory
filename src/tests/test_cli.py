@@ -212,7 +212,7 @@ class TestCliCommands(unittest.TestCase):
             self.runner.invoke(cli, ["deploy", "plan-agent"])
             result = self.runner.invoke(cli, ["describe", "plan-agent", "--plan", "orchestration/missing.json"])
             self.assertEqual(result.exit_code, 0)
-            self.assertIn("Warning", result.output + (result.stderr if hasattr(result, "stderr") else ""))
+            self.assertIn("Warning", result.output)
 
     # --- #48: wrap --out ---
 
@@ -422,7 +422,7 @@ class TestCliCommands(unittest.TestCase):
             self.assertIn("claude", target)
 
     def test_init_primary_flag_codex(self):
-        """--primary codex links AGENTS.md and CODEX.md to codex brief."""
+        """--primary codex links all adapter root files; codex files point to codex brief."""
         with self.runner.isolated_filesystem():
             result = self.runner.invoke(cli, ["init", "--primary", "codex"])
             self.assertEqual(result.exit_code, 0)
@@ -433,8 +433,11 @@ class TestCliCommands(unittest.TestCase):
             self.assertTrue(os.path.islink("CODEX.md"))
             codex_target = os.readlink("CODEX.md")
             self.assertIn("codex", codex_target)
-            # CLAUDE.md should NOT be created (not primary)
-            self.assertFalse(os.path.exists("CLAUDE.md"))
+            # All adapter root files are created (all briefs compile on init)
+            self.assertTrue(os.path.islink("CLAUDE.md"))
+            self.assertIn("claude", os.readlink("CLAUDE.md"))
+            self.assertTrue(os.path.islink("GEMINI.md"))
+            self.assertIn("gemini", os.readlink("GEMINI.md"))
 
     def test_adapter_add_creates_dir_and_brief(self):
         """adapter add creates the adapter dir, config, wiring, brief, and root symlinks."""
@@ -479,11 +482,27 @@ class TestCliCommands(unittest.TestCase):
             self.assertTrue(brief_path.exists())
             self.assertTrue(os.path.islink("GEMINI.md"))
 
+    def test_init_creates_all_adapter_root_symlinks(self):
+        """init with default --primary claude creates root symlinks for all adapters (#120)."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["init"])
+            self.assertEqual(result.exit_code, 0)
+            self.assertTrue(os.path.islink("CLAUDE.md"))
+            self.assertIn("claude", os.readlink("CLAUDE.md"))
+            self.assertTrue(os.path.islink("AGENTS.md"))
+            self.assertIn("codex", os.readlink("AGENTS.md"))
+            self.assertTrue(os.path.islink("CODEX.md"))
+            self.assertIn("codex", os.readlink("CODEX.md"))
+            self.assertTrue(os.path.islink("GEMINI.md"))
+            self.assertIn("gemini", os.readlink("GEMINI.md"))
+
     def test_adapter_add_skips_non_symlink_root_file(self):
         """adapter add does not clobber an existing regular-file AGENTS.md."""
         with self.runner.isolated_filesystem():
             self.runner.invoke(cli, ["init", "--primary", "claude"])
-            # Create a real file at AGENTS.md
+            # Replace the symlink created by init with a real file
+            if os.path.islink("AGENTS.md"):
+                os.unlink("AGENTS.md")
             Path("AGENTS.md").write_text("# Custom content\n")
             result = self.runner.invoke(cli, ["adapter", "add", "codex"])
             self.assertEqual(result.exit_code, 0)

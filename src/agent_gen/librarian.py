@@ -1050,6 +1050,8 @@ class Librarian:
                 # Update Skills
                 if "<!-- @skills-registry:start -->" in content:
                     content = skill_pattern.sub(skill_registry_text, content)
+                else:
+                    content = content.strip() + f"\n\n## Available Skills\n{skill_registry_text}\n"
 
                 target_path.write_text(content, encoding="utf-8")
                 updated_paths.add(resolved_path)
