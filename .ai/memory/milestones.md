@@ -70,14 +70,18 @@ Status values: `done` · `in-progress` · `pending` · `deferred`
 Business model: freemium SaaS + public agent registry + marketplace.
 The CLI stays open-source. The platform is the paid surface.
 
+> **Note (2026-04-21):** The webapp has been extracted to the private
+> [agentfactory-webapp](https://github.com/matheusmlopess/agentfactory-webapp) repo.
+> Webapp issues (#78, #79, #80, #104, #105) are tracked there going forward.
+
 ### Phase 1 — Foundation
 
 | # | Title | Type | Status | Branch | PR | Commit | Tag |
 |---|-------|------|--------|--------|----|--------|-----|
 | #77 | epic: AgentFactory production platform | epic | pending | — | — | — | — |
-| #78 | feat[P1]: webapp scaffold — Vite + React 19 + TS + GitHub Pages | webapp | in-progress | feature/webapp-scaffold-p1-78 | — | — | — |
-| #79 | feat[P1]: harness explorer UI — two-panel file tree + doc pane | webapp | in-progress | feature/harness-explorer-p1-79 | — | — | — |
-| #80 | feat[P1]: lifecycle stepper + manifest inspector UI components | webapp | done | feature/80-lifecycle-stepper-manifest-inspector | #112 | cf35f7a | — |
+| #78 | feat[P1]: webapp scaffold — Vite + React 19 + TS + GitHub Pages | webapp | moved→webapp-repo | — | — | — | — |
+| #79 | feat[P1]: harness explorer UI — two-panel file tree + doc pane | webapp | moved→webapp-repo | — | — | — | — |
+| #80 | feat[P1]: lifecycle stepper + manifest inspector UI components | webapp | moved→webapp-repo | feature/80-lifecycle-stepper-manifest-inspector | #112 | cf35f7a | — |
 | #81 | feat[P1]: public agent registry — browse, search, publish Portable Units | registry | done | feature/81-public-agent-registry | #111 | 17ae0e3 | — |
 | #82 | feat[P1]: CLI extensions — agentfactory-gen publish + import --from-registry | cli | pending | — | — | — | — |
 
@@ -105,6 +109,15 @@ The CLI stays open-source. The platform is the paid surface.
 | #90 | feat[P4]: marketplace — paid agent listings + purchase flow | marketplace | pending | — | — | — | — |
 | #91 | feat[P4]: verified agent badge — automated Librarian security scan | registry | pending | — | — | — | — |
 | #92 | feat[P4]: publisher revenue share — Stripe Connect payouts | billing | pending | — | — | — | — |
+
+### Webapp track (moved to agentfactory-webapp)
+
+Issues below are tracked in the private webapp repo as of 2026-04-21.
+
+| # | Title | Type | Status |
+|---|-------|------|--------|
+| #104 | webapp completeness report viewer (static, no API key) | feature | moved→webapp-repo |
+| #105 | BYOK live completeness checker in webapp [pro] | feature | moved→webapp-repo |
 
 ---
 

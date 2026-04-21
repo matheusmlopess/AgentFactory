@@ -346,14 +346,10 @@ deeper trims — less room for behavioral loss is tolerated.
           upload .ai/reports/*.json as artifacts
           exit 1 → blocks PR merge
 
-  Webapp (read-only, no API key)
-  ──────────────────────────────
-  npm run dev / npm run build
-    │
-    └─► node scripts/copy-reports.mjs
-          copies .ai/reports/skill-*.json
-                 → webapp/src/data/reports/
-          CompletenessViewer.tsx renders cached results
+  Webapp viewer (agentfactory-webapp, private repo)
+  ─────────────────────────────────────────────────
+  Reports in .ai/reports/*.json are consumed by the
+  webapp repo. See github.com/matheusmlopess/agentfactory-webapp.
 ```
 
 ### 6.2 Adapter-swap gate in detail
@@ -528,16 +524,11 @@ deeper trims — less room for behavioral loss is tolerated.
   └──────────────────────────────────────────────────────────────────────┘
 
   ┌──────────────────────────────────────────────────────────────────────┐
-  │  TIER 2 — Static Webapp Viewer                          LIVE (#104)   │
+  │  TIER 2 — Webapp Viewer                        moved → webapp-repo   │
   │                                                                        │
-  │  webapp/src/components/CompletenessViewer.tsx                         │
-  │                                                                        │
-  │  • Renders pre-generated JSON reports from .ai/reports/               │
-  │  • Reports embedded at build time via copy-reports.mjs               │
-  │  • No API key needed to view                                          │
-  │  • Skill tabs + score badge + filterable atom list                    │
-  │  • "Re-run" shows CLI command to copy-paste                           │
-  │  • badge: "pro" (free read-only tier of the Pro feature)             │
+  │  Implemented in agentfactory-webapp (private repo).                  │
+  │  Reads .ai/reports/*.json; gated behind FeatureGate plan="pro".      │
+  │  See github.com/matheusmlopess/agentfactory-webapp                   │
   └──────────────────────────────────────────────────────────────────────┘
 
   ┌──────────────────────────────────────────────────────────────────────┐
@@ -590,16 +581,7 @@ deeper trims — less room for behavioral loss is tolerated.
          │
          ▼
   ┌──────────────────────────────────────────────────────────────────────┐
-  │  STEP 3 — Refresh webapp (optional, if running locally)               │
-  │                                                                        │
-  │  cd webapp                                                            │
-  │  node scripts/copy-reports.mjs                                       │
-  │  # (or just restart: npm run dev — copy runs automatically)           │
-  └──────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-  ┌──────────────────────────────────────────────────────────────────────┐
-  │  STEP 4 — CI validates on push / PR                                   │
+  │  STEP 3 — CI validates on push / PR                                   │
   │                                                                        │
   │  .github/workflows/skill-completeness.yml fires (path filter)        │
   │  Re-runs oracle in CI → blocks merge if score < threshold            │
@@ -621,24 +603,6 @@ deeper trims — less room for behavioral loss is tolerated.
   │                                                                        │
   │  python3 .ai/scripts/skill-completeness-check.py \                   │
   │    --skill <name> --adapter claude                                    │
-  └──────────────────────────────────────────────────────────────────────┘
-         │
-         ▼
-  ┌──────────────────────────────────────────────────────────────────────┐
-  │  Register in webapp CompletenessViewer.tsx                           │
-  │                                                                        │
-  │  // 1. Add import                                                     │
-  │  import newReport from                                                │
-  │    "../data/reports/skill-<name>-completeness.json";                 │
-  │                                                                        │
-  │  // 2. Add to REPORTS map                                             │
-  │  const REPORTS = {                                                    │
-  │    "diff-visualizer": diffReport as CompletenessReport,              │
-  │    "git-versioning":  gitReport  as CompletenessReport,              │
-  │    "<name>":          newReport  as CompletenessReport,   // ← add   │
-  │  };                                                                   │
-  │                                                                        │
-  │  Note: auto-discovery of reports is a planned future improvement.    │
   └──────────────────────────────────────────────────────────────────────┘
          │
          ▼
@@ -679,12 +643,12 @@ Completeness check run on 2026-04-16 after the token-budget trim:
   │  #101   │  Dedicated CI job (skill-completeness.yml)    │  ✓ LIVE     │
   │  #102   │  Adapter-add completeness gate                │  ✓ LIVE     │
   │  #103   │  Per-adapter thresholds in config             │  ✓ LIVE     │
-  │  #104   │  Webapp static report viewer                  │  ✓ LIVE     │
-  │  #105   │  BYOK live checker in webapp [pro]            │  ⏳ Wave 5  │
+  │  #104   │  Webapp static report viewer                  │  → webapp-repo │
+  │  #105   │  BYOK live checker in webapp [pro]            │  → webapp-repo │
   └──────────────────────────────────────────────────────────────────────┘
 
-  #105 is gated behind Pro billing (#85) — Wave 4 → unlocks #105 Wave 5.
-  All other completeness track issues are fully shipped as of v1.7.0.
+  #104 and #105 have moved to the private agentfactory-webapp repo (2026-04-21).
+  All CLI-side completeness track issues (#100–#103) are fully shipped as of v1.7.0.
 ```
 
 ---
@@ -704,16 +668,11 @@ Completeness check run on 2026-04-16 after the token-budget trim:
   │  git show HEAD:... failed         │  Ensure fetch-depth: 2 in CI, or  │
   │                                   │  run from inside the git repo      │
   ├───────────────────────────────────┼───────────────────────────────────┤
-  │  Webapp shows stale score         │  Re-run oracle → node             │
-  │                                   │  scripts/copy-reports.mjs          │
-  ├───────────────────────────────────┼───────────────────────────────────┤
   │  harness-doctor skips completeness│  Pass --completeness flag and set │
   │                                   │  ANTHROPIC_API_KEY                 │
   ├───────────────────────────────────┼───────────────────────────────────┤
   │  adapter-add not showing threshold│  Check .ai/config/completeness.json│
   │  from config                      │  — adapter key must match exactly  │
   ├───────────────────────────────────┼───────────────────────────────────┤
-  │  New skill not in webapp tabs     │  Add import + REPORTS entry in    │
-  │                                   │  CompletenessViewer.tsx            │
   └──────────────────────────────────────────────────────────────────────┘
 ```

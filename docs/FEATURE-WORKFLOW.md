@@ -62,7 +62,6 @@ Every unit of work starts as an issue. No branch without an issue.
   │  Label          │  Use for                                          │
   ├─────────────────┼──────────────────────────────────────────────────┤
   │  enhancement    │  Harness / CLI features (no platform label)       │
-  │  webapp         │  React webapp / UI work                           │
   │  cli            │  CLI command changes (with platform for SaaS)     │
   │  platform       │  SaaS platform work — add [P1]–[P4] in title     │
   │  billing        │  Stripe / monetisation (add with platform)        │
@@ -159,13 +158,13 @@ Every push to a PR branch runs these jobs. All must pass before merge is allowed
   ┌─────────────────────────────────────────────────────────────────────┐
   │  CI PIPELINE (.github/workflows/ci.yml)                              │
   │                                                                       │
-  │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
-  │  │  tests           │  │  webapp-build     │  │  harness-doctor  │  │
-  │  │                  │  │                  │  │                  │  │
-  │  │  pytest          │  │  tsc --noEmit    │  │  exit 0  → pass  │  │
-  │  │  80% coverage    │  │  vite build      │  │  exit 1  → warn  │  │
-  │  │                  │  │                  │  │  exit 2  → BLOCK │  │
-  │  └──────────────────┘  └──────────────────┘  └──────────────────┘  │
+  │  ┌──────────────────┐  ┌──────────────────┐                        │
+  │  │  tests           │  │  harness-doctor  │                        │
+  │  │                  │  │                  │                        │
+  │  │  pytest          │  │  exit 0  → pass  │                        │
+  │  │  80% coverage    │  │  exit 1  → warn  │                        │
+  │  │                  │  │  exit 2  → BLOCK │                        │
+  │  └──────────────────┘  └──────────────────┘                        │
   │                                                                       │
   │  ┌──────────────────────────────────────────────────────────────┐   │
   │  │  skill-completeness  (only fires when SKILL.md changes)       │   │
