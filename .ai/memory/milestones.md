@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.7.4 -->
+<!-- version: 1.7.5 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -154,6 +154,7 @@ Issues below are tracked in the private webapp repo as of 2026-04-21.
 | #114 | auth backend — FastAPI OAuth server (GitHub + Google), JWT sessions | platform | pending | — | — | — | — |
 | #120 | bug: init creates root MD symlinks for primary adapter only | bug | done | fix/120-121-harness-init-gaps | #123 | 47f8e46 | — |
 | #121 | bug: update_harness_files skips @skills-registry injection in README when marker absent | bug | done | fix/120-121-harness-init-gaps | #123 | 47f8e46 | — |
+| #114 | feat[P2]: auth backend — FastAPI OAuth server + JWT sessions + license validation | platform | done | feature/114-auth-backend | #124 | 39d0e8c | — |
 
 ## Pending (legacy / non-platform)
 
