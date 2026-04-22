@@ -448,5 +448,113 @@ class TestFormatSwitchLibrarian(unittest.TestCase):
             self.assertIn("updated-skill", content)
 
 
+class TestProjectContextInjection(unittest.TestCase):
+    """Tests for preamble extraction + injection into compiled adapter briefs."""
+
+    def _make_harness(self, root: Path, af_content: str | None = None) -> None:
+        ai = root / HARNESS_ROOT
+        for d in ["adapters/claude", "adapters/codex", "adapters/gemini",
+                  "skills", "commands", "rules", "agents", "memory"]:
+            (ai / d).mkdir(parents=True, exist_ok=True)
+        (ai / "agent-manifest.json").write_text(
+            '{"factory":"AgentFactory","agents":{}}', encoding="utf-8"
+        )
+        if af_content is not None:
+            (ai / CONTEXT_FILE).write_text(af_content, encoding="utf-8")
+
+    def test_brief_includes_project_context_from_agentfactory_md(self):
+        """Compiled claude brief contains ## Project Context with the preamble text."""
+        preamble = "This project does something cool.\n\nMore details here."
+        af_content = f"# My Project\n\n{preamble}\n\n<!-- @agent-registry:start -->\n<!-- @agent-registry:end -->\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_harness(root, af_content)
+            Librarian._compile_adapter_briefs(str(root))
+            brief = (root / HARNESS_ROOT / "adapters" / "claude" / "brief.md").read_text(encoding="utf-8")
+            self.assertIn("## Project Context", brief)
+            self.assertIn("This project does something cool.", brief)
+
+    def test_brief_strips_h1_and_registries_from_project_context(self):
+        """H1 title and <!-- @ blocks do not appear inside ## Project Context."""
+        af_content = (
+            "# AgentFactory\n\n"
+            "Project preamble text.\n\n"
+            "<!-- @agent-registry:start -->\nsome agent\n<!-- @agent-registry:end -->\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_harness(root, af_content)
+            Librarian._compile_adapter_briefs(str(root))
+            brief = (root / HARNESS_ROOT / "adapters" / "claude" / "brief.md").read_text(encoding="utf-8")
+            self.assertIn("Project preamble text.", brief)
+            self.assertNotIn("<!-- @agent-registry", brief)
+            # H1 title should not appear inside the Project Context section
+            ctx_start = brief.find("## Project Context")
+            self.assertNotIn("# AgentFactory", brief[ctx_start:ctx_start + 200])
+
+    def test_brief_project_context_absent_when_agentfactory_md_missing(self):
+        """No AgentFactory.md → brief compiles without error, no ## Project Context."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_harness(root, af_content=None)
+            Librarian._compile_adapter_briefs(str(root))
+            brief = (root / HARNESS_ROOT / "adapters" / "claude" / "brief.md").read_text(encoding="utf-8")
+            self.assertNotIn("## Project Context", brief)
+
+    def test_brief_truncates_preamble_for_tight_budget(self):
+        """Codex brief truncates preamble > context_char_limit with warning comment."""
+        long_preamble = ("A" * 500 + "\n\n") * 10  # ~5100 chars
+        af_content = f"# Title\n\n{long_preamble}\n\n<!-- @agent-registry:start -->\n<!-- @agent-registry:end -->\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_harness(root, af_content)
+            Librarian._compile_adapter_briefs(str(root))
+            brief = (root / HARNESS_ROOT / "adapters" / "codex" / "brief.md").read_text(encoding="utf-8")
+            # codex context_char_limit = 2000; preamble is ~5000 chars
+            ctx_start = brief.find("## Project Context")
+            self.assertGreater(ctx_start, -1)
+            ctx_section = brief[ctx_start:]
+            self.assertIn("<!-- ⚠ context truncated:", ctx_section)
+
+    def test_brief_no_truncation_when_within_budget(self):
+        """Claude brief: preamble <= 4000 chars → no truncation warning."""
+        short_preamble = "Short project description.\n\nSecond paragraph."
+        af_content = f"# Title\n\n{short_preamble}\n\n<!-- @agent-registry:start -->\n<!-- @agent-registry:end -->\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_harness(root, af_content)
+            Librarian._compile_adapter_briefs(str(root))
+            brief = (root / HARNESS_ROOT / "adapters" / "claude" / "brief.md").read_text(encoding="utf-8")
+            self.assertNotIn("context truncated", brief)
+            self.assertIn("Short project description.", brief)
+
+    def test_compile_agentfactory_md_adds_rules_and_commands(self):
+        """After _compile_adapter_briefs, AgentFactory.md contains rules + commands blocks."""
+        af_content = "# My Project\n\nPreamble.\n\n<!-- @agent-registry:start -->\n<!-- @agent-registry:end -->\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_harness(root, af_content)
+            # Add a rule and command so sections are non-empty
+            (root / HARNESS_ROOT / "rules" / "no-secrets.md").write_text(
+                "- Never commit secrets.", encoding="utf-8"
+            )
+            (root / HARNESS_ROOT / "commands" / "git-workflow.md").write_text(
+                "<!-- version: 1.0.0 -->\nGit workflow command.", encoding="utf-8"
+            )
+            Librarian._compile_adapter_briefs(str(root))
+            af = (root / HARNESS_ROOT / CONTEXT_FILE).read_text(encoding="utf-8")
+            self.assertIn("<!-- @commands-start -->", af)
+            self.assertIn("<!-- @commands-end -->", af)
+            self.assertIn("<!-- @rules-start -->", af)
+            self.assertIn("<!-- @rules-end -->", af)
+
+    def test_harness_identity_references_agentfactory_md(self):
+        """_fmt_harness_identity output lists AgentFactory.md in shared context."""
+        from agent_gen.librarian import _fmt_harness_identity
+        identity = _fmt_harness_identity("claude")
+        self.assertIn("AgentFactory.md", identity)
+        self.assertIn("project overview", identity)
+
+
 if __name__ == '__main__':
     unittest.main()

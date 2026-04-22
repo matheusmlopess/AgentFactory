@@ -73,3 +73,20 @@ Claude, Codex, and Gemini share the same `.ai/` directory for shared context wit
 - **test-claude-agent**: AgentFactory-powered agent demonstrating a minimal Claude-native agent layout. (See: `.ai/agents/test-claude-agent/docs/CLAUDE.md`)
 - **test-intel-agent**: AgentFactory-powered agent demonstrating intelligence-layer features: dependency detection and skill manifest parsing. (See: `.ai/agents/test-intel-agent/docs/CLAUDE.md`)
 <!-- @agent-registry:end -->
+
+<!-- @commands-start -->
+## Commands
+- `/completeness-check` — <!-- version: 1.0.0 -->
+- `/git-workflow` — <!-- version: 1.0.0 -->
+<!-- @commands-end -->
+
+<!-- @rules-start -->
+## Behavior Rules
+- **Quiet Mode:** Prefer quiet flags to reduce output noise.
+- **Version Markers:** Every `.md` file MUST have a version marker.
+- **Branches:** Create a feature branch for every task.
+- **Create at init:** Every project must have `.ai/memory/milestones.md` scaffolded by `agentfactory-gen init`. It is the single source of truth for all issue and work-item tracking.
+- **Secrets:** Never log, print, or commit API keys or secrets.
+- **Skill Briefing:** Skill metadata used in compiled briefs must stay brief-safe: keep `description` to a short summary line and `triggers` or `when_to_use` to a short invocation hint instead of procedural detail.
+- **Coverage:** Aim for 80%+ test coverage for new logic.
+<!-- @rules-end -->

@@ -285,3 +285,10 @@ Features that introduce new public behaviour must ship with a `docs/FEATURE-<nam
 - **test-claude-agent**: AgentFactory-powered agent demonstrating a minimal Claude-native agent layout. (See: `.ai/agents/test-claude-agent/docs/CLAUDE.md`)
 - **test-intel-agent**: AgentFactory-powered agent demonstrating intelligence-layer features: dependency detection and skill manifest parsing. (See: `.ai/agents/test-intel-agent/docs/CLAUDE.md`)
 <!-- @agent-registry:end -->
+
+## Available Skills
+<!-- @skills-registry:start -->
+- **diff-visualizer**: Generates HTML diff reports visualizing what changed between two versions of the repo. (See: `.ai/skills/diff-visualizer/SKILL.md`)
+- **git-versioning**: Manages project-wide versioning and repo-state.md updates. (See: `.ai/skills/git-versioning/SKILL.md`)
+- **issue-tracker**: Regenerates the issue priority report and dependency matrix from live GitHub data. (See: `.ai/skills/issue-tracker/SKILL.md`)
+<!-- @skills-registry:end -->
