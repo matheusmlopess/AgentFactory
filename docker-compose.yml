@@ -1,0 +1,55 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      DATABASE_URL: "sqlite:///./data/agentfactory.db"
+      CORS_ORIGINS: "http://localhost:5173,http://localhost:4173"
+    volumes:
+      - ./src:/app/src:ro
+      - api_data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    # Hot-reload for development (comment out for production):
+    command: uvicorn agent_gen.api.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/src
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: agentfactory
+      POSTGRES_USER: agentfactory
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentfactory -d agentfactory"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  api_data:
+  pg_data:
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Usage:
+#   cp .env.example .env        # fill in GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET,
+#                               # JWT_SECRET, and optionally POSTGRES_PASSWORD
+#
+#   docker compose up           # starts api (port 8000) + postgres (port 5432)
+#
+# For full-stack local dev, run the webapp separately:
+#   cd ~/repo/agentfactory-webapp
+#   VITE_AUTH_API_URL=http://localhost:8000 npm run dev
+#
+# The webapp is in a separate private repo and is NOT included in this compose.
+# See docs/MULTI-REPO-WORKFLOW.md §6 for the full local dev setup.
+# ─────────────────────────────────────────────────────────────────────────────

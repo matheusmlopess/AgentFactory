@@ -24,6 +24,11 @@ webapp/*.tsbuildinfo
 webapp/*.js
 webapp/*.d.ts
 
+# API secrets and runtime data
+.env
+data/
+*.db
+
 # AI Harness — ephemeral & local
 .claude/settings.local.json
 .ai/adapters/*/settings.local.json
