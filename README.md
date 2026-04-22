@@ -1,5 +1,5 @@
 # AgentFactory
-<!-- version: 2.7.0 -->
+<!-- version: 2.8.0 -->
 
 A Python CLI (`agentfactory-gen`) for building, packaging, and deploying AI agents
 as portable, framework-agnostic units. The web platform lives at
@@ -23,7 +23,7 @@ project/
 ├── .codex     → .ai/adapters/codex/
 ├── .gemini    → .ai/adapters/gemini/
 └── .ai/
-    ├── AgentFactory.md          ← combined brief (legacy + sync target)
+    ├── AgentFactory.md          ← master compiled brief (preamble + registries + rules + commands)
     ├── agent-manifest.json      ← global agent registry
     ├── config/
     │   └── completeness.json    ← per-adapter skill completeness thresholds
@@ -41,9 +41,14 @@ project/
 ```
 
 Every adapter brief starts with a **Harness Identity Block** — a standard section
-that maps all adapter briefs and shared context paths. Any agent picking up the
-project for the first time (or after a CLI swap) can navigate the full harness
-immediately.
+that maps all adapter briefs and shared context paths, including a direct reference
+to `.ai/AgentFactory.md`. Any agent picking up the project for the first time (or
+after a CLI swap) can navigate the full harness immediately.
+
+Every adapter brief also carries a **Project Context** section: the human-written
+preamble from `.ai/AgentFactory.md`, budget-fitted per adapter (claude/gemini: 4 000
+chars, codex: 2 000 chars). This closes the context gap that existed when switching
+CLIs mid-project.
 
 Each agent under `.ai/agents/<name>/` follows the **5-Directory Standard**:
 `skills/` · `commands/` · `docs/` · `scripts/` · `orchestration/`
@@ -165,6 +170,32 @@ can navigate to the other briefs after a CLI swap.
 
 Recompile all active briefs: `agentfactory-gen brief`
 
+### Project Context Injection & Master Brief
+
+Every adapter brief gets a `## Project Context` section automatically — the
+human-written preamble from `.ai/AgentFactory.md`, trimmed to fit the adapter's
+character budget:
+
+| Adapter | Context limit | Behaviour on overflow |
+|---------|--------------|----------------------|
+| Claude | 4 000 chars | Full preamble |
+| Gemini | 4 000 chars | Full preamble |
+| Codex | 2 000 chars | Truncated at paragraph boundary + `<!-- ⚠ context truncated -->` comment |
+
+`AgentFactory.md` is also compiled as a **full master brief**: `agentfactory-gen brief`
+upserts `<!-- @commands-start/end -->` and `<!-- @rules-start/end -->` sections so it
+has the same richness as any adapter brief. Reading it directly gives a complete
+picture of the project.
+
+```bash
+# After editing your project overview in .ai/AgentFactory.md:
+agentfactory-gen brief
+# → All adapter briefs updated with new preamble
+# → AgentFactory.md updated with latest rules + commands
+```
+
+Full reference: [`docs/FEATURE-AGENTFACTORY-MD-BRIEF.md`](docs/FEATURE-AGENTFACTORY-MD-BRIEF.md)
+
 ### Skill Completeness Oracle
 
 A two-phase Claude Haiku oracle that verifies a trimmed `SKILL.md` preserves all
@@ -256,6 +287,7 @@ Branch protection on `dev` requires **Tests + Coverage** to pass before merge.
 | [`docs/SKILL-COMPLETENESS-SPEC.md`](docs/SKILL-COMPLETENESS-SPEC.md) | Two-phase oracle, CLI reference, all integration points |
 | [`docs/HOWTO.md`](docs/HOWTO.md) | Workflow diagrams: deploy, retrofit, wrap, import, uninstall |
 | [`docs/FEATURE-AUTH.md`](docs/FEATURE-AUTH.md) | GitHub + Google OAuth system: states, API contract, plan gating |
+| [`docs/FEATURE-AGENTFACTORY-MD-BRIEF.md`](docs/FEATURE-AGENTFACTORY-MD-BRIEF.md) | Master brief & project context injection: workflow diagrams, gap analysis, CLI switch walkthrough |
 | [`docs/FEATURE-HARNESS-IDENTITY.md`](docs/FEATURE-HARNESS-IDENTITY.md) | Cross-adapter navigation block: how it works, swap walkthrough |
 | [`docs/FEATURE-DOC-TEMPLATE.md`](docs/FEATURE-DOC-TEMPLATE.md) | Blank template — every new feature ships one of these |
 | [`docs/ISSUE-PRIORITY.md`](docs/ISSUE-PRIORITY.md) | Live issue priority + wave map (auto-regenerated on every merge) |
@@ -285,3 +317,10 @@ Features that introduce new public behaviour must ship with a `docs/FEATURE-<nam
 - **test-claude-agent**: AgentFactory-powered agent demonstrating a minimal Claude-native agent layout. (See: `.ai/agents/test-claude-agent/docs/CLAUDE.md`)
 - **test-intel-agent**: AgentFactory-powered agent demonstrating intelligence-layer features: dependency detection and skill manifest parsing. (See: `.ai/agents/test-intel-agent/docs/CLAUDE.md`)
 <!-- @agent-registry:end -->
+
+## Available Skills
+<!-- @skills-registry:start -->
+- **diff-visualizer**: Generates HTML diff reports visualizing what changed between two versions of the repo. (See: `.ai/skills/diff-visualizer/SKILL.md`)
+- **git-versioning**: Manages project-wide versioning and repo-state.md updates. (See: `.ai/skills/git-versioning/SKILL.md`)
+- **issue-tracker**: Regenerates the issue priority report and dependency matrix from live GitHub data. (See: `.ai/skills/issue-tracker/SKILL.md`)
+<!-- @skills-registry:end -->

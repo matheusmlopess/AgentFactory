@@ -1,5 +1,5 @@
 # Harness Identity Block
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 
 Issue: #115 · Cross-adapter navigation header compiled into every brief
 
@@ -51,7 +51,9 @@ by removing a section key. It answers three questions immediately:
   _render_brief(adapter_name, config, data):
       sections = []
       sections.append(header)                      ← @compiled-by metadata
-      sections.append(_fmt_harness_identity(...))  ← harness block  ← NEW
+      sections.append(_fmt_harness_identity(...))  ← harness block (unconditional)
+      if data["project_context"]:                  ← NEW (#125)
+          sections.append("## Project Context\n\n" + fitted_preamble)
       for section_key in config["section_order"]:  ← skills/commands/rules
           ...
       return "\n\n".join(sections)
@@ -68,16 +70,20 @@ by removing a section key. It answers three questions immediately:
        └─ for each activated adapter:
                _render_brief(adapter_name, config, data)
                     │
-                    ├─ header block  (<!-- @compiled-by ... -->)
-                    ├─ ## Harness   ← _fmt_harness_identity()
+                    ├─ header block   (<!-- @compiled-by ... -->)
+                    ├─ ## Harness    ← _fmt_harness_identity()
+                    ├─ ## Project Context  ← NEW (#125, budget-fitted preamble)
                     ├─ ## Available Skills
-                    ├─ ## Commands  (claude only)
+                    ├─ ## Commands   (claude only)
                     ├─ ## Registered Agents
                     └─ ## Behavior Rules
                     │
                     ▼
               .ai/adapters/<name>/brief.md  (written to disk)
               CLAUDE.md / AGENTS.md / GEMINI.md  (root symlinks)
+
+       Also: _compile_agentfactory_md()  ← NEW (#125)
+              → upserts @commands + @rules into .ai/AgentFactory.md
 ```
 
 ---
@@ -99,6 +105,7 @@ by removing a section key. It answers three questions immediately:
 
   Shared context (read these to understand the project):
 
+    .ai/AgentFactory.md         ← project overview + master compiled brief
     .ai/skills/               ← skill specs (symlinked per adapter)
     .ai/rules/                ← behavior rules compiled into this brief
     .ai/agent-manifest.json   ← global agent registry

@@ -1,5 +1,71 @@
 # Changelog
-<!-- version: 2.6.1 -->
+<!-- version: 2.8.0 -->
+
+## [v2.8.0] - 2026-04-22
+
+### Added
+- **AgentFactory.md as full master compiled brief**: `agentfactory-gen brief` now upserts
+  `<!-- @commands-start/end -->` and `<!-- @rules-start/end -->` sections into
+  `.ai/AgentFactory.md`, giving it the same richness as any per-adapter brief (#125)
+- **`## Project Context` injected into every adapter brief**: every compiled brief carries
+  the human-written preamble from `.ai/AgentFactory.md`, budget-fitted per adapter
+  (claude/gemini: 4 000 chars, codex: 2 000 chars with truncation warning) (#125)
+- `context_char_limit` per-adapter config key in `_FORMAT_REGISTRY`
+- `_collect_project_context()` — extracts preamble before first `<!-- @` marker, strips H1
+- `_fit_context_to_budget()` — paragraph-boundary truncation with warning HTML comment;
+  adds completeness-check hint when `AGENTFACTORY_LICENSE_KEY` is set
+- `.ai/AgentFactory.md` now listed in the Harness Identity Block shared-context section
+- `docs/FEATURE-AGENTFACTORY-MD-BRIEF.md` — complete feature doc with workflow diagrams
+  and gap analysis
+
+### Fixed
+- `docs/WORKFLOWS.md` diagram 1 was architecturally stale since FormatSwitch (#96):
+  showed root symlinks pointing to `AgentFactory.md` instead of compiled briefs (#125)
+- README described `AgentFactory.md` as "legacy + sync target" — corrected to "master
+  compiled brief"
+
+### Tests
+- 7 new tests in `test_librarian_lifecycle.py` (203 total): context injection,
+  H1/registry stripping, missing-AF.md graceful compile, codex truncation,
+  claude no-truncation, AgentFactory.md rules+commands upsert, harness identity reference
+
+---
+
+## [v2.7.0] - 2026-04-22
+
+### Added
+- **FastAPI auth backend** (#114): GitHub OAuth flow, JWT httpOnly cookie sessions,
+  SQLite default (swappable to PostgreSQL via `DATABASE_URL` env var), license key
+  validation endpoint
+- `src/agent_gen/api/` — new module: `main.py`, `db.py`, `jwt_utils.py`, `models.py`,
+  `deps.py`, `routers/auth.py`, `routers/license.py`
+- `agentfactory-api` CLI entry point (uvicorn-backed dev server)
+- `api` extras in `pyproject.toml`: `fastapi`, `uvicorn[standard]`, `python-jose`, `httpx`, `pydantic`
+- `docker-compose.yml` + `Dockerfile.api` — one-command full-stack local dev (API + PostgreSQL)
+- `.env.example` — documents all environment variables
+- `api/openapi.json` — committed OpenAPI spec (webapp's authoritative type source)
+- `docs/MULTI-REPO-WORKFLOW.md` — two-repo development protocol, type generation, wave map
+
+### Tests
+- `src/tests/test_api_auth.py` — 15 tests: JWT, license validation, /auth/me, /auth/logout, /health
+
+---
+
+## [v2.6.0] - 2026-04-22
+
+### Fixed
+- `agentfactory-gen init` now creates root symlinks for **all** registered adapters, not
+  only the primary one (#120). Previously `init --primary codex` would create `AGENTS.md`
+  and `CODEX.md` but leave `CLAUDE.md` and `GEMINI.md` absent.
+- `update_harness_files()` now injects `## Available Skills` into files that lack the
+  `<!-- @skills-registry:start -->` marker (#121). Previously the injection was silently
+  skipped, leaving READMEs without a skills section on first run.
+
+### Tests
+- Updated 5 integration stress tests that encoded the old single-adapter root-file behavior
+- Added 2 lifecycle tests for skills-registry injection: marker-absent and marker-present
+
+---
 
 ## [v2.5.2] - 2026-04-14
 

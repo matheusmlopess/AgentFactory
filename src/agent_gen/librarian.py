@@ -152,6 +152,8 @@ _FORMAT_REGISTRY: dict[str, dict] = {
         "skill_char_limit": 18_000,
         # Completeness score threshold (0–100) for --check-completeness.
         "completeness_threshold": 90,
+        # Max chars of AgentFactory.md preamble to inject into this brief.
+        "context_char_limit": 4_000,
     },
     "codex": {
         "output": "brief.md",
@@ -176,6 +178,7 @@ _FORMAT_REGISTRY: dict[str, dict] = {
         # Codex has a tighter context window — stricter per-skill budget.
         "skill_char_limit": 10_000,
         "completeness_threshold": 95,
+        "context_char_limit": 2_000,
     },
     "gemini": {
         "output": "brief.md",
@@ -198,6 +201,7 @@ _FORMAT_REGISTRY: dict[str, dict] = {
         "section_order": ["skills", "agents", "rules"],
         "skill_char_limit": 18_000,
         "completeness_threshold": 90,
+        "context_char_limit": 4_000,
     },
 }
 
@@ -298,6 +302,7 @@ def _fmt_harness_identity(adapter_name: str) -> str:
         "",
         "Shared context (read these to understand the project):",
         "",
+        f"  {HARNESS_ROOT}/{CONTEXT_FILE:<23} ← project overview + master compiled brief",
         f"  {HARNESS_ROOT}/skills/               ← skill specs (symlinked per adapter)",
         f"  {HARNESS_ROOT}/rules/                ← behavior rules compiled into this brief",
         f"  {HARNESS_ROOT}/agent-manifest.json   ← global agent registry",
@@ -318,6 +323,52 @@ def _fmt_harness_identity(adapter_name: str) -> str:
         "If switching CLI: run `agentfactory-gen brief` to recompile all active adapter briefs.",
     ]
     return "\n".join(lines)
+
+
+def _collect_project_context(project_root: str) -> str:
+    """Extract the human-written preamble from .ai/AgentFactory.md.
+
+    Returns everything before the first <!-- @ registry marker, with the H1
+    title line stripped (it duplicates the adapter brief header).
+    """
+    af_path = Path(project_root) / HARNESS_ROOT / CONTEXT_FILE
+    if not af_path.exists():
+        return ""
+    content = af_path.read_text(encoding="utf-8")
+    marker = content.find("<!-- @")
+    preamble = content[:marker].strip() if marker > 0 else content.strip()
+    lines = preamble.splitlines()
+    if lines and lines[0].startswith("# "):
+        lines = lines[1:]
+    return "\n".join(lines).strip()
+
+
+def _fit_context_to_budget(context: str, adapter_config: dict) -> str:
+    """Truncate preamble to adapter's context_char_limit.
+
+    Truncates at the last paragraph break before the limit. Appends an HTML
+    comment warning if truncated. Adds a completeness-check hint when
+    AGENTFACTORY_LICENSE_KEY is set (pro gate advisory, non-blocking).
+    """
+    limit = adapter_config.get("context_char_limit", 4_000)
+    if len(context) <= limit:
+        return context
+    window = context[:limit]
+    cut = window.rfind("\n\n")
+    if cut < limit // 2:
+        cut = limit
+    truncated = context[:cut].rstrip()
+    original_len = len(context)
+    has_key = bool(os.environ.get("AGENTFACTORY_LICENSE_KEY"))
+    completeness_hint = (
+        " Run: python3 .ai/scripts/skill-completeness-check.py --context to verify."
+        if has_key else ""
+    )
+    warning = (
+        f"\n\n<!-- ⚠ context truncated: {original_len} → {limit} chars "
+        f"for {adapter_config.get('completeness_threshold', 90)}% budget.{completeness_hint} -->"
+    )
+    return truncated + warning
 
 
 _FORMATTER_DISPATCH: dict = {
@@ -1266,6 +1317,10 @@ class Librarian:
         )
         sections.append(header)
         sections.append(_fmt_harness_identity(adapter_name))
+        ctx = data.get("project_context", "")
+        if ctx:
+            fitted = _fit_context_to_budget(ctx, config)
+            sections.append(f"## Project Context\n\n{fitted}")
         for section_key in config["section_order"]:
             formatter_name = config["sections"].get(section_key)
             if formatter_name is None:
@@ -1287,10 +1342,11 @@ class Librarian:
             return
 
         data = {
-            "skills":   cls._collect_skills_data(project_root),
-            "agents":   cls._collect_agents_data(project_root),
-            "commands": cls._collect_commands_data(project_root),
-            "rules":    cls._collect_rules_data(project_root),
+            "skills":          cls._collect_skills_data(project_root),
+            "agents":          cls._collect_agents_data(project_root),
+            "commands":        cls._collect_commands_data(project_root),
+            "rules":           cls._collect_rules_data(project_root),
+            "project_context": _collect_project_context(project_root),
         }
 
         for adapter_name, config in _FORMAT_REGISTRY.items():
@@ -1305,6 +1361,42 @@ class Librarian:
                 brief_path.write_text(new_content, encoding="utf-8")
             except Exception as e:
                 _click.echo(f"Warning: failed to compile brief for {adapter_name}: {e}", err=True)
+
+        cls._compile_agentfactory_md(project_root, data)
+
+    @classmethod
+    def _compile_agentfactory_md(cls, project_root: str, data: dict) -> None:
+        """Upsert <!-- @commands-start/end --> and <!-- @rules-start/end --> into AgentFactory.md.
+
+        Uses Claude's formatters (most readable universal markdown) so AgentFactory.md
+        becomes a full master brief — same richness as per-adapter compiled briefs.
+        Marker blocks are appended if absent, replaced if present.
+        """
+        af_path = Path(project_root) / HARNESS_ROOT / CONTEXT_FILE
+        if not af_path.exists():
+            return
+        content = af_path.read_text(encoding="utf-8")
+        claude_cfg = _FORMAT_REGISTRY["claude"]
+        commands_text = _fmt_commands_list(data.get("commands", []), claude_cfg) or ""
+        rules_text = _fmt_rules_list(data.get("rules", []), claude_cfg) or ""
+
+        commands_block = f"<!-- @commands-start -->\n{commands_text}\n<!-- @commands-end -->"
+        rules_block = f"<!-- @rules-start -->\n{rules_text}\n<!-- @rules-end -->"
+
+        commands_pat = re.compile(r"<!-- @commands-start -->.*?<!-- @commands-end -->", re.DOTALL)
+        rules_pat = re.compile(r"<!-- @rules-start -->.*?<!-- @rules-end -->", re.DOTALL)
+
+        if "<!-- @commands-start -->" in content:
+            content = commands_pat.sub(commands_block, content)
+        else:
+            content = content.rstrip() + f"\n\n{commands_block}\n"
+
+        if "<!-- @rules-start -->" in content:
+            content = rules_pat.sub(rules_block, content)
+        else:
+            content = content.rstrip() + f"\n\n{rules_block}\n"
+
+        af_path.write_text(content, encoding="utf-8")
 
     @classmethod
     def _migrate_root_symlinks(cls, project_root: str) -> None:
