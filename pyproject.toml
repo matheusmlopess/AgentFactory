@@ -34,6 +34,7 @@ api = [
 testpaths = ["src/tests"]
 markers = [
     "integration: end-to-end stress tests that exercise the full CLI lifecycle (slow, deselect with -m 'not integration')",
+    "live: tests that invoke real CLI agents (claude/codex/gemini); skipped when CLIs not installed",
 ]
 
 [tool.coverage.run]
