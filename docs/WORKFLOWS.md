@@ -1,5 +1,5 @@
 # AgentFactory — Workflow Diagrams
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 
 Architecture, lifecycle, and pipeline diagrams for AgentFactory.
 See [README](../README.md) for installation and quick start.
@@ -12,22 +12,21 @@ See [README](../README.md) for installation and quick start.
 graph TD
     subgraph root["Project Root"]
         CM[CLAUDE.md]
-        AM[AGENTS.md]
+        AM["AGENTS.md / CODEX.md"]
         GM[GEMINI.md]
-        CO[CODEX.md]
         CL[.claude]
         GE[.gemini]
         CD[.codex]
     end
 
     subgraph harness[".ai/ — Unified Harness"]
-        AF["AgentFactory.md (single source of truth)"]
+        AF["AgentFactory.md (master compiled brief)"]
         MF["agent-manifest.json (global registry)"]
 
         subgraph adapters["adapters/"]
-            ACA["claude/ — settings.json"]
-            AGE["gemini/ — config.json"]
-            ACO["codex/ — config.toml"]
+            ACA_B["claude/brief.md (compiled)"]
+            AGE_B["gemini/brief.md (compiled)"]
+            ACO_B["codex/brief.md (compiled)"]
         end
 
         subgraph shared["shared/"]
@@ -39,23 +38,63 @@ graph TD
         end
     end
 
-    CM -->|symlink| AF
-    AM -->|symlink| AF
-    GM -->|symlink| AF
-    CO -->|symlink| AF
-    CL -->|symlink| ACA
-    GE -->|symlink| AGE
-    CD -->|symlink| ACO
+    CM -->|symlink| ACA_B
+    AM -->|symlink| ACO_B
+    GM -->|symlink| AGE_B
+    CL -->|symlink to adapter dir| adapters
+    GE -->|symlink to adapter dir| adapters
+    CD -->|symlink to adapter dir| adapters
 
-    ACA -->|commands| CMD
-    ACA -->|skills| SK
-    AGE -->|tools| SK
-    ACO -->|prompts| CMD
+    RU -->|compiled into| ACA_B
+    RU -->|compiled into| ACO_B
+    RU -->|compiled into| AGE_B
+    CMD -->|compiled into| ACA_B
+    SK -->|compiled into| ACA_B
+    SK -->|compiled into| ACO_B
+    SK -->|compiled into| AGE_B
+    AF -->|preamble injected into| ACA_B
+    AF -->|preamble injected into| ACO_B
+    AF -->|preamble injected into| AGE_B
+```
+
+> **Note:** Root files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`) are symlinks to
+> per-adapter compiled briefs — **not** to `AgentFactory.md` directly. This is the
+> FormatSwitch model introduced in #96. `AgentFactory.md` is a full master compiled
+> brief that is also the preamble source for every adapter brief.
+
+---
+
+## 2. Brief Compilation Pipeline (`agentfactory-gen brief`)
+
+```mermaid
+flowchart TD
+    subgraph sources["Input Sources (.ai/)"]
+        SK[skills/]
+        AG[agents/]
+        CMD[commands/]
+        RU[rules/]
+        AF["AgentFactory.md\n(preamble extracted)"]
+    end
+
+    SK & AG & CMD & RU & AF --> COLLECT["_compile_adapter_briefs()\ncollect data dict"]
+
+    COLLECT --> RC["_render_brief() × adapter"]
+
+    RC --> CB["claude/brief.md\ncontext_char_limit: 4000"]
+    RC --> COB["codex/brief.md\ncontext_char_limit: 2000"]
+    RC --> GB["gemini/brief.md\ncontext_char_limit: 4000"]
+
+    CB --> |sections| CS["## Harness\n## Project Context\n## Skills\n## Commands\n## Agents\n## Rules"]
+    COB --> |sections| COS["## Harness\n## Project Context\n(truncated if > 2000)\n## Skills\n## Agents\n## Rules"]
+    GB --> |sections| GS["## Harness\n## Project Context\n## Skills\n## Agents\n## Rules"]
+
+    COLLECT --> AFCOMP["_compile_agentfactory_md()\nupsert @commands + @rules into AgentFactory.md"]
+    AFCOMP --> AF
 ```
 
 ---
 
-## 2. Agent Lifecycle
+## 3. Agent Lifecycle
 
 ```mermaid
 flowchart LR
@@ -92,7 +131,7 @@ flowchart LR
 
 ---
 
-## 3. Remote Import Pipeline (`--from-git`)
+## 4. Remote Import Pipeline (`--from-git`)
 
 ```mermaid
 flowchart TD
@@ -123,7 +162,7 @@ flowchart TD
 
 ---
 
-## 4. Librarian Intelligence Layer
+## 5. Librarian Intelligence Layer
 
 ```mermaid
 flowchart TD
@@ -149,7 +188,7 @@ flowchart TD
 
 ---
 
-## 5. Multi-CLI Harness — Adapter Wiring
+## 6. Multi-CLI Harness — Adapter Wiring
 
 ```mermaid
 graph LR
@@ -185,7 +224,7 @@ graph LR
 
 ---
 
-## 6. CI Pipeline (every push / PR)
+## 7. CI Pipeline (every push / PR)
 
 ```mermaid
 flowchart TD
@@ -211,7 +250,7 @@ flowchart TD
 
 ---
 
-## 7. CD Pipeline (on version tag)
+## 8. CD Pipeline (on version tag)
 
 ```mermaid
 flowchart TD
@@ -237,7 +276,7 @@ flowchart TD
 
 ---
 
-## 8. Traceability / Milestone Update Workflow
+## 9. Traceability / Milestone Update Workflow
 
 ```mermaid
 flowchart TD
