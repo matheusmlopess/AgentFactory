@@ -1,0 +1,356 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AgentFactory API",
+    "description": "Backend for the AgentFactory platform: auth, registry, and license validation.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/auth/github": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Github Login",
+        "description": "Redirect user to GitHub OAuth authorization page.",
+        "operationId": "github_login_auth_github_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/github/callback": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Github Callback",
+        "description": "GitHub redirects here after user grants access.\nExchanges code for access_token, upserts User, issues JWT session cookie.",
+        "operationId": "github_callback_auth_github_callback_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "State"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Get Me",
+        "description": "Return the current authenticated user. 401 if no valid session.",
+        "operationId": "get_me_auth_me_get",
+        "parameters": [
+          {
+            "name": "session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Logout",
+        "description": "Clear the session cookie.",
+        "operationId": "logout_auth_logout_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Logout Auth Logout Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/validate": {
+      "post": {
+        "tags": [
+          "license"
+        ],
+        "summary": "Validate License",
+        "description": "Validate a license key against a minimum plan tier.\n\nKeys are formatted as: <plan>_<random>\nExample: pro_abc123...\n\nIn production, replace this with a real key lookup in the users table\nor a dedicated license_keys table with hashed keys.",
+        "operationId": "validate_license_v1_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "infra"
+        ],
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "User": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "github_id": {
+            "type": "integer",
+            "title": "Github Id"
+          },
+          "github_handle": {
+            "type": "string",
+            "title": "Github Handle"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "avatar_url": {
+            "type": "string",
+            "title": "Avatar Url"
+          },
+          "plan": {
+            "type": "string",
+            "title": "Plan"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "github_id",
+          "github_handle",
+          "email",
+          "avatar_url",
+          "plan"
+        ],
+        "title": "User"
+      },
+      "ValidateRequest": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "tier": {
+            "type": "string",
+            "title": "Tier"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "tier"
+        ],
+        "title": "ValidateRequest"
+      },
+      "ValidateResponse": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "tier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tier"
+          }
+        },
+        "type": "object",
+        "required": [
+          "valid"
+        ],
+        "title": "ValidateResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
