@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-04-22 13:29 UTC -->
-<!-- open-issues: 13 -->
+<!-- generated: 2026-04-22 13:56 UTC -->
+<!-- open-issues: 11 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
@@ -13,8 +13,8 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   │  Track           │  Issues                                    │
   ├──────────────────┼───────────────────────────────────────────┤
   │  Harness / CLI   │                                             │
-  │  Webapp / UI     │  #88  #105                                  │
-  │  Platform Core   │  #77  #82  #84  #85  #86  #114              │
+  │  Webapp / UI     │  #88                                        │
+  │  Platform Core   │  #77  #82  #84  #85  #86                    │
   │  Platform Upper  │  #87  #89  #90  #91  #92                    │
   └──────────────────┴───────────────────────────────────────────┘
 ```
@@ -27,7 +27,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #77     —                         #82 #84 #85 #86 #87 #88 #89 #90 #91 #92  epic: AgentFactory production platform — free
   #82     #77                       —                         feat[P1]: CLI extensions — agentfactory-gen p
   #84     #77                       #85 #87 #89               feat[P2]: private org workspaces + RBAC (owne
-  #85     #77 #84                   #89 #90 #105              feat[P2]: Pro tier billing — Stripe seat-base
+  #85     #77 #84                   #89 #90                   feat[P2]: Pro tier billing — Stripe seat-base
   #86     #77                       —                         feat[P2]: agentfactory-gen login / logout CLI
   #87     #77 #84                   #88 #89                   feat[P3]: per-agent audit history dashboard
   #88     #77 #87                   —                         feat[P3]: agent dependency graph visualizatio
@@ -35,8 +35,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #90     #77 #85                   #92                       feat[P4]: marketplace — paid agent listings +
   #91     #77                       —                         feat[P4]: verified agent badge — automated Li
   #92     #77 #89 #90               —                         feat[P4]: publisher revenue share — Stripe Co
-  #105    #85                       —                         feat[pro]: BYOK live completeness checker in 
-  #114    —                         —                         feat[P2]: auth backend — FastAPI OAuth server
 ```
 
 ## Priority Waves
@@ -47,7 +45,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #       Effort    Track             Unblocks              Title
   ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
   #77     epic      Platform Core     #82 #84 #85 #86 …     epic: AgentFactory production platform — free
-  #114    ?         Platform Core     —                     feat[P2]: auth backend — FastAPI OAuth server
 ```
 
 ### Wave 2 — After Wave 1
@@ -66,7 +63,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Effort    Track             Unblocks              Title
   ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #85     large     Platform Core     #89 #90 #105          feat[P2]: Pro tier billing — Stripe seat-base
+  #85     large     Platform Core     #89 #90               feat[P2]: Pro tier billing — Stripe seat-base
   #87     medium    Platform Upper    #88 #89               feat[P3]: per-agent audit history dashboard
 ```
 
@@ -78,7 +75,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #88     medium    Webapp / UI       —                     feat[P3]: agent dependency graph visualizatio
   #89     medium    Platform Upper    #92                   feat[P3]: Enterprise compliance export — audi
   #90     large     Platform Upper    #92                   feat[P4]: marketplace — paid agent listings +
-  #105    medium    Webapp / UI       —                     feat[pro]: BYOK live completeness checker in 
 ```
 
 ### Wave 5 — Wave 5
@@ -110,5 +106,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-04-22 13:29 UTC by `generate-priority-report.py`._
+_Generated 2026-04-22 13:56 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
