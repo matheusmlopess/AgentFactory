@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-04-22 13:57 UTC -->
-<!-- open-issues: 11 -->
+<!-- generated: 2026-04-22 18:39 UTC -->
+<!-- open-issues: 12 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
@@ -15,7 +15,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   │  Harness / CLI   │                                             │
   │  Webapp / UI     │  #88                                        │
   │  Platform Core   │  #77  #82  #84  #85  #86                    │
-  │  Platform Upper  │  #87  #89  #90  #91  #92                    │
+  │  Platform Upper  │  #87  #89  #90  #91  #92  #126              │
   └──────────────────┴───────────────────────────────────────────┘
 ```
 
@@ -35,6 +35,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #90     #77 #85                   #92                       feat[P4]: marketplace — paid agent listings +
   #91     #77                       —                         feat[P4]: verified agent badge — automated Li
   #92     #77 #89 #90               —                         feat[P4]: publisher revenue share — Stripe Co
+  #126    —                         —                         feat: extend completeness oracle to project-c
 ```
 
 ## Priority Waves
@@ -45,6 +46,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #       Effort    Track             Unblocks              Title
   ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
   #77     epic      Platform Core     #82 #84 #85 #86 …     epic: AgentFactory production platform — free
+  #126    ?         Platform Upper    —                     feat: extend completeness oracle to project-c
 ```
 
 ### Wave 2 — After Wave 1
@@ -106,5 +108,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-04-22 13:57 UTC by `generate-priority-report.py`._
+_Generated 2026-04-22 18:39 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
