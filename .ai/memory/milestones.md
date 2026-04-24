@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.7.7 -->
+<!-- version: 1.7.8 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -156,7 +156,7 @@ Issues below are tracked in the private webapp repo as of 2026-04-21.
 | #121 | bug: update_harness_files skips @skills-registry injection in README when marker absent | bug | done | fix/120-121-harness-init-gaps | #123 | 47f8e46 | — |
 | #114 | feat[P2]: auth backend — FastAPI OAuth server + JWT sessions + license validation | platform | done | feature/114-auth-backend | #124 | 39d0e8c | — |
 | #125 | feat: AgentFactory.md master brief + preamble injection into all adapter briefs | feature | done | feature/agentfactory-md-master-brief | #125 | c4cd5a2 | v2.8.0 |
-| #126 | feat: extend completeness oracle to project-context preamble truncation | feature | pending | — | — | — | — |
+| #126 | feat: extend completeness oracle to project-context preamble truncation | feature | done | feature/126-preamble-completeness-oracle | #127 | 70f4fc0 | v2.9.0 |
 
 ## Pending (legacy / non-platform)
 
