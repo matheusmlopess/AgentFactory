@@ -127,6 +127,9 @@ agentfactory-gen wrap <name>                 # compress agent into a Portable Un
 agentfactory-gen wrap <name> --out <dir>     # write ZIP to a specific directory
 agentfactory-gen import <zip>                # unpack ZIP and register agent
 agentfactory-gen import --from-git <url>     # clone repo, auto-retrofit, and import
+agentfactory-gen import --from-registry <slug>  # download and install from public registry
+agentfactory-gen publish <name>              # upload wrapped agent to public registry
+agentfactory-gen publish <name> --version <v> --tag <t>  # override version and add tags
 agentfactory-gen uninstall <name>            # remove agent cleanly
 ```
 
