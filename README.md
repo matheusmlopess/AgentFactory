@@ -303,6 +303,7 @@ Branch protection on `dev` requires **Tests + Coverage** to pass before merge.
 | [`docs/FEATURE-AUTH.md`](docs/FEATURE-AUTH.md) | GitHub + Google OAuth system: states, API contract, plan gating |
 | [`docs/FEATURE-AGENTFACTORY-MD-BRIEF.md`](docs/FEATURE-AGENTFACTORY-MD-BRIEF.md) | Master brief & project context injection: workflow diagrams, gap analysis, CLI switch walkthrough |
 | [`docs/FEATURE-HARNESS-IDENTITY.md`](docs/FEATURE-HARNESS-IDENTITY.md) | Cross-adapter navigation block: how it works, swap walkthrough |
+| [`docs/FEATURE-REGISTRY-CLI.md`](docs/FEATURE-REGISTRY-CLI.md) | Registry CLI commands: `publish` upload flow, `import --from-registry` download flow, all scenarios |
 | [`docs/FEATURE-DOC-TEMPLATE.md`](docs/FEATURE-DOC-TEMPLATE.md) | Blank template — every new feature ships one of these |
 | [`docs/ISSUE-PRIORITY.md`](docs/ISSUE-PRIORITY.md) | Live issue priority + wave map (auto-regenerated on every merge) |
 | [`docs/SPEC.md`](docs/SPEC.md) | Technical specification: manifest schema, intelligence layer |
