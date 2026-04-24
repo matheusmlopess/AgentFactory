@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.7.9 -->
+<!-- version: 1.8.0 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -83,7 +83,7 @@ The CLI stays open-source. The platform is the paid surface.
 | #79 | feat[P1]: harness explorer UI — two-panel file tree + doc pane | webapp | moved→webapp-repo | — | — | — | — |
 | #80 | feat[P1]: lifecycle stepper + manifest inspector UI components | webapp | moved→webapp-repo | feature/80-lifecycle-stepper-manifest-inspector | #112 | cf35f7a | — |
 | #81 | feat[P1]: public agent registry — browse, search, publish Portable Units | registry | done | feature/81-public-agent-registry | #111 | 17ae0e3 | — |
-| #82 | feat[P1]: CLI extensions — agentfactory-gen publish + import --from-registry | cli | in-progress | feature/82-cli-publish-import-registry | #129 | — | — |
+| #82 | feat[P1]: CLI extensions — agentfactory-gen publish + import --from-registry | cli | done | feature/82-cli-publish-import-registry | #129 | c408abe | — |
 
 ### Phase 2 — Auth & Workspaces
 
