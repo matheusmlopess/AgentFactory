@@ -1,16 +1,20 @@
 """agent-gen CLI — deploy, wrap, import."""
 
+import json
 import os
 import re
 import sys
 import shutil
 import subprocess
 import tempfile
+import zipfile
 from pathlib import Path
 
 import click
 
 from .librarian import TRACKED_DIRS, HARNESS_ROOT, CONTEXT_FILE, Librarian, _safe_extract, _FORMAT_REGISTRY
+
+REGISTRY_URL = os.environ.get("AGENTFACTORY_REGISTRY_URL", "https://agentfactory.dev")
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +112,93 @@ def _assert_within_root(rel_path: str, root: Path) -> None:
         raise click.ClickException(
             f"Path '{rel_path}' resolves outside the agent root — possible path traversal."
         )
+
+
+# ---------------------------------------------------------------------------
+# Registry HTTP helpers
+# ---------------------------------------------------------------------------
+
+def _registry_publish(manifest: dict, zip_path: Path) -> dict:
+    """POST manifest JSON + ZIP to the registry. Returns the registry response."""
+    import urllib.request
+    import urllib.error
+
+    boundary = "AgentFactoryBoundary"
+    manifest_bytes = json.dumps(manifest).encode()
+    zip_bytes = zip_path.read_bytes()
+
+    parts = [
+        (
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"manifest\""
+            f"\r\nContent-Type: application/json\r\n\r\n".encode()
+            + manifest_bytes + b"\r\n"
+        ),
+        (
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\""
+            f"; filename=\"{zip_path.name}\"\r\nContent-Type: application/zip\r\n\r\n".encode()
+            + zip_bytes + b"\r\n"
+        ),
+        f"--{boundary}--\r\n".encode(),
+    ]
+    body = b"".join(parts)
+
+    req = urllib.request.Request(
+        f"{REGISTRY_URL}/registry/publish", data=body, method="POST"
+    )
+    req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+    _attach_auth_header(req)
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = json.loads(exc.read().decode()).get("detail", exc.reason)
+        except Exception:
+            detail = exc.reason
+        raise click.ClickException(f"Registry error {exc.code}: {detail}")
+    except urllib.error.URLError as exc:
+        raise click.ClickException(f"Registry unreachable: {exc.reason}")
+
+
+def _registry_fetch(slug: str) -> tuple[dict, bytes]:
+    """GET agent entry from registry and download its ZIP. Returns (entry_dict, zip_bytes)."""
+    import urllib.request
+    import urllib.error
+
+    name, _, version = slug.partition("@")
+    path = f"/registry/{name}/{version}" if version else f"/registry/{name}"
+
+    req = urllib.request.Request(f"{REGISTRY_URL}{path}", method="GET")
+    _attach_auth_header(req)
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            entry = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            raise click.ClickException(f"Agent '{slug}' not found in registry.")
+        raise click.ClickException(f"Registry error {exc.code}: {exc.reason}")
+    except urllib.error.URLError as exc:
+        raise click.ClickException(f"Registry unreachable: {exc.reason}")
+
+    zip_url = entry.get("zip_url")
+    if not zip_url:
+        raise click.ClickException(f"Registry response missing 'zip_url' for '{slug}'.")
+
+    try:
+        with urllib.request.urlopen(zip_url, timeout=60) as resp:
+            zip_bytes = resp.read()
+    except urllib.error.URLError as exc:
+        raise click.ClickException(f"Failed to download agent ZIP: {exc.reason}")
+
+    return entry, zip_bytes
+
+
+def _attach_auth_header(req) -> None:
+    token_path = Path.home() / ".agentfactory" / "token"
+    if token_path.exists():
+        req.add_header("Authorization", f"Bearer {token_path.read_text().strip()}")
 
 
 # ---------------------------------------------------------------------------
@@ -463,6 +554,53 @@ def wrap(name: str, out: str):
     _echo(f"[librarian] Wrapped → {archive}")
 
 
+# ---------------------------------------------------------------------------
+# publish
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.argument("name")
+@click.option("--version", "version_override", default=None, help="Override version from manifest.")
+@click.option("--tag", "tags", multiple=True, metavar="TAG", help="Discovery tag (repeatable).")
+def publish(name: str, version_override: str, tags: tuple):
+    """Upload a wrapped agent to the public registry."""
+    root = _agent_root(name)
+    librarian = Librarian(str(root))
+    manifest = librarian._load_manifest()
+
+    if not manifest.get("description"):
+        raise click.ClickException(
+            f"Manifest 'description' is required for publishing. "
+            f"Run 'agentfactory-gen describe {name} --desc \"...\"' first."
+        )
+
+    version = version_override or manifest.get("version", "0.1.0")
+    agent_name = manifest["name"]
+    zip_name = f"{agent_name}-v{version}.zip"
+    zip_path = Path.cwd() / zip_name
+
+    if not zip_path.exists():
+        raise click.ClickException(
+            f"No wrapped archive found: {zip_name}\n"
+            f"Run 'agentfactory-gen wrap {name}' first."
+        )
+
+    publish_manifest = {
+        "name": agent_name,
+        "version": version,
+        "description": manifest["description"],
+        "tags": list(tags),
+    }
+
+    _echo(f"[librarian] Publishing '{agent_name}@{version}' to registry...")
+    _registry_publish(publish_manifest, zip_path)
+    _echo(f"[librarian] Published: {REGISTRY_URL}/registry/{agent_name}@{version}")
+
+
+# ---------------------------------------------------------------------------
+# retrofit
+# ---------------------------------------------------------------------------
+
 @cli.command()
 @click.argument("path")
 @click.option("--yes", is_flag=True, help="Execute migration without asking for confirmation.")
@@ -612,16 +750,23 @@ def import_skill(path: str, target_agent: str):
     help="Git URL to clone, retrofit, and import as an agent (skips ZIP_PATH).",
 )
 @click.option(
+    "--from-registry",
+    "from_registry",
+    default=None,
+    metavar="SLUG",
+    help="Registry slug to download and import (e.g. my-agent or my-agent@1.2.0).",
+)
+@click.option(
     "--project-root",
     default=".",
     show_default=True,
     help="Root of the project receiving the import (for the Handshake).",
 )
-def import_agent(zip_path: str, from_git: str, project_root: str):
+def import_agent(zip_path: str, from_git: str, from_registry: str, project_root: str):
     """
     Unpack a portable agent bundle and register it in this project.
 
-    Accepts either a local ZIP_PATH or --from-git URL (git clone + auto-retrofit).
+    Accepts a local ZIP_PATH, --from-git URL, or --from-registry SLUG.
 
     Steps:
       1. Unpack <zip_path> into agents/<name>/
@@ -630,13 +775,23 @@ def import_agent(zip_path: str, from_git: str, project_root: str):
     """
     _cleanup = None
 
-    if not zip_path and not from_git:
-        raise click.UsageError("Provide either ZIP_PATH or --from-git URL.")
-    if zip_path and from_git:
-        raise click.UsageError("ZIP_PATH and --from-git are mutually exclusive.")
+    sources = [s for s in (zip_path, from_git, from_registry) if s is not None]
+    if len(sources) > 1:
+        raise click.UsageError("ZIP_PATH, --from-git, and --from-registry are mutually exclusive.")
+    if not sources:
+        raise click.UsageError("Provide either ZIP_PATH, --from-git URL, or --from-registry SLUG.")
 
     if from_git:
         zip_path, _cleanup = _clone_and_prepare(from_git)
+
+    if from_registry:
+        _echo(f"[librarian] Fetching '{from_registry}' from registry...")
+        _entry, zip_bytes = _registry_fetch(from_registry)
+        tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+        tmp.write(zip_bytes)
+        tmp.close()
+        zip_path = tmp.name
+        _cleanup = lambda p=tmp.name: os.unlink(p)  # noqa: E731
 
     zip_path = Path(zip_path).resolve()
 
@@ -645,9 +800,6 @@ def import_agent(zip_path: str, from_git: str, project_root: str):
         sys.exit(1)
 
     # Peek at the archive to get the agent name before unpacking
-    import zipfile
-    import json
-
     with zipfile.ZipFile(zip_path) as zf:
         with zf.open("agent-manifest.json") as mf:
             peeked = json.load(mf)
@@ -662,9 +814,6 @@ def import_agent(zip_path: str, from_git: str, project_root: str):
             err=True,
         )
         sys.exit(1)
-
-    import tempfile
-    import shutil
 
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir) / name
