@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-04-24 13:21 UTC -->
-<!-- open-issues: 11 -->
+<!-- generated: 2026-04-24 15:12 UTC -->
+<!-- open-issues: 10 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
@@ -14,7 +14,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ├──────────────────┼───────────────────────────────────────────┤
   │  Harness / CLI   │                                             │
   │  Webapp / UI     │  #88                                        │
-  │  Platform Core   │  #77  #82  #84  #85  #86                    │
+  │  Platform Core   │  #77  #84  #85  #86                         │
   │  Platform Upper  │  #87  #89  #90  #91  #92                    │
   └──────────────────┴───────────────────────────────────────────┘
 ```
@@ -24,8 +24,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Depends on                Unblocks                  Title
   ──────  ────────────────────────  ────────────────────────  ────────────────────────────────────────
-  #77     —                         #82 #84 #85 #86 #87 #88 #89 #90 #91 #92  epic: AgentFactory production platform — free
-  #82     #77                       —                         feat[P1]: CLI extensions — agentfactory-gen p
+  #77     —                         #84 #85 #86 #87 #88 #89 #90 #91 #92  epic: AgentFactory production platform — free
   #84     #77                       #85 #87 #89               feat[P2]: private org workspaces + RBAC (owne
   #85     #77 #84                   #89 #90                   feat[P2]: Pro tier billing — Stripe seat-base
   #86     #77                       —                         feat[P2]: agentfactory-gen login / logout CLI
@@ -44,7 +43,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Effort    Track             Unblocks              Title
   ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #77     epic      Platform Core     #82 #84 #85 #86 …     epic: AgentFactory production platform — free
+  #77     epic      Platform Core     #84 #85 #86 #87 …     epic: AgentFactory production platform — free
 ```
 
 ### Wave 2 — After Wave 1
@@ -52,7 +51,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Effort    Track             Unblocks              Title
   ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #82     medium    Platform Core     —                     feat[P1]: CLI extensions — agentfactory-gen p
   #84     large     Platform Core     #85 #87 #89           feat[P2]: private org workspaces + RBAC (owne
   #86     small     Platform Core     —                     feat[P2]: agentfactory-gen login / logout CLI
   #91     medium    Platform Upper    —                     feat[P4]: verified agent badge — automated Li
@@ -106,5 +104,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-04-24 13:21 UTC by `generate-priority-report.py`._
+_Generated 2026-04-24 15:12 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
