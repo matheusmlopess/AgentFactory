@@ -16,10 +16,8 @@ Run Tier 2 (live CLIs required):
     pytest src/tests/test_cli_swap_scenarios.py -m live -v
 """
 import json
-import os
 import shutil
 import subprocess
-import tempfile
 from pathlib import Path
 
 import pytest

@@ -2,7 +2,6 @@ import io
 import json
 import os
 import stat
-import sys
 import unittest
 import tempfile
 import zipfile
