@@ -1,5 +1,5 @@
 # AgentFactory
-<!-- version: 2.8.0 -->
+<!-- version: 2.9.0 -->
 
 A Python CLI (`agentfactory-gen`) for building, packaging, and deploying AI agents
 as portable, framework-agnostic units. The web platform lives at
@@ -182,6 +182,18 @@ character budget:
 | Gemini | 4 000 chars | Full preamble |
 | Codex | 2 000 chars | Truncated at paragraph boundary + `<!-- ⚠ context truncated -->` comment |
 
+When truncation occurs and `AGENTFACTORY_LICENSE_KEY` is set, the completeness oracle
+runs automatically during `agentfactory-gen brief` and prints the information-retention
+score to stderr — no manual invocation needed:
+
+```
+⚠ preamble completeness: 74%
+```
+
+The check is **advisory only**: it never blocks compilation or changes brief content.
+It tells you how much of the original preamble's meaning survived the truncation so
+you can decide whether to shorten the preamble or raise the adapter's `context_char_limit`.
+
 `AgentFactory.md` is also compiled as a **full master brief**: `agentfactory-gen brief`
 upserts `<!-- @commands-start/end -->` and `<!-- @rules-start/end -->` sections so it
 has the same richness as any adapter brief. Reading it directly gives a complete
@@ -192,6 +204,8 @@ picture of the project.
 agentfactory-gen brief
 # → All adapter briefs updated with new preamble
 # → AgentFactory.md updated with latest rules + commands
+# → If truncation occurred and AGENTFACTORY_LICENSE_KEY is set:
+#   ⚠ preamble completeness: X%  (printed to stderr, advisory)
 ```
 
 Full reference: [`docs/FEATURE-AGENTFACTORY-MD-BRIEF.md`](docs/FEATURE-AGENTFACTORY-MD-BRIEF.md)

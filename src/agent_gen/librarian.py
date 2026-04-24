@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import sys
 import zipfile
 import shutil
 import subprocess
@@ -343,12 +344,44 @@ def _collect_project_context(project_root: str) -> str:
     return "\n".join(lines).strip()
 
 
-def _fit_context_to_budget(context: str, adapter_config: dict) -> str:
+def _run_preamble_oracle(original: str, truncated: str, project_root: str) -> int | None:
+    """Run phases 1+2 of the completeness oracle on truncated preamble vs original.
+
+    Returns score (0-100) or None if oracle is unavailable or errors.
+    Prints result to stderr. Never raises.
+    """
+    try:
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            return None
+        script_path = Path(project_root) / HARNESS_ROOT / "scripts" / "skill-completeness-check.py"
+        if not script_path.exists():
+            return None
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_oracle", script_path)
+        oracle = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(oracle)  # type: ignore[union-attr]
+        import anthropic as _anthropic
+        client = _anthropic.Anthropic(api_key=api_key)
+        model = oracle._DEFAULT_MODEL
+        atoms = oracle.phase1_extract_atoms(client, original, model)
+        results = oracle.phase2_verify_atoms(client, atoms, truncated, model)
+        score, _ = oracle.compute_score(atoms, results)
+        print(f"⚠ preamble completeness: {score}%", file=sys.stderr)
+        return score
+    except Exception:
+        return None
+
+
+def _fit_context_to_budget(
+    context: str, adapter_config: dict, project_root: str | None = None
+) -> str:
     """Truncate preamble to adapter's context_char_limit.
 
     Truncates at the last paragraph break before the limit. Appends an HTML
-    comment warning if truncated. Adds a completeness-check hint when
-    AGENTFACTORY_LICENSE_KEY is set (pro gate advisory, non-blocking).
+    comment warning if truncated. When AGENTFACTORY_LICENSE_KEY is set and
+    project_root is provided, runs the completeness oracle and prints the
+    delta to stderr (pro gate advisory, non-blocking).
     """
     limit = adapter_config.get("context_char_limit", 4_000)
     if len(context) <= limit:
@@ -360,6 +393,11 @@ def _fit_context_to_budget(context: str, adapter_config: dict) -> str:
     truncated = context[:cut].rstrip()
     original_len = len(context)
     has_key = bool(os.environ.get("AGENTFACTORY_LICENSE_KEY"))
+    if has_key and project_root:
+        try:
+            _run_preamble_oracle(context, truncated, project_root)
+        except Exception:
+            pass
     completeness_hint = (
         " Run: python3 .ai/scripts/skill-completeness-check.py --context to verify."
         if has_key else ""
@@ -1306,7 +1344,9 @@ class Librarian:
     # ------------------------------------------------------------------
 
     @classmethod
-    def _render_brief(cls, adapter_name: str, config: dict, data: dict) -> str:
+    def _render_brief(
+        cls, adapter_name: str, config: dict, data: dict, project_root: str | None = None
+    ) -> str:
         sections = []
         header = (
             f"{config['header']}\n"
@@ -1319,7 +1359,7 @@ class Librarian:
         sections.append(_fmt_harness_identity(adapter_name))
         ctx = data.get("project_context", "")
         if ctx:
-            fitted = _fit_context_to_budget(ctx, config)
+            fitted = _fit_context_to_budget(ctx, config, project_root=project_root)
             sections.append(f"## Project Context\n\n{fitted}")
         for section_key in config["section_order"]:
             formatter_name = config["sections"].get(section_key)
@@ -1355,7 +1395,7 @@ class Librarian:
                 continue
             brief_path = adapter_dir / config["output"]
             try:
-                new_content = cls._render_brief(adapter_name, config, data)
+                new_content = cls._render_brief(adapter_name, config, data, project_root=str(project_root))
                 if brief_path.exists() and brief_path.read_text(encoding="utf-8") == new_content:
                     continue
                 brief_path.write_text(new_content, encoding="utf-8")

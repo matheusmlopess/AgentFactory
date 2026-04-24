@@ -6,6 +6,7 @@ import unittest
 import tempfile
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 from agent_gen.librarian import (
     Librarian, MANIFEST_FILE, HARNESS_ROOT, CONTEXT_FILE, _safe_extract,
@@ -527,6 +528,60 @@ class TestProjectContextInjection(unittest.TestCase):
             brief = (root / HARNESS_ROOT / "adapters" / "claude" / "brief.md").read_text(encoding="utf-8")
             self.assertNotIn("context truncated", brief)
             self.assertIn("Short project description.", brief)
+
+    def test_oracle_called_when_key_set_and_truncated(self):
+        """Oracle runs when license key is set and preamble is truncated; score printed to stderr."""
+        long_preamble = ("B" * 500 + "\n\n") * 10
+        af_content = f"# Title\n\n{long_preamble}\n\n<!-- @agent-registry:start -->\n<!-- @agent-registry:end -->\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_harness(root, af_content)
+            with patch("agent_gen.librarian._run_preamble_oracle", return_value=72) as mock_oracle:
+                with patch.dict(os.environ, {"AGENTFACTORY_LICENSE_KEY": "pro_testkey"}):
+                    Librarian._compile_adapter_briefs(str(root))
+                mock_oracle.assert_called()
+                call_args = mock_oracle.call_args
+                original, truncated, pr = call_args.args
+                self.assertGreater(len(original), len(truncated))
+                self.assertEqual(pr, str(root))
+
+    def test_oracle_not_called_without_key(self):
+        """Oracle is not invoked when AGENTFACTORY_LICENSE_KEY is absent."""
+        long_preamble = ("C" * 500 + "\n\n") * 10
+        af_content = f"# Title\n\n{long_preamble}\n\n<!-- @agent-registry:start -->\n<!-- @agent-registry:end -->\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_harness(root, af_content)
+            env = {k: v for k, v in os.environ.items() if k != "AGENTFACTORY_LICENSE_KEY"}
+            with patch("agent_gen.librarian._run_preamble_oracle") as mock_oracle:
+                with patch.dict(os.environ, env, clear=True):
+                    Librarian._compile_adapter_briefs(str(root))
+                mock_oracle.assert_not_called()
+
+    def test_oracle_not_called_when_no_truncation(self):
+        """Oracle is not invoked when preamble fits within budget."""
+        short_preamble = "Fits easily.\n\nNo truncation needed."
+        af_content = f"# Title\n\n{short_preamble}\n\n<!-- @agent-registry:start -->\n<!-- @agent-registry:end -->\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_harness(root, af_content)
+            with patch("agent_gen.librarian._run_preamble_oracle") as mock_oracle:
+                with patch.dict(os.environ, {"AGENTFACTORY_LICENSE_KEY": "pro_testkey"}):
+                    Librarian._compile_adapter_briefs(str(root))
+                mock_oracle.assert_not_called()
+
+    def test_oracle_error_does_not_crash_compilation(self):
+        """If the oracle raises, brief compilation still succeeds."""
+        long_preamble = ("D" * 500 + "\n\n") * 10
+        af_content = f"# Title\n\n{long_preamble}\n\n<!-- @agent-registry:start -->\n<!-- @agent-registry:end -->\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            self._make_harness(root, af_content)
+            with patch("agent_gen.librarian._run_preamble_oracle", side_effect=Exception("api down")):
+                with patch.dict(os.environ, {"AGENTFACTORY_LICENSE_KEY": "pro_testkey"}):
+                    Librarian._compile_adapter_briefs(str(root))
+            brief = (root / HARNESS_ROOT / "adapters" / "codex" / "brief.md").read_text(encoding="utf-8")
+            self.assertIn("context truncated", brief)
 
     def test_compile_agentfactory_md_adds_rules_and_commands(self):
         """After _compile_adapter_briefs, AgentFactory.md contains rules + commands blocks."""
