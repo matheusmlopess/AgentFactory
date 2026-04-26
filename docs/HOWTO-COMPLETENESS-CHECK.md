@@ -1,13 +1,13 @@
 # HOWTO: Skill Completeness Check
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 
 The skill completeness oracle verifies that a trimmed `SKILL.md` preserves all
 functional behaviour of the original. It uses a two-phase Claude Haiku pipeline to
 extract **functional atoms** (commands, decision paths, error cases, constraints, etc.)
 from the original, then verifies each atom is present in the trimmed version.
 
-The oracle now supports three modes, agent-level checking, model selection, and a
-pro-plan gate for token-consuming operations.
+The oracle now supports three modes, agent-level checking, and model selection.
+Some flags require a Pro plan — these are marked `[pro]` in the reference below.
 
 ---
 
@@ -36,18 +36,6 @@ Other:
   --quiet                Suppress terminal output
 ```
 
-### Plan gating
-
-| Operation                            | Plan  |
-|--------------------------------------|-------|
-| `--mode diff` on committed skill     | free  |
-| `--mode auto` on committed skill     | free  |
-| `--mode auto` on uncommitted skill   | pro   |
-| `--mode new` (always)                | pro   |
-| `--agent`                            | pro   |
-
-Set your plan: `echo '{"plan":"pro"}' > .ai/config/user.json`
-
 ### Oracle models
 
 | Model                        | Cost  | Use for                                  |
@@ -63,7 +51,7 @@ Set your plan: `echo '{"plan":"pro"}' > .ai/config/user.json`
 | `0`  | Passed threshold               |
 | `1`  | Below threshold                |
 | `2`  | Error (no baseline / API)      |
-| `3`  | Pro plan required              |
+| `3`  | Pro plan required (upgrade at agentfactory.dev) |
 
 ---
 
@@ -108,10 +96,7 @@ Set your plan: `echo '{"plan":"pro"}' > .ai/config/user.json`
 
   is_new_skill("HEAD", ".ai/skills/my-new-skill/SKILL.md") → True
           │
-          ▼
-  require_plan("pro")   ← exits 3 if user.json plan = "free"
-          │
-          ▼
+          ▼  [pro plan required]
   read .ai/skills/my-new-skill/SKILL.md  → original content
           │
   ╔═══════════════════════════════════════════════════════════╗
@@ -145,8 +130,7 @@ Set your plan: `echo '{"plan":"pro"}' > .ai/config/user.json`
 ```
   python3 skill-completeness-check.py --skill git-versioning --mode new --adapter codex
 
-  require_plan("pro")   ← --mode new always requires pro
-          │
+  [pro plan required — --mode new always requires pro]
   --mode new → skip is_new_skill(), always run new-skill branch
   read working tree as "original"
   Phase 0 — Auto-trim to codex limit: 10,000 chars
@@ -166,8 +150,7 @@ Set your plan: `echo '{"plan":"pro"}' > .ai/config/user.json`
 ```
   python3 skill-completeness-check.py --agent test-agent --adapter claude
 
-  require_plan("pro")   ← --agent always requires pro
-          │
+  [pro plan required — --agent always requires pro]
   find_agent_skills("test-agent")
   → [("git-versioning", ".ai/agents/test-agent/skills/git-versioning/SKILL.md")]
 
@@ -339,7 +322,7 @@ Shows what percentage of atoms survive the 10,000-char Codex limit.
 ## How to add a new skill report
 
 1. Write `.ai/skills/<name>/SKILL.md` following the YAML frontmatter convention.
-2. Run the self-check (pro plan required):
+2. Run the self-check (`--mode new` requires a Pro plan):
    ```bash
    python3 .ai/scripts/skill-completeness-check.py \
      --skill <name> --mode new --adapter claude

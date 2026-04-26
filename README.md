@@ -217,7 +217,7 @@ Full reference: [`docs/FEATURE-AGENTFACTORY-MD-BRIEF.md`](docs/FEATURE-AGENTFACT
 
 A two-phase Claude Haiku oracle that verifies a trimmed `SKILL.md` preserves all
 functional capability of the original. Supports global skills, agents, and new
-uncommitted skills via Phase 0 auto-trim (pro plan).
+uncommitted skills via Phase 0 auto-trim.
 
 ```bash
 # Existing committed skill (free)
@@ -242,12 +242,9 @@ constraints) from the original using ephemeral prompt cache. Phase 2 verifies ea
 atom is present in the trimmed version. Score ≥ threshold → pass.
 
 **Modes:** `--mode auto` (default, detects new vs committed) · `--mode new` (force
-Phase 0 trim, pro) · `--mode diff` (force git baseline, fails if no baseline)
+Phase 0 trim) `[pro]` · `--mode diff` (force git baseline, fails if no baseline)
 
 **Models:** Haiku ~1× cost (default) · Sonnet ~6× · Opus ~20×
-
-**Pro plan gate:** `--mode new`, auto-detected new skills, and `--agent` require
-`{"plan":"pro"}` in `.ai/config/user.json`. Exit code `3` = plan gate triggered.
 
 Per-adapter thresholds in `.ai/config/completeness.json`:
 
@@ -303,7 +300,6 @@ Branch protection on `dev` requires **Tests + Coverage** to pass before merge.
 | [`docs/FEATURE-WORKFLOW.md`](docs/FEATURE-WORKFLOW.md) | 8-step feature lifecycle (issue → branch → implement → CI → PR → merge → milestones → report) |
 | [`docs/SKILL-COMPLETENESS-SPEC.md`](docs/SKILL-COMPLETENESS-SPEC.md) | Two-phase oracle, CLI reference, all integration points |
 | [`docs/HOWTO.md`](docs/HOWTO.md) | Workflow diagrams: deploy, retrofit, wrap, import, uninstall |
-| [`docs/FEATURE-AUTH.md`](docs/FEATURE-AUTH.md) | GitHub + Google OAuth system: states, API contract, plan gating |
 | [`docs/FEATURE-AGENTFACTORY-MD-BRIEF.md`](docs/FEATURE-AGENTFACTORY-MD-BRIEF.md) | Master brief & project context injection: workflow diagrams, gap analysis, CLI switch walkthrough |
 | [`docs/FEATURE-HARNESS-IDENTITY.md`](docs/FEATURE-HARNESS-IDENTITY.md) | Cross-adapter navigation block: how it works, swap walkthrough |
 | [`docs/FEATURE-REGISTRY-CLI.md`](docs/FEATURE-REGISTRY-CLI.md) | Registry CLI commands: `publish` upload flow, `import --from-registry` download flow, all scenarios |
