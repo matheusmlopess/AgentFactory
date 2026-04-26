@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-04-24 15:47 UTC -->
-<!-- open-issues: 10 -->
+<!-- generated: 2026-04-26 11:35 UTC -->
+<!-- open-issues: 0 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
@@ -13,9 +13,9 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   │  Track           │  Issues                                    │
   ├──────────────────┼───────────────────────────────────────────┤
   │  Harness / CLI   │                                             │
-  │  Webapp / UI     │  #88                                        │
-  │  Platform Core   │  #77  #84  #85  #86                         │
-  │  Platform Upper  │  #87  #89  #90  #91  #92                    │
+  │  Webapp / UI     │                                             │
+  │  Platform Core   │                                             │
+  │  Platform Upper  │                                             │
   └──────────────────┴───────────────────────────────────────────┘
 ```
 
@@ -24,16 +24,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Depends on                Unblocks                  Title
   ──────  ────────────────────────  ────────────────────────  ────────────────────────────────────────
-  #77     —                         #84 #85 #86 #87 #88 #89 #90 #91 #92  epic: AgentFactory production platform — free
-  #84     #77                       #85 #87 #89               feat[P2]: private org workspaces + RBAC (owne
-  #85     #77 #84                   #89 #90                   feat[P2]: Pro tier billing — Stripe seat-base
-  #86     #77                       —                         feat[P2]: agentfactory-gen login / logout CLI
-  #87     #77 #84                   #88 #89                   feat[P3]: per-agent audit history dashboard
-  #88     #77 #87                   —                         feat[P3]: agent dependency graph visualizatio
-  #89     #77 #84 #85 #87           #92                       feat[P3]: Enterprise compliance export — audi
-  #90     #77 #85                   #92                       feat[P4]: marketplace — paid agent listings +
-  #91     #77                       —                         feat[P4]: verified agent badge — automated Li
-  #92     #77 #89 #90               —                         feat[P4]: publisher revenue share — Stripe Co
 ```
 
 ## Priority Waves
@@ -43,44 +33,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Effort    Track             Unblocks              Title
   ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #77     epic      Platform Core     #84 #85 #86 #87 …     epic: AgentFactory production platform — free
-```
-
-### Wave 2 — After Wave 1
-
-```
-  #       Effort    Track             Unblocks              Title
-  ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #84     large     Platform Core     #85 #87 #89           feat[P2]: private org workspaces + RBAC (owne
-  #86     small     Platform Core     —                     feat[P2]: agentfactory-gen login / logout CLI
-  #91     medium    Platform Upper    —                     feat[P4]: verified agent badge — automated Li
-```
-
-### Wave 3 — After Wave 2
-
-```
-  #       Effort    Track             Unblocks              Title
-  ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #85     large     Platform Core     #89 #90               feat[P2]: Pro tier billing — Stripe seat-base
-  #87     medium    Platform Upper    #88 #89               feat[P3]: per-agent audit history dashboard
-```
-
-### Wave 4 — Monetisation ceiling
-
-```
-  #       Effort    Track             Unblocks              Title
-  ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #88     medium    Webapp / UI       —                     feat[P3]: agent dependency graph visualizatio
-  #89     medium    Platform Upper    #92                   feat[P3]: Enterprise compliance export — audi
-  #90     large     Platform Upper    #92                   feat[P4]: marketplace — paid agent listings +
-```
-
-### Wave 5 — Wave 5
-
-```
-  #       Effort    Track             Unblocks              Title
-  ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #92     large     Platform Upper    —                     feat[P4]: publisher revenue share — Stripe Co
 ```
 
 ## Cross-Track Dependencies
@@ -104,5 +56,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-04-24 15:47 UTC by `generate-priority-report.py`._
+_Generated 2026-04-26 11:35 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
