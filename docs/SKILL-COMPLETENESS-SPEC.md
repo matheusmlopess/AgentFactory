@@ -524,23 +524,11 @@ deeper trims — less room for behavioral loss is tolerated.
   └──────────────────────────────────────────────────────────────────────┘
 
   ┌──────────────────────────────────────────────────────────────────────┐
-  │  TIER 2 — Webapp Viewer                        moved → webapp-repo   │
+  │  TIER 2 & 3 — Webapp Viewer + BYOK Live Checker    → webapp-repo    │
   │                                                                        │
-  │  Implemented in agentfactory-webapp (private repo).                  │
-  │  Reads .ai/reports/*.json; gated behind FeatureGate plan="pro".      │
-  │  See github.com/matheusmlopess/agentfactory-webapp                   │
-  └──────────────────────────────────────────────────────────────────────┘
-
-  ┌──────────────────────────────────────────────────────────────────────┐
-  │  TIER 3 — BYOK Live Checker                             PENDING (#105)│
-  │                                                                        │
-  │  Issue #105 — Wave 5, gated behind Pro billing (#85)                 │
-  │                                                                        │
-  │  • User enters Anthropic API key (stored in sessionStorage)           │
-  │  • @anthropic-ai/sdk with dangerouslyAllowBrowser: true              │
-  │  • "Run check" triggers two-phase oracle live in browser              │
-  │  • Results replace cached report inline — no CLI needed               │
-  │  • No key = cached report still visible + "Unlock Pro" prompt        │
+  │  Implemented in agentfactory-webapp (private repo, Pro feature).     │
+  │  Reads .ai/reports/*.json and optionally runs the oracle live in     │
+  │  the browser. See: github.com/matheusmlopess/agentfactory-webapp     │
   └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -643,12 +631,12 @@ Completeness check run on 2026-04-16 after the token-budget trim:
   │  #101   │  Dedicated CI job (skill-completeness.yml)    │  ✓ LIVE     │
   │  #102   │  Adapter-add completeness gate                │  ✓ LIVE     │
   │  #103   │  Per-adapter thresholds in config             │  ✓ LIVE     │
-  │  #104   │  Webapp static report viewer                  │  → webapp-repo │
-  │  #105   │  BYOK live checker in webapp [pro]            │  → webapp-repo │
+  │  #104 & │  Webapp viewer + Pro live checker             │  → webapp-repo │
+  │  #105   │  (see agentfactory-webapp private repo)       │               │
   └──────────────────────────────────────────────────────────────────────┘
 
-  #104 and #105 have moved to the private agentfactory-webapp repo (2026-04-21).
   All CLI-side completeness track issues (#100–#103) are fully shipped as of v1.7.0.
+  Webapp features (#104, #105) are tracked in the private agentfactory-webapp repo.
 ```
 
 ---
