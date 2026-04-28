@@ -1,0 +1,31 @@
+{
+  "name": "security-review",
+  "version": "1.0.0",
+  "description": "Produces dated REVIEW-SECURITY-ARCHITECTURE-YYYY-MM-DD.md reports: component matrix, Mermaid diagrams, SEV-classified security findings, design gaps, and a prioritised recommendations table.",
+  "orchestration_plan": null,
+  "created_at": "2026-04-28T13:16:52.405338+00:00",
+  "git_ref": "981f312",
+  "resources": {
+    "skills": [
+      "skills/security-review/SKILL.md",
+      "skills/security-review/references/mermaid-safe-patterns.md",
+      "skills/security-review/references/report-template.md",
+      "skills/security-review/skill-manifest.json"
+    ],
+    "commands": [],
+    "docs": [
+      "docs/SKILL-SECURITY-REVIEW.md"
+    ],
+    "scripts": [],
+    "orchestration": []
+  },
+  "dependencies": {},
+  "skills_metadata": {
+    "skills/security-review": {
+      "name": "security-review",
+      "version": "1.0.0",
+      "description": "Full security and architecture review of a repo: component matrix, Mermaid diagrams, SEV-classified findings, design gaps, recommendations table."
+    }
+  },
+  "synced_at": "2026-04-28T13:20:43.550334+00:00"
+}

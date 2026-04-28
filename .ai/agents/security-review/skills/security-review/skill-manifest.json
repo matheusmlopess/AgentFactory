@@ -1,0 +1,5 @@
+{
+  "name": "security-review",
+  "version": "1.0.0",
+  "description": "Full security and architecture review of a repo: component matrix, Mermaid diagrams, SEV-classified findings, design gaps, recommendations table."
+}
