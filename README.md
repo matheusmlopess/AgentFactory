@@ -213,6 +213,22 @@ agentfactory-gen brief
 
 Full reference: [`docs/FEATURE-AGENTFACTORY-MD-BRIEF.md`](docs/FEATURE-AGENTFACTORY-MD-BRIEF.md)
 
+### Codex Study Docs
+
+For a deeper view of Codex-specific project discovery, init behavior, and issue-ready
+gap analysis, see:
+
+- [`docs/STUDY-CODEX-PROJECT-MAPPING.md`](docs/STUDY-CODEX-PROJECT-MAPPING.md)
+- [`docs/STUDY-CODEX-INIT-SCENARIOS.md`](docs/STUDY-CODEX-INIT-SCENARIOS.md)
+- [`docs/STUDY-CODEX-GAP-MATRIX.md`](docs/STUDY-CODEX-GAP-MATRIX.md)
+
+### Gemini Study Docs
+
+For the Gemini adapter alignment study and the bridge plan for moving from the
+legacy `tools` / `config.json` layout to Gemini-native conventions, see:
+
+- [`docs/STUDY-GEMINI-ALIGNMENT.md`](docs/STUDY-GEMINI-ALIGNMENT.md)
+
 ### Skill Completeness Oracle
 
 A two-phase Claude Haiku oracle that verifies a trimmed `SKILL.md` preserves all
