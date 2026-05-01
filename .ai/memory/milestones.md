@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.8.0 -->
+<!-- version: 1.9.0 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -126,6 +126,8 @@ Issues below are tracked in the private webapp repo as of 2026-04-21.
 | # | Title | Note |
 |---|-------|------|
 | #16 | Project layout GUI React | Superseded by production platform epic #77 |
+| #140 | add import --dry-run for pre-registration inspection | Absorbed by #146 (import atomicity overhaul) — already closed |
+| #141 | audit runs post-unpack — malicious content registers before detection | Absorbed by #146 (import atomicity overhaul) — already closed |
 
 ---
 
@@ -162,3 +164,71 @@ Issues below are tracked in the private webapp repo as of 2026-04-21.
 
 | # | Title | Type | Status | Branch | PR | Commit | Tag |
 |---|-------|------|--------|--------|----|--------|-----|
+
+---
+
+## Open Issues — Wave Execution Plan
+<!-- last-reviewed: 2026-05-01 -->
+
+Canonical order derived from dependency analysis. Waves 4 and 5 run in parallel.
+Absorption notes: #152+#153→#160 · #165+#166+#169→#170 · #140+#141→#146 (already closed).
+
+### Wave 1 — Foundation bugs
+
+| # | Title | Type | Status |
+|---|-------|------|--------|
+| #133 | --version flag not defined on root CLI group | bug | pending |
+| #132 | audit exits 1 on untracked files without auto-syncing first | bug | pending |
+| #135 | --project-root resolves conflict check against CWD, not target root | bug | pending |
+| #134 | SKILL.md frontmatter not parsed by import-skill | bug | pending |
+| #136 | wrap --out flag undiscoverable; ZIP lands in CWD silently | enhancement | pending |
+
+### Wave 2 — Security
+
+| # | Title | Type | Status |
+|---|-------|------|--------|
+| #146 | import atomicity + safety overhaul — dry-run, pre-unpack audit, atomic write, rollback | security | pending |
+| #143 | --project-root accepts path traversal sequences without validation | security | pending |
+| #142 | scripts/ in imported agents execute without sandbox or review gate | security | pending |
+| #144 | no checksum or signature verification on imported ZIPs | security | pending |
+
+### Wave 3 — CLI enhancements
+
+| # | Title | Type | Status |
+|---|-------|------|--------|
+| #137 | add agentfactory-gen status command with per-agent skill listing | enhancement | pending |
+| #139 | promote skill-completeness-check and harness-doctor to CLI subcommands | enhancement | pending |
+| #148 | add create-skill command with SKILL.md template generator | enhancement | pending |
+| #147 | warn when skill version unchanged on re-import | enhancement | pending |
+| #149 | add test-skill smoke-test runner | enhancement | pending |
+| #138 | add agentfactory-gen upgrade command for in-place agent updates | enhancement | pending |
+| #145 | skill creation pipeline: 10 CLI gaps meta-survey (close by ticking resolved GAPs) | enhancement | pending |
+
+### Wave 4 — Codex adapter alignment (parallel with Wave 5)
+
+| # | Title | Type | Status |
+|---|-------|------|--------|
+| #150 | align Codex retrofit naming with CODEX.md root-file contract | enhancement | pending |
+| #161 | broaden Codex retrofit profile to match live harness contract | enhancement | pending |
+| #151 | add collision and recovery coverage for existing .codex paths | enhancement | pending |
+| #160 | expand harness doctor to cover all managed and observed Codex surfaces *(absorbs #152, #153)* | enhancement | pending |
+| #155 | add project-local .mcp.json awareness to Codex mapping and diagnostics | enhancement | pending |
+| #163 | add Codex edge-case tests for MCP, .codex collisions, external env visibility | testing | pending |
+| #156 | document and inventory global ~/.codex/config.toml as external surface | documentation | pending |
+| #157 | expose global ~/.codex skills and rules as external context surfaces | documentation | pending |
+| #158 | add plugin inventory awareness to Codex environment reporting | enhancement | pending |
+| #159 | define AgentFactory mapping model for plugin-provided Codex tools and MCP | enhancement | pending |
+| #162 | reconcile historical harness-init report with current Codex behavior | documentation | pending |
+| #164 | add live Codex environment verification study | documentation | pending |
+| #154 | document AgentFactory prompt mapping for Codex | documentation | pending |
+| #172 | [tracking] Codex adapter alignment epic — close when #150–#164 done | epic | pending |
+
+### Wave 5 — Gemini adapter alignment (parallel with Wave 4)
+
+| # | Title | Type | Status |
+|---|-------|------|--------|
+| #170 | align Gemini retrofit, generation, and validation contracts *(absorbs #165, #166, #169)* | enhancement | pending |
+| #168 | project mcpServers from .mcp.json into .gemini/settings.json | enhancement | pending |
+| #167 | generate Gemini-native .toml slash commands from shared command sources | enhancement | pending |
+| #171 | update Gemini docs and tests to canonical-plus-bridge model | documentation | pending |
+| #173 | [tracking] Gemini adapter alignment epic — close when #165–#171 done | epic | pending |
