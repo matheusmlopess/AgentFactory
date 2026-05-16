@@ -1,0 +1,31 @@
+{
+  "version": "1.0.0",
+  "pipeline": {
+    "mode": "sequential_hub_and_spoke",
+    "description": "Each agent dispatches to supervisor before the next is invoked.",
+    "agents": [
+      {"id": "intake",     "class": "IntakeAgent",     "round": 1,
+       "purpose": "Clean draft, extract Linux commands"},
+      {"id": "security",   "class": "SecurityAgent",   "round": 2,
+       "purpose": "Security review, block unsafe commands"},
+      {"id": "compliance", "class": "ComplianceAgent", "round": 3,
+       "purpose": "Policy check, idempotency, dependency ordering"},
+      {"id": "workflow",   "class": "WorkflowAgent",   "round": 4,
+       "purpose": "Emit final executable JSON workflow"}
+    ]
+  },
+  "remediation": {
+    "agents": ["intake", "security", "workflow"],
+    "max_rounds": 2,
+    "note": "Compliance is skipped on remediation — policies already applied in planning."
+  },
+  "harness": {
+    "evidence_capture": {"stdout": true, "stderr": true, "exit_code": true},
+    "policies": {
+      "retry":   {"max_retries": 3},
+      "escalate": {"re_enters": "supervisor.remediate", "max_rounds": 2},
+      "skip":    {},
+      "abort":   {}
+    }
+  }
+}
