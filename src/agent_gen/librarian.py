@@ -781,7 +781,11 @@ class Librarian:
 
     @staticmethod
     def _parse_skill_md_version(skill_md_path: Path) -> str:
-        """Extract version from SKILL.md YAML frontmatter (--- block)."""
+        """Extract version from SKILL.md frontmatter.
+
+        Checks top-level 'version' and 'metadata.version' (open-standard location).
+        Both resolve identically via the flat parser — indented keys are flattened.
+        """
         fm = Librarian._parse_skill_md_frontmatter(skill_md_path)
         return fm.get("version", "")
 
@@ -817,13 +821,12 @@ class Librarian:
         """Parse SKILL.md frontmatter, validate required fields, and keep
         skill-manifest.json in sync.  Raises ValueError on validation failure.
 
-        Rules (#134):
-        - Required frontmatter fields: name, version, description, triggers
-        - version must look like semver (digits and dots)
+        Open-standard requirements (agentskills.io — name + description only):
+        - Required frontmatter fields: name, description
+        - version, triggers are optional (open-standard compatible)
         - name must match the directory name
-        - triggers must be non-empty
         - If skill-manifest.json is absent: generate it from frontmatter
-        - If skill-manifest.json is present: assert name/version consistency
+        - If skill-manifest.json is present: assert name consistency
         """
         skill_md = skill_dir / "SKILL.md"
         if not skill_md.exists():
@@ -833,8 +836,8 @@ class Librarian:
         if not fm:
             return  # no frontmatter — nothing to validate
 
-        # --- Validate required fields ---
-        required = ("name", "version", "description", "triggers")
+        # Open standard requires only name + description
+        required = ("name", "description")
         missing = [f for f in required if not fm.get(f)]
         if missing:
             raise ValueError(
@@ -842,26 +845,24 @@ class Librarian:
             )
 
         fm_name = fm["name"]
-        fm_version = fm["version"]
-
-        # version must look like semver (e.g. 1.0.0, 2.3, 0.1.0-beta)
-        if not re.match(r"^\d+\.\d+", fm_version):
-            raise ValueError(
-                f"SKILL.md 'version: {fm_version}' is not valid semver (expected e.g. 1.0.0)"
-            )
+        # version and triggers are optional per open standard
+        fm_version = fm.get("version", "")
+        fm_triggers = fm.get("triggers", "")
 
         manifest_path = skill_dir / "skill-manifest.json"
         if not manifest_path.exists():
-            # Auto-generate from frontmatter
-            data = {
+            # Auto-generate from frontmatter; only include optional fields if present
+            data: dict = {
                 "name": fm_name,
-                "version": fm_version,
                 "description": fm["description"],
-                "triggers": fm["triggers"],
             }
+            if fm_version:
+                data["version"] = fm_version
+            if fm_triggers:
+                data["triggers"] = fm_triggers
             manifest_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
         else:
-            # Reconcile: update name, version, and triggers from frontmatter
+            # Reconcile: update name/description; merge optional fields if present
             try:
                 data = json.loads(manifest_path.read_text(encoding="utf-8"))
             except Exception:
@@ -871,9 +872,11 @@ class Librarian:
                     f"skill-manifest.json name '{data['name']}' conflicts with SKILL.md name '{fm_name}'"
                 )
             data["name"] = fm_name
-            data["version"] = fm_version
             data["description"] = fm["description"]
-            data["triggers"] = fm["triggers"]
+            if fm_version:
+                data["version"] = fm_version
+            if fm_triggers:
+                data["triggers"] = fm_triggers
             manifest_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
     @staticmethod

@@ -793,23 +793,38 @@ class TestWave1Fixes(unittest.TestCase):
             self.assertEqual(data["triggers"], "root trigger")
 
     def test_import_skill_missing_frontmatter_fields_fails(self):
-        """import-skill exits non-zero when SKILL.md frontmatter is incomplete."""
+        """import-skill exits non-zero when SKILL.md is missing required fields.
+
+        Open standard requires name + description. version and triggers are optional.
+        """
         with self.runner.isolated_filesystem():
             self.runner.invoke(cli, ["deploy", "validate-agent"])
             skill_dir = Path("bad-skill")
             skill_dir.mkdir()
-            # triggers field is missing
+            # description field is missing — still required by the open standard
             (skill_dir / "SKILL.md").write_text(
-                "---\nname: bad-skill\nversion: 1.0.0\ndescription: Missing triggers\n---\n"
-            )
-            (skill_dir / "skill-manifest.json").write_text(
-                json.dumps({"name": "bad-skill", "description": "x"})
+                "---\nname: bad-skill\nversion: 1.0.0\n---\n"
             )
             result = self.runner.invoke(
                 cli, ["import-skill", str(skill_dir), "--to", "validate-agent"]
             )
             self.assertNotEqual(result.exit_code, 0)
-            self.assertIn("triggers", result.output.lower())
+            self.assertIn("description", result.output.lower())
+
+    def test_import_skill_open_standard_minimal_succeeds(self):
+        """import-skill accepts open-standard skills with only name + description."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "validate-agent"])
+            skill_dir = Path("open-skill")
+            skill_dir.mkdir()
+            # Open-standard minimal: name + description only, no version, no triggers
+            (skill_dir / "SKILL.md").write_text(
+                "---\nname: open-skill\ndescription: A cross-agent open-standard skill\n---\n"
+            )
+            result = self.runner.invoke(
+                cli, ["import-skill", str(skill_dir), "--to", "validate-agent"]
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
 
 
 if __name__ == '__main__':
