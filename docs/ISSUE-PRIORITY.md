@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-05-01 15:46 UTC -->
-<!-- open-issues: 40 -->
+<!-- generated: 2026-05-18 19:20 UTC -->
+<!-- open-issues: 39 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
@@ -15,7 +15,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   │  Harness / CLI   │                                             │
   │  Webapp / UI     │                                             │
   │  Platform Core   │                                             │
-  │  Platform Upper  │  #132  #133  #134  #135  #136  #137  #138  #139  #142  #143  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173│
+  │  Platform Upper  │  #133  #134  #135  #136  #137  #138  #139  #142  #143  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173│
   └──────────────────┴───────────────────────────────────────────┘
 ```
 
@@ -24,7 +24,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Depends on                Unblocks                  Title
   ──────  ────────────────────────  ────────────────────────  ────────────────────────────────────────
-  #132    —                         —                         bug(cli): audit exits 1 on untracked files wi
   #133    —                         —                         bug(cli): --version flag not defined on root 
   #134    —                         —                         bug+enhancement(cli): SKILL.md frontmatter no
   #135    —                         —                         bug(cli): import --project-root resolves conf
@@ -73,7 +72,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Effort    Track             Unblocks              Title
   ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #132    ?         Platform Upper    —                     bug(cli): audit exits 1 on untracked files wi
   #133    ?         Platform Upper    —                     bug(cli): --version flag not defined on root 
   #134    ?         Platform Upper    —                     bug+enhancement(cli): SKILL.md frontmatter no
   #135    ?         Platform Upper    —                     bug(cli): import --project-root resolves conf
@@ -136,5 +134,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-05-01 15:46 UTC by `generate-priority-report.py`._
+_Generated 2026-05-18 19:20 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
