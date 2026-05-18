@@ -722,7 +722,7 @@ class TestOpenStandardSkillValidation(unittest.TestCase):
         Editors (vim, heredocs) sometimes prepend whitespace. lstrip() absorbs it.
         """
         with tempfile.TemporaryDirectory() as tmp:
-            skill_dir = tmp_path = Path(tmp) / "ws-skill"
+            skill_dir = Path(tmp) / "ws-skill"
             skill_dir.mkdir()
             # Leading newline + spaces before the opening fence
             (skill_dir / "SKILL.md").write_text(
