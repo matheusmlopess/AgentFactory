@@ -12,7 +12,10 @@ from pathlib import Path
 
 import click
 
-from .librarian import TRACKED_DIRS, HARNESS_ROOT, CONTEXT_FILE, Librarian, _FORMAT_REGISTRY
+from .librarian import (
+    TRACKED_DIRS, HARNESS_ROOT, CONTEXT_FILE,
+    Librarian, _FORMAT_REGISTRY, _inspect_zip,
+)
 
 REGISTRY_URL = os.environ.get("AGENTFACTORY_REGISTRY_URL", "https://agentfactory.dev")
 
@@ -112,6 +115,24 @@ def _assert_within_root(rel_path: str, root: Path) -> None:
         raise click.ClickException(
             f"Path '{rel_path}' resolves outside the agent root — possible path traversal."
         )
+
+
+def _assert_valid_project_root(project_root: str) -> Path:
+    """Resolve project_root and assert it contains an initialised AgentFactory harness (#143).
+
+    Raises ClickException when:
+    - The path resolves outside the filesystem root (traversal guard)
+    - The resolved path has no .ai/ subdirectory (not an AgentFactory project)
+    """
+    path = Path(project_root).resolve()
+    ai_root = path / HARNESS_ROOT
+    if not ai_root.exists():
+        raise click.ClickException(
+            f"'{project_root}' is not an AgentFactory project "
+            f"(no {HARNESS_ROOT}/ directory found). "
+            "Run 'agentfactory-gen init' first."
+        )
+    return path
 
 
 # ---------------------------------------------------------------------------
@@ -569,6 +590,15 @@ def wrap(name: str, out: str, print_path: bool):
         sys.exit(1)
 
     _echo(f"[librarian] Wrapped → {archive}")
+
+    # Emit SHA-256 sidecar so consumers can verify provenance (#144)
+    import hashlib as _hashlib
+    sha256 = _hashlib.sha256(archive.read_bytes()).hexdigest()
+    sidecar = archive.with_suffix(".zip.sha256")
+    sidecar.write_text(f"{sha256}  {archive.name}\n", encoding="utf-8")
+    _echo(f"[librarian] Checksum → {sidecar}")
+
+    # --print-path contract (#136): the archive path is the last line on stdout
     if print_path:
         click.echo(str(archive))
 
@@ -744,17 +774,48 @@ def import_skill(path: str, target_agent: str):
     show_default=True,
     help="Root of the project receiving the import (for the Handshake).",
 )
-def import_agent(zip_path: str, from_git: str, from_registry: str, project_root: str):
+@click.option(
+    "--dry-run",
+    "dry_run",
+    is_flag=True,
+    default=False,
+    help="Inspect what would be imported without writing anything to disk (#146).",
+)
+@click.option(
+    "--allow-scripts",
+    "allow_scripts",
+    is_flag=True,
+    default=False,
+    help="Skip the interactive scripts review gate (#142).",
+)
+@click.option(
+    "--checksum",
+    default=None,
+    metavar="FILE",
+    help="Path to a .sha256 file to verify the ZIP against before importing (#144).",
+)
+def import_agent(
+    zip_path: str,
+    from_git: str,
+    from_registry: str,
+    project_root: str,
+    dry_run: bool,
+    allow_scripts: bool,
+    checksum: str,
+):
     """
     Unpack a portable agent bundle and register it in this project.
 
     Accepts a local ZIP_PATH, --from-git URL, or --from-registry SLUG.
 
     Steps:
-      1. Unpack <zip_path> into agents/<name>/
-      2. Read the embedded manifest
-      3. Handshake: update this project's global agent-manifest.json
+      1. Pre-unpack inspection (structure, scripts, checksum)
+      2. Unpack ZIP to temp dir
+      3. Audit unpacked content
+      4. Move to final location + register in project manifest
     """
+    import hashlib
+
     _cleanup = None
 
     sources = [s for s in (zip_path, from_git, from_registry) if s is not None]
@@ -762,6 +823,10 @@ def import_agent(zip_path: str, from_git: str, from_registry: str, project_root:
         raise click.UsageError("ZIP_PATH, --from-git, and --from-registry are mutually exclusive.")
     if not sources:
         raise click.UsageError("Provide either ZIP_PATH, --from-git URL, or --from-registry SLUG.")
+
+    # Validate project root is an initialised harness (#143)
+    if project_root != ".":
+        _assert_valid_project_root(project_root)
 
     if from_git:
         zip_path, _cleanup = _clone_and_prepare(from_git)
@@ -781,6 +846,30 @@ def import_agent(zip_path: str, from_git: str, from_registry: str, project_root:
         _echo(f"[librarian] File not found: {zip_path}", err=True)
         sys.exit(1)
 
+    # --- Checksum verification (#144) ---
+    if checksum:
+        checksum_path = Path(checksum)
+        if not checksum_path.exists():
+            _echo(f"[librarian] Checksum file not found: {checksum}", err=True)
+            sys.exit(1)
+        expected = checksum_path.read_text().strip().split()[0]
+        actual = hashlib.sha256(zip_path.read_bytes()).hexdigest()
+        if actual != expected:
+            _echo(
+                f"[librarian] Checksum mismatch — ZIP may be tampered.\n"
+                f"  Expected: {expected}\n"
+                f"  Actual:   {actual}",
+                err=True,
+            )
+            sys.exit(1)
+        _echo("[librarian] Checksum verified.")
+
+    # --- Pre-unpack inspection (#141 / #146) ---
+    info = _inspect_zip(zip_path)
+    if not info["has_manifest"]:
+        _echo("[librarian] Invalid bundle — agent-manifest.json missing from ZIP.", err=True)
+        sys.exit(1)
+
     # Peek at the archive to get the agent name before unpacking
     with zipfile.ZipFile(zip_path) as zf:
         with zf.open("agent-manifest.json") as mf:
@@ -790,6 +879,33 @@ def import_agent(zip_path: str, from_git: str, from_registry: str, project_root:
     # Resolve target_root against project_root, not CWD (#135)
     project_path = Path(project_root).resolve()
     target_root = project_path / HARNESS_ROOT / "agents" / name
+
+    # --- Scripts gate (#142) ---
+    if info["scripts"] and not allow_scripts:
+        _echo(f"[librarian] ⚠  This agent includes {len(info['scripts'])} executable script(s):")
+        for s in info["scripts"]:
+            _echo(f"  {s}")
+        _echo("[librarian] Review these files before allowing execution.")
+        if not click.confirm("Proceed with import?", default=False):
+            _echo("[librarian] Import cancelled.")
+            if _cleanup:
+                _cleanup()
+            sys.exit(0)
+
+    # --- Dry-run: print preview and exit (#140 / #146) ---
+    if dry_run:
+        conflict = "YES — would abort" if target_root.exists() else "none"
+        _echo("[librarian] DRY RUN — nothing will be written to disk.")
+        _echo(f"  Agent   : {name}")
+        _echo(f"  Version : {peeked.get('version', 'unknown')}")
+        _echo(f"  Target  : {target_root}")
+        _echo(f"  Files   : {len(info['names'])}")
+        _echo(f"  Scripts : {len(info['scripts'])} file(s)" +
+              (f" — {info['scripts']}" if info["scripts"] else ""))
+        _echo(f"  Conflict: {conflict}")
+        if _cleanup:
+            _cleanup()
+        sys.exit(0)
 
     if target_root.exists():
         _echo(
@@ -802,7 +918,7 @@ def import_agent(zip_path: str, from_git: str, from_registry: str, project_root:
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir) / name
         temp_root.mkdir(parents=True)
-        
+
         _echo(f"[librarian] Unpacking '{name}'...")
         manifest = Librarian.unpack(str(zip_path), str(temp_root))
 
