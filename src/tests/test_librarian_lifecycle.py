@@ -716,6 +716,24 @@ class TestOpenStandardSkillValidation(unittest.TestCase):
             version = Librarian._parse_skill_md_version(skill_md)
             self.assertEqual(version, "3.0.0")
 
+    def test_frontmatter_tolerates_leading_whitespace(self):
+        """SKILL.md with leading blank lines or spaces before --- is parsed correctly.
+
+        Editors (vim, heredocs) sometimes prepend whitespace. lstrip() absorbs it.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = tmp_path = Path(tmp) / "ws-skill"
+            skill_dir.mkdir()
+            # Leading newline + spaces before the opening fence
+            (skill_dir / "SKILL.md").write_text(
+                "\n  ---\nname: ws-skill\ndescription: Leading whitespace skill\n---\n",
+                encoding="utf-8",
+            )
+            Librarian._validate_and_reconcile_skill_manifest(skill_dir)
+            manifest = json.loads((skill_dir / "skill-manifest.json").read_text())
+            self.assertEqual(manifest["name"], "ws-skill")
+            self.assertEqual(manifest["description"], "Leading whitespace skill")
+
 
 if __name__ == '__main__':
     unittest.main()

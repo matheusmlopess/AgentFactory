@@ -798,7 +798,7 @@ class Librarian:
         callers split them as needed.
         """
         try:
-            content = skill_md_path.read_text(encoding="utf-8")
+            content = skill_md_path.read_text(encoding="utf-8").lstrip()
             if not content.startswith("---"):
                 return {}
             end = content.index("---", 3)
