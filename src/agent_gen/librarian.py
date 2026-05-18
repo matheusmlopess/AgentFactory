@@ -117,14 +117,29 @@ def _inspect_zip(zip_path: Path) -> dict:
     """Inspect a ZIP's contents without extracting anything to disk.
 
     Returns:
-        has_manifest  — bool, agent-manifest.json present at root
-        names         — list of all member filenames
-        scripts       — list of members under scripts/ that are files
-        structure_ok  — bool, has agent-manifest.json + at least one tracked dir
+        has_manifest     — bool, agent-manifest.json present at root
+        names            — list of all member filenames
+        scripts          — list of members under scripts/ that are files (path-prefix)
+        executable_files — scripts/ members + shebang-detected files in commands/ and orchestration/
+        structure_ok     — bool, has agent-manifest.json + at least one tracked dir
     """
+    _SHEBANG_DIRS = frozenset(("commands", "orchestration"))
     with zipfile.ZipFile(zip_path) as zf:
         names = zf.namelist()
+        shebang_files: list[str] = []
+        for n in names:
+            if n.endswith("/"):
+                continue
+            prefix = n.split("/")[0]
+            if prefix in _SHEBANG_DIRS:
+                try:
+                    with zf.open(n) as member:
+                        if member.read(2) == b"#!":
+                            shebang_files.append(n)
+                except Exception:
+                    pass
     scripts = [n for n in names if n.startswith("scripts/") and not n.endswith("/")]
+    executable_files = scripts + shebang_files
     has_manifest = "agent-manifest.json" in names
     tracked_dirs_found = any(
         any(n.startswith(d + "/") for n in names)
@@ -134,6 +149,7 @@ def _inspect_zip(zip_path: Path) -> dict:
         "has_manifest": has_manifest,
         "names": names,
         "scripts": scripts,
+        "executable_files": executable_files,
         "structure_ok": has_manifest and tracked_dirs_found,
     }
 

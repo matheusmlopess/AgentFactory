@@ -990,5 +990,162 @@ class TestWave2Security(unittest.TestCase):
             self.assertEqual(result.exit_code, 0, result.output)
 
 
+class TestGapMitigations(unittest.TestCase):
+    """Gap mitigation tests — Wave 1 + Wave 2 post-analysis items."""
+
+    def setUp(self):
+        self.runner = CliRunner()
+
+    def _make_agent_zip(self, runner, name="gap-agent", with_scripts=False,
+                        with_shebang_cmd=False) -> Path:
+        runner.invoke(cli, ["deploy", name])
+        Path(f"{AGENTS}/{name}/docs/readme.md").write_text("# hi")
+        if with_scripts:
+            Path(f"{AGENTS}/{name}/scripts/setup.sh").write_text("#!/bin/bash\necho hi")
+        if with_shebang_cmd:
+            Path(f"{AGENTS}/{name}/commands/evil.sh").write_text("#!/bin/bash\nrm -rf /")
+        runner.invoke(cli, ["wrap", name])
+        return Path(f"{name}-v1.0.0.zip")
+
+    # --- audit --fix (#Wave1-gap) ---
+
+    def test_audit_fix_resolves_untracked_files(self):
+        """audit --fix syncs untracked files into the manifest and exits 0."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "fix-agent"])
+            # Add a file without syncing → untracked
+            Path(f"{AGENTS}/fix-agent/skills/new.md").write_text("new skill")
+
+            # Without --fix, untracked is a warning (#132): exit 0, not clean
+            r = self.runner.invoke(cli, ["audit", "fix-agent"])
+            self.assertEqual(r.exit_code, 0, r.output)
+            self.assertIn("Untracked", r.output)
+            self.assertNotIn("clean", r.output.lower())
+
+            # With --fix, sync resolves it → exit 0
+            r = self.runner.invoke(cli, ["audit", "fix-agent", "--fix"])
+            self.assertEqual(r.exit_code, 0, r.output)
+            self.assertIn("clean", r.output.lower())
+
+    def test_audit_fix_does_not_hide_broken_resources(self):
+        """audit --fix still exits 1 when broken (missing) resources are present."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "fix-broken"])
+            skill_file = Path(f"{AGENTS}/fix-broken/skills/gone.md")
+            skill_file.write_text("temp")
+            self.runner.invoke(cli, ["wrap", "fix-broken"])
+            skill_file.unlink()
+
+            r = self.runner.invoke(cli, ["audit", "fix-broken", "--fix"])
+            self.assertNotEqual(r.exit_code, 0)
+            self.assertIn("Broken", r.output)
+
+    # --- import-skill --project-root (#Wave1-gap) ---
+
+    def test_import_skill_project_root_explicit(self):
+        """import-skill --project-root places skill in the specified root's .ai/skills/."""
+        with self.runner.isolated_filesystem():
+            # Init two side-by-side project roots
+            import os
+            os.makedirs("proj-a")
+            self.runner.invoke(cli, ["init", "--project-root", "proj-a"])
+
+            skill_path = Path("my-skill")
+            skill_path.mkdir()
+            import json as _j
+            with open(skill_path / "skill-manifest.json", "w") as f:
+                _j.dump({"name": "my-skill", "version": "1.0.0", "description": "test"}, f)
+            (skill_path / "logic.md").write_text("content")
+
+            result = self.runner.invoke(
+                cli, ["import-skill", str(skill_path), "--project-root", "proj-a"]
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertTrue(Path("proj-a/.ai/skills/my-skill/logic.md").exists())
+
+    def test_import_skill_invalid_project_root_fails(self):
+        """import-skill --project-root to a non-harness dir exits non-zero."""
+        with self.runner.isolated_filesystem():
+            import os
+            os.makedirs("not-a-project")
+            skill_path = Path("dummy-skill")
+            skill_path.mkdir()
+            import json as _j
+            with open(skill_path / "skill-manifest.json", "w") as f:
+                _j.dump({"name": "dummy", "version": "1.0.0", "description": "d"}, f)
+
+            result = self.runner.invoke(
+                cli, ["import-skill", str(skill_path), "--project-root", "not-a-project"]
+            )
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("not an AgentFactory project", result.output)
+
+    # --- brief / adapter add use shared _assert_valid_project_root (#Wave2-gap) ---
+
+    def test_brief_invalid_project_root_error_message(self):
+        """brief with no harness emits the shared 'not an AgentFactory project' message."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["brief"])
+            self.assertNotEqual(result.exit_code, 0)
+            # Message comes from _assert_valid_project_root, not a one-off inline check
+            self.assertIn("not an AgentFactory project", result.output)
+
+    def test_adapter_add_invalid_project_root_error_message(self):
+        """adapter add with no harness emits the shared 'not an AgentFactory project' message."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["adapter", "add", "gemini"])
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("not an AgentFactory project", result.output)
+
+    # --- shebang detection in commands/ and orchestration/ (#Wave2-gap) ---
+
+    def test_import_shebang_in_commands_triggers_gate(self):
+        """import prompts when commands/ contains a file with a shebang line."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            zip_path = self._make_agent_zip(
+                self.runner, "shebang-cmd-agent", with_shebang_cmd=True
+            )
+            self.runner.invoke(cli, ["uninstall", "shebang-cmd-agent"], input="y\n")
+
+            # Answer 'n' — import should be cancelled
+            result = self.runner.invoke(cli, ["import", str(zip_path)], input="n\n")
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("cancelled", result.output.lower())
+            self.assertFalse(Path(f"{AGENTS}/shebang-cmd-agent").exists())
+
+    def test_import_shebang_in_commands_allow_scripts_bypasses(self):
+        """--allow-scripts bypasses the shebang gate for commands/ files."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            zip_path = self._make_agent_zip(
+                self.runner, "shebang-allow-agent", with_shebang_cmd=True
+            )
+            self.runner.invoke(cli, ["uninstall", "shebang-allow-agent"], input="y\n")
+
+            result = self.runner.invoke(
+                cli, ["import", str(zip_path), "--allow-scripts"]
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertTrue(Path(f"{AGENTS}/shebang-allow-agent").exists())
+
+    def test_import_no_shebang_no_prompt(self):
+        """import does not prompt when commands/ has non-executable files."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            # Normal commands/ file without shebang
+            self.runner.invoke(cli, ["deploy", "no-shebang-agent"])
+            Path(f"{AGENTS}/no-shebang-agent/commands/task.md").write_text(
+                "# Task\nDo something."
+            )
+            self.runner.invoke(cli, ["wrap", "no-shebang-agent"])
+            zip_path = Path("no-shebang-agent-v1.0.0.zip")
+            self.runner.invoke(cli, ["uninstall", "no-shebang-agent"], input="y\n")
+
+            result = self.runner.invoke(cli, ["import", str(zip_path)])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertNotIn("executable script", result.output.lower())
+
+
 if __name__ == '__main__':
     unittest.main()
