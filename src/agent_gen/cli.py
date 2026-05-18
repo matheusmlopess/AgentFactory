@@ -886,10 +886,10 @@ def import_agent(
                 sys.exit(1)
             _echo("[librarian] Registry checksum auto-verified.")
         elif not registry_sha256 and not checksum:
+            # Advisory warning — suppressible with --quiet since it is not a hard failure
             _echo(
                 "[librarian] ⚠  Registry did not provide a checksum for this bundle. "
-                "Use --checksum <file> to verify provenance manually.",
-                err=True,
+                "Use --checksum <file> to verify provenance manually."
             )
 
     zip_path = Path(zip_path).resolve()
