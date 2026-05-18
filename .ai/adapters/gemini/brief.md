@@ -77,22 +77,22 @@ Central class driving every lifecycle operation. Key responsibilities:
 - **Global registry:** `sync_to_global`, `register_in_project`, `update_harness_files` keep `.ai/AgentFactory.md` and `.ai/agent-manifest.json` in sync across all agents.
 - **Intelligence Layer:** `_detect_dependencies` (AST-based Python import parsing + `
 
-## Available Tools
+## Available Skills
 
 ### diff-visualizer
 - Description: Generates HTML diff reports visualizing what changed between two versions of the repo.
-- Input: see tool documentation
-- See: .gemini/tools/diff-visualizer/SKILL.md
+- Use when: see skill documentation
+- See: .gemini/skills/diff-visualizer/SKILL.md
 
 ### git-versioning
 - Description: Manages project-wide versioning and repo-state.md updates.
-- Input: see tool documentation
-- See: .gemini/tools/git-versioning/SKILL.md
+- Use when: see skill documentation
+- See: .gemini/skills/git-versioning/SKILL.md
 
 ### issue-tracker
 - Description: Regenerates the issue priority report and dependency matrix from live GitHub data.
-- Input: see tool documentation
-- See: .gemini/tools/issue-tracker/SKILL.md
+- Use when: see skill documentation
+- See: .gemini/skills/issue-tracker/SKILL.md
 
 ## Registered Agents
 - **test-agent**: Manual Description

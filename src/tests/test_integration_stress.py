@@ -139,11 +139,36 @@ class TestInitDefaultPrimary:
             b = Path(".ai/adapters/codex/brief.md").read_text()
             assert "| Skill |" not in b
 
-    def test_gemini_brief_has_tools_header(self, runner):
+    def test_gemini_brief_has_skills_header(self, runner):
+        """Gemini brief uses 'Available Skills' after open-standard alignment (2026)."""
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init"])
             b = Path(".ai/adapters/gemini/brief.md").read_text()
-            assert "## Available Tools" in b
+            assert "## Available Skills" in b
+            assert "## Available Tools" not in b
+
+    def test_gemini_adapter_skills_symlink(self, runner):
+        """Gemini adapter wires .gemini/skills/ not .gemini/tools/ (#Wave3-gemini)."""
+        with runner.isolated_filesystem():
+            runner.invoke(cli, ["init"])
+            skills_link = Path(".ai/adapters/gemini/skills")
+            assert skills_link.is_symlink(), ".gemini/skills symlink missing"
+            assert not Path(".ai/adapters/gemini/tools").exists(), ".gemini/tools must not exist"
+
+    def test_gemini_brief_skill_path_uses_skills_dir(self, runner):
+        """Brief references .gemini/skills/<name>/SKILL.md not .gemini/tools/."""
+        import json as _j
+        with runner.isolated_filesystem():
+            runner.invoke(cli, ["init"])
+            skill_dir = Path(".ai/skills/my-gemini-skill")
+            skill_dir.mkdir(parents=True)
+            (skill_dir / "skill-manifest.json").write_text(
+                _j.dumps({"name": "my-gemini-skill", "description": "test skill", "triggers": "test"})
+            )
+            runner.invoke(cli, ["brief"])
+            b = Path(".ai/adapters/gemini/brief.md").read_text()
+            assert ".gemini/skills/my-gemini-skill/SKILL.md" in b
+            assert ".gemini/tools/" not in b
 
     def test_all_briefs_have_adapter_annotation(self, runner):
         with runner.isolated_filesystem():
@@ -252,11 +277,13 @@ class TestAdapterAdd:
             assert config_path.exists()
             assert 'model = "gpt-5.4"' in config_path.read_text(encoding="utf-8")
 
-    def test_gemini_add_creates_tools_symlink(self, runner):
+    def test_gemini_add_creates_skills_symlink(self, runner):
+        """Gemini adapter wires .gemini/skills/ per open-standard alignment (2026)."""
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init", "--primary", "claude"])
             runner.invoke(cli, ["adapter", "add", "gemini"])
-            assert Path(".ai/adapters/gemini/tools").is_symlink()
+            assert Path(".ai/adapters/gemini/skills").is_symlink()
+            assert not Path(".ai/adapters/gemini/tools").exists()
 
     def test_gemini_add_sets_gemini_md(self, runner):
         with runner.isolated_filesystem():
@@ -398,13 +425,14 @@ class TestSkillsPropagation:
             self._setup(runner)
             b = Path(".ai/adapters/gemini/brief.md").read_text()
             assert "### my-workflow" in b
-            assert "- Input: task description string" in b
+            # triggers field takes priority for "Use when:" label; input_hint is fallback
+            assert "- Use when: when you need to automate" in b
 
     def test_gemini_skill_path_format(self, runner):
         with runner.isolated_filesystem():
             self._setup(runner)
             b = Path(".ai/adapters/gemini/brief.md").read_text()
-            assert ".gemini/tools/my-workflow/SKILL.md" in b
+            assert ".gemini/skills/my-workflow/SKILL.md" in b
 
     def test_gemini_input_fallback_to_triggers(self, runner):
         """When 'input' field absent, Gemini brief falls back to 'triggers'."""
@@ -686,12 +714,14 @@ class TestAdapterWiring:
             assert (ai / "claude" / "skills").is_symlink()
             assert (ai / "claude" / "commands").is_symlink()
 
-    def test_gemini_tools_wired_to_skills(self, runner):
+    def test_gemini_skills_wired_to_skills(self, runner):
+        """Gemini adapter wires .gemini/skills/ → .ai/skills/ per open-standard (2026)."""
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init"])
-            link = Path(".ai/adapters/gemini/tools")
+            link = Path(".ai/adapters/gemini/skills")
             assert link.is_symlink()
             assert os.readlink(str(link)) == "../../skills"
+            assert not Path(".ai/adapters/gemini/tools").exists()
 
     def test_codex_prompts_and_skills_wired(self, runner):
         """#94: Codex gets both prompts (→ commands) and skills (→ skills)."""

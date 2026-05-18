@@ -245,11 +245,12 @@ _FORMAT_REGISTRY: dict[str, dict] = {
         "root_files": ["GEMINI.md"],
         "folder_symlink": ".gemini",
         "wiring": {
-            "tools": "../../skills",
+            # Gemini CLI scans .gemini/skills/ (renamed from .gemini/tools/ in 2026 open-standard alignment)
+            "skills": "../../skills",
         },
         "config_file": "config.json",
         "config_default": "{}",
-        "skill_path_template": ".gemini/tools/{name}/SKILL.md",
+        "skill_path_template": ".gemini/skills/{name}/SKILL.md",
         "command_prefix": "",
         "sections": {
             "skills": "_fmt_skills_tools",
@@ -296,16 +297,16 @@ def _fmt_skills_blocks(skills: list, config: dict) -> str:
 
 def _fmt_skills_tools(skills: list, config: dict) -> str:
     if not skills:
-        return "## Available Tools\n\nNo tools imported yet."
+        return "## Available Skills\n\nNo skills imported yet."
     template = config["skill_path_template"]
-    blocks = ["## Available Tools"]
+    blocks = ["## Available Skills"]
     for s in skills:
         path = template.replace("{name}", s["name"])
-        input_val = s.get('input_hint') or s.get('triggers') or 'see tool documentation'
+        trigger_val = s.get('triggers') or s.get('input_hint') or 'see skill documentation'
         block = (
             f"### {s['name']}\n"
             f"- Description: {s.get('description', 'No description')}\n"
-            f"- Input: {input_val}\n"
+            f"- Use when: {trigger_val}\n"
             f"- See: {path}"
         )
         blocks.append(block)

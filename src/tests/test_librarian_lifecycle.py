@@ -125,12 +125,12 @@ class TestLibrarianLifecycle(unittest.TestCase):
 
         claude_commands = ai_root / "adapters" / "claude" / "commands"
         claude_skills   = ai_root / "adapters" / "claude" / "skills"
-        gemini_tools    = ai_root / "adapters" / "gemini"  / "tools"
+        gemini_skills   = ai_root / "adapters" / "gemini"  / "skills"
         codex_prompts   = ai_root / "adapters" / "codex"   / "prompts"
 
         self.assertTrue(claude_commands.is_symlink() or claude_commands.exists())
         self.assertTrue(claude_skills.is_symlink() or claude_skills.exists())
-        self.assertTrue(gemini_tools.is_symlink() or gemini_tools.exists())
+        self.assertTrue(gemini_skills.is_symlink() or gemini_skills.exists())
         self.assertTrue(codex_prompts.is_symlink() or codex_prompts.exists())
 
     def test_ensure_adapter_wiring_idempotent(self):
@@ -260,15 +260,16 @@ class TestFormatSwitchLibrarian(unittest.TestCase):
             self.assertIn("- Description: A block skill", brief)
             self.assertIn("- Use when: when coding", brief)
 
-    def test_gemini_brief_has_tools_section(self):
+    def test_gemini_brief_has_skills_section(self):
+        """Gemini brief uses 'Available Skills' after open-standard alignment (2026)."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._make_harness(root)
             self._add_skill(root, "tool-skill", "A tool skill", "for analysis")
             Librarian._compile_adapter_briefs(str(root))
             brief = (root / HARNESS_ROOT / "adapters" / "gemini" / "brief.md").read_text()
-            self.assertIn("## Available Tools", brief)
-            self.assertIn("- Input:", brief)
+            self.assertIn("## Available Skills", brief)
+            self.assertIn("- Use when:", brief)
             self.assertIn("tool-skill", brief)
 
     def test_gemini_input_hint_fallback(self):
@@ -323,7 +324,7 @@ class TestFormatSwitchLibrarian(unittest.TestCase):
             ai = root / HARNESS_ROOT / "adapters"
             self.assertTrue((ai / "claude" / "skills").is_symlink())
             self.assertTrue((ai / "claude" / "commands").is_symlink())
-            self.assertTrue((ai / "gemini" / "tools").is_symlink())
+            self.assertTrue((ai / "gemini" / "skills").is_symlink())
             self.assertTrue((ai / "codex" / "prompts").is_symlink())
             self.assertTrue((ai / "codex" / "skills").is_symlink())
 

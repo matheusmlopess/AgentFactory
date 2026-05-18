@@ -267,11 +267,13 @@ class TestBriefContentAssertions:
             content = _read_brief("gemini")
             assert "## Commands" not in content
 
-    def test_gemini_has_available_tools_header(self, runner):
+    def test_gemini_has_available_skills_header(self, runner):
+        """Gemini brief uses 'Available Skills' after open-standard alignment (2026)."""
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init", "--primary", "gemini"])
             content = _read_brief("gemini")
-            assert "## Available Tools" in content
+            assert "## Available Skills" in content
+            assert "## Available Tools" not in content
 
     def test_all_briefs_reference_agentfactory_md(self, runner):
         """Harness identity block must mention .ai/AgentFactory.md in every brief."""
