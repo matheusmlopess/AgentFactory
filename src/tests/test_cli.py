@@ -665,5 +665,152 @@ class TestCliCommands(unittest.TestCase):
             self.assertIn("AgentFactory.md", os.readlink("CLAUDE.md"))
 
 
+class TestWave1Fixes(unittest.TestCase):
+    """Wave 1 foundation-bug regression tests (#132–#136)."""
+
+    def setUp(self):
+        self.runner = CliRunner()
+
+    # --- #133: --version flag ---
+
+    def test_version_flag_exits_zero(self):
+        """--version exits 0 and prints a version string."""
+        result = self.runner.invoke(cli, ["--version"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertRegex(result.output, r"\d+\.\d+")
+
+    # --- #132: audit treats untracked files as warnings ---
+
+    def test_audit_untracked_files_exits_zero(self):
+        """audit exits 0 when files exist on disk but are not yet in the manifest."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "untrack-agent"])
+            # Add a file without syncing — it becomes 'untracked'
+            Path(f"{AGENTS}/untrack-agent/docs/extra.md").write_text("# extra\n<!-- version: 1.0.0 -->")
+            result = self.runner.invoke(cli, ["audit", "untrack-agent"])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("Untracked", result.output)
+
+    def test_audit_broken_resource_still_fatal(self):
+        """audit still exits 1 for broken resources even after the #132 fix."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "broken2"])
+            skill_file = Path(f"{AGENTS}/broken2/skills/gone.md")
+            skill_file.write_text("gone")
+            self.runner.invoke(cli, ["wrap", "broken2"])
+            skill_file.unlink()
+            result = self.runner.invoke(cli, ["audit", "broken2"])
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("Broken", result.output)
+
+    # --- #136: wrap --print-path ---
+
+    def test_wrap_print_path_outputs_zip_path(self):
+        """wrap --print-path prints only the archive path to stdout."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "printpath-agent"])
+            Path(f"{AGENTS}/printpath-agent/skills/s.md").write_text("# s\n<!-- version: 1.0.0 -->")
+            result = self.runner.invoke(cli, ["wrap", "printpath-agent", "--print-path"])
+            self.assertEqual(result.exit_code, 0, result.output)
+            lines = [l for l in result.output.strip().splitlines() if l.strip()]
+            last_line = lines[-1]
+            self.assertTrue(last_line.endswith(".zip"), f"Expected .zip path, got: {last_line!r}")
+
+    def test_wrap_print_path_with_quiet_still_outputs_path(self):
+        """--print-path emits the path even when --quiet is set."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "q-agent"])
+            Path(f"{AGENTS}/q-agent/skills/s.md").write_text("# s\n<!-- version: 1.0.0 -->")
+            result = self.runner.invoke(cli, ["-q", "wrap", "q-agent", "--print-path"])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn(".zip", result.output)
+
+    # --- #135: import --project-root conflict check ---
+
+    def test_import_project_root_conflict_detected(self):
+        """import --project-root detects agent conflict in the target, not CWD."""
+        with self.runner.isolated_filesystem():
+            import tempfile, zipfile as _zf, shutil
+
+            # Build a minimal agent ZIP
+            self.runner.invoke(cli, ["deploy", "conflict-agent"])
+            Path(f"{AGENTS}/conflict-agent/skills/s.md").write_text("x")
+            self.runner.invoke(cli, ["wrap", "conflict-agent"])
+            zip_name = "conflict-agent-v1.0.0.zip"
+            self.assertTrue(Path(zip_name).exists())
+
+            # Set up a separate project dir that already has conflict-agent deployed
+            target = Path("target-project")
+            target.mkdir()
+            self.runner.invoke(cli, ["--quiet", "init", "--project-root", str(target)])
+            self.runner.invoke(cli, ["deploy", "conflict-agent"])
+            # move the agent into target
+            src = Path(f"{AGENTS}/conflict-agent")
+            dst = target / HARNESS_ROOT / "agents" / "conflict-agent"
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(str(src), str(dst))
+
+            # Importing into target-project should fail because the agent already exists there
+            result = self.runner.invoke(
+                cli, ["import", zip_name, "--project-root", str(target)]
+            )
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("already exists", result.output)
+
+    # --- #134: import-skill parses SKILL.md frontmatter ---
+
+    def _make_skill_dir(self, base: Path, name: str, *, triggers: str = "test trigger") -> Path:
+        """Helper: create a minimal skill directory with SKILL.md frontmatter."""
+        skill_dir = base / name
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            f"---\nname: {name}\nversion: 1.0.0\ndescription: Test skill\ntriggers: {triggers}\n---\n\n# {name}\n"
+        )
+        return skill_dir
+
+    def test_import_skill_writes_triggers_to_manifest(self):
+        """import-skill writes triggers from SKILL.md frontmatter to skill-manifest.json."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            self.runner.invoke(cli, ["deploy", "target-agent"])
+            skill_dir = self._make_skill_dir(Path("."), "my-skill", triggers="invoke me, trigger me")
+            result = self.runner.invoke(cli, ["import-skill", str(skill_dir), "--to", "target-agent"])
+            self.assertEqual(result.exit_code, 0, result.output)
+            manifest_path = Path(f"{AGENTS}/target-agent/skills/my-skill/skill-manifest.json")
+            self.assertTrue(manifest_path.exists())
+            data = json.loads(manifest_path.read_text())
+            self.assertEqual(data["triggers"], "invoke me, trigger me")
+
+    def test_import_skill_root_writes_triggers(self):
+        """import-skill --to . (root) also reconciles SKILL.md frontmatter."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            skill_dir = self._make_skill_dir(Path("."), "root-skill", triggers="root trigger")
+            result = self.runner.invoke(cli, ["import-skill", str(skill_dir)])
+            self.assertEqual(result.exit_code, 0, result.output)
+            manifest_path = Path(f"{HARNESS_ROOT}/skills/root-skill/skill-manifest.json")
+            data = json.loads(manifest_path.read_text())
+            self.assertEqual(data["triggers"], "root trigger")
+
+    def test_import_skill_missing_frontmatter_fields_fails(self):
+        """import-skill exits non-zero when SKILL.md frontmatter is incomplete."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "validate-agent"])
+            skill_dir = Path("bad-skill")
+            skill_dir.mkdir()
+            # triggers field is missing
+            (skill_dir / "SKILL.md").write_text(
+                "---\nname: bad-skill\nversion: 1.0.0\ndescription: Missing triggers\n---\n"
+            )
+            (skill_dir / "skill-manifest.json").write_text(
+                json.dumps({"name": "bad-skill", "description": "x"})
+            )
+            result = self.runner.invoke(
+                cli, ["import-skill", str(skill_dir), "--to", "validate-agent"]
+            )
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("triggers", result.output.lower())
+
+
 if __name__ == '__main__':
     unittest.main()

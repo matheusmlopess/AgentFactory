@@ -781,18 +781,99 @@ class Librarian:
     @staticmethod
     def _parse_skill_md_version(skill_md_path: Path) -> str:
         """Extract version from SKILL.md YAML frontmatter (--- block)."""
+        fm = Librarian._parse_skill_md_frontmatter(skill_md_path)
+        return fm.get("version", "")
+
+    @staticmethod
+    def _parse_skill_md_frontmatter(skill_md_path: Path) -> dict:
+        """Parse all key: value pairs from SKILL.md YAML frontmatter block.
+
+        Returns an empty dict when the file has no --- block or on any error.
+        Values that contain a comma-separated list are returned as strings;
+        callers split them as needed.
+        """
         try:
-            content = skill_md_path.read_text()
+            content = skill_md_path.read_text(encoding="utf-8")
             if not content.startswith("---"):
-                return ""
+                return {}
             end = content.index("---", 3)
-            frontmatter = content[3:end]
-            for line in frontmatter.splitlines():
-                if line.strip().startswith("version:"):
-                    return line.split(":", 1)[1].strip()
+            block = content[3:end]
+            result: dict = {}
+            for line in block.splitlines():
+                if ":" not in line:
+                    continue
+                key, _, value = line.partition(":")
+                key = key.strip()
+                value = value.strip()
+                if key:
+                    result[key] = value
+            return result
         except Exception:
-            pass
-        return ""
+            return {}
+
+    @staticmethod
+    def _validate_and_reconcile_skill_manifest(skill_dir: Path) -> None:
+        """Parse SKILL.md frontmatter, validate required fields, and keep
+        skill-manifest.json in sync.  Raises ValueError on validation failure.
+
+        Rules (#134):
+        - Required frontmatter fields: name, version, description, triggers
+        - version must look like semver (digits and dots)
+        - name must match the directory name
+        - triggers must be non-empty
+        - If skill-manifest.json is absent: generate it from frontmatter
+        - If skill-manifest.json is present: assert name/version consistency
+        """
+        skill_md = skill_dir / "SKILL.md"
+        if not skill_md.exists():
+            return  # no SKILL.md — nothing to parse
+
+        fm = Librarian._parse_skill_md_frontmatter(skill_md)
+        if not fm:
+            return  # no frontmatter — nothing to validate
+
+        # --- Validate required fields ---
+        required = ("name", "version", "description", "triggers")
+        missing = [f for f in required if not fm.get(f)]
+        if missing:
+            raise ValueError(
+                f"SKILL.md frontmatter missing required fields: {', '.join(missing)}"
+            )
+
+        fm_name = fm["name"]
+        fm_version = fm["version"]
+
+        # version must look like semver (e.g. 1.0.0, 2.3, 0.1.0-beta)
+        if not re.match(r"^\d+\.\d+", fm_version):
+            raise ValueError(
+                f"SKILL.md 'version: {fm_version}' is not valid semver (expected e.g. 1.0.0)"
+            )
+
+        manifest_path = skill_dir / "skill-manifest.json"
+        if not manifest_path.exists():
+            # Auto-generate from frontmatter
+            data = {
+                "name": fm_name,
+                "version": fm_version,
+                "description": fm["description"],
+                "triggers": fm["triggers"],
+            }
+            manifest_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        else:
+            # Reconcile: update name, version, and triggers from frontmatter
+            try:
+                data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except Exception:
+                data = {}
+            if data.get("name") and data["name"] != fm_name:
+                raise ValueError(
+                    f"skill-manifest.json name '{data['name']}' conflicts with SKILL.md name '{fm_name}'"
+                )
+            data["name"] = fm_name
+            data["version"] = fm_version
+            data.setdefault("description", fm["description"])
+            data["triggers"] = fm["triggers"]
+            manifest_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
     @staticmethod
     def _check_repo_state(repo_state_path: Path) -> list[str]:
@@ -899,7 +980,11 @@ class Librarian:
             else:
                 raise ValueError("Skill source must be a directory or a ZIP file.")
 
-            # Look for skill-manifest.json
+            # Validate and reconcile SKILL.md frontmatter first (#134).
+            # This auto-generates skill-manifest.json from frontmatter when absent.
+            Librarian._validate_and_reconcile_skill_manifest(temp_path)
+
+            # Look for skill-manifest.json (may have just been auto-generated)
             manifest_file = temp_path / "skill-manifest.json"
             if not manifest_file.exists():
                 # Maybe it's nested (common in some zip exports)

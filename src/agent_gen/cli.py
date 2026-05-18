@@ -206,6 +206,7 @@ def _attach_auth_header(req) -> None:
 # ---------------------------------------------------------------------------
 
 @click.group()
+@click.version_option(package_name="agentfactory-gen")
 @click.option("--quiet", "-q", is_flag=True, default=False, help="Suppress informational output.")
 @click.pass_context
 def cli(ctx: click.Context, quiet: bool):
@@ -471,46 +472,55 @@ def audit(name: str):
     """
     root = _agent_root(name)
     librarian = Librarian(str(root))
-    
+
     _echo(f"[librarian] Auditing '{name}'...")
     report = librarian.audit()
     
-    clean = True
-    
+    fatal = False
+
     if report["broken_resources"]:
-        clean = False
+        fatal = True
         _echo("[librarian] ✗ Broken resources (listed in manifest but missing on disk):", err=True)
         for p in report["broken_resources"]:
             _echo(f"  - {p}", err=True)
 
     if report["broken_dependencies"]:
-        clean = False
+        fatal = True
         _echo("[librarian] ✗ Broken dependencies (cross-file references not found):", err=True)
         for p in report["broken_dependencies"]:
             _echo(f"  - {p}", err=True)
 
-    if report["untracked_files"]:
-        clean = False
-        _echo("[librarian] ! Untracked files (exist on disk but missing from manifest):")
-        for p in report["untracked_files"]:
-            _echo(f"  - {p} (Run 'wrap' or 'sync' to add them)")
-
-    if report["missing_skill_manifests"]:
-        clean = False
-        _echo("[librarian] ! Missing skill-manifest.json in directories:")
-        for p in report["missing_skill_manifests"]:
-            _echo(f"  - {p}")
-
     if report.get("invalid_skill_manifests"):
-        clean = False
+        fatal = True
         _echo("[librarian] ✗ Invalid skill manifests (missing 'name' or 'description'):", err=True)
         for p in report["invalid_skill_manifests"]:
             _echo(f"  - {p}", err=True)
 
-    if clean:
+    # Warnings — do not block audit (#132)
+    if report["untracked_files"]:
+        _echo("[librarian] ! Untracked files (exist on disk but not yet in manifest):")
+        for p in report["untracked_files"]:
+            _echo(f"  - {p} (run 'agentfactory-gen wrap {name}' or 'sync' to register)")
+
+    if report["missing_skill_manifests"]:
+        _echo("[librarian] ! Missing skill-manifest.json in skill directories:")
+        for p in report["missing_skill_manifests"]:
+            _echo(f"  - {p}")
+
+    if report.get("skill_version_drift"):
+        _echo("[librarian] ! Skill version drift (SKILL.md ≠ skill-manifest.json):")
+        for p in report["skill_version_drift"]:
+            _echo(f"  - {p}")
+
+    if fatal:
+        _echo(f"[librarian] ✗ '{name}' audit FAILED — fix the issues above.", err=True)
+        sys.exit(1)
+
+    if not any([report["untracked_files"], report["missing_skill_manifests"],
+                report.get("skill_version_drift")]):
         _echo(f"[librarian] ✓ '{name}' integrity is clean.")
     else:
-        sys.exit(1)
+        _echo(f"[librarian] ✓ '{name}' integrity OK (warnings above — run sync to resolve).")
 
 
 # ---------------------------------------------------------------------------
@@ -523,9 +533,16 @@ def audit(name: str):
     "--out",
     default=".",
     show_default=True,
-    help="Directory to write the archive to.",
+    help="Directory to write the archive to (default: current directory).",
 )
-def wrap(name: str, out: str):
+@click.option(
+    "--print-path",
+    "print_path",
+    is_flag=True,
+    default=False,
+    help="Print only the archive path to stdout for scripting (e.g. zip=$(agentfactory-gen wrap my-agent --print-path)).",
+)
+def wrap(name: str, out: str, print_path: bool):
     """
     Validate and bundle an agent into a portable .zip package.
     """
@@ -537,7 +554,7 @@ def wrap(name: str, out: str):
 
     _echo(f"[librarian] Auditing '{name}'...")
     report = librarian.audit()
-    
+
     if report["broken_resources"] or report["broken_dependencies"] or report.get("invalid_skill_manifests"):
         _echo("[librarian] Audit failed — fix broken paths, dependencies, or invalid skill manifests before wrapping.", err=True)
         _echo(f"[librarian] Run 'agent-gen audit {name}' for details.", err=True)
@@ -552,6 +569,8 @@ def wrap(name: str, out: str):
         sys.exit(1)
 
     _echo(f"[librarian] Wrapped → {archive}")
+    if print_path:
+        click.echo(str(archive))
 
 
 # ---------------------------------------------------------------------------
@@ -691,6 +710,14 @@ def import_skill(path: str, target_agent: str):
                 _echo("[librarian] Skill source must be a directory or a ZIP file.", err=True)
                 sys.exit(1)
 
+            # Validate and reconcile SKILL.md frontmatter first (#134).
+            # This auto-generates skill-manifest.json from frontmatter when absent.
+            try:
+                Librarian._validate_and_reconcile_skill_manifest(temp_path)
+            except ValueError as exc:
+                _echo(f"[librarian] Skill validation failed: {exc}", err=True)
+                sys.exit(1)
+
             manifest_file = temp_path / "skill-manifest.json"
             if not manifest_file.exists():
                 manifests = list(temp_path.rglob("skill-manifest.json"))
@@ -704,6 +731,7 @@ def import_skill(path: str, target_agent: str):
                 skill_data = json.load(f)
 
             skill_name = skill_data["name"]
+
             target_dir = target_root / "skills" / skill_name
             target_dir.parent.mkdir(parents=True, exist_ok=True)
 
@@ -805,7 +833,9 @@ def import_agent(zip_path: str, from_git: str, from_registry: str, project_root:
             peeked = json.load(mf)
 
     name = peeked["name"]
-    target_root = _agent_root(name)
+    # Resolve target_root against project_root, not CWD (#135)
+    project_path = Path(project_root).resolve()
+    target_root = project_path / HARNESS_ROOT / "agents" / name
 
     if target_root.exists():
         _echo(
