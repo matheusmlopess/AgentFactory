@@ -691,60 +691,14 @@ def import_skill(path: str, target_agent: str):
         sys.exit(1)
 
     if target_agent == ".":
-        target_root = Path.cwd() / HARNESS_ROOT
         _echo(f"[librarian] Importing skill from {path_obj} into root project...")
-        # Perform root-level skill import logic manually to avoid overwriting global manifest
-        import tempfile
-        import shutil
-        import zipfile
-        import json
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-            if zipfile.is_zipfile(path_obj):
-                with zipfile.ZipFile(path_obj, 'r') as zf:
-                    _safe_extract(zf, temp_path)
-            elif path_obj.is_dir():
-                shutil.copytree(path_obj, temp_path, dirs_exist_ok=True)
-            else:
-                _echo("[librarian] Skill source must be a directory or a ZIP file.", err=True)
-                sys.exit(1)
-
-            # Validate and reconcile SKILL.md frontmatter first (#134).
-            # This auto-generates skill-manifest.json from frontmatter when absent.
-            try:
-                Librarian._validate_and_reconcile_skill_manifest(temp_path)
-            except ValueError as exc:
-                _echo(f"[librarian] Skill validation failed: {exc}", err=True)
-                sys.exit(1)
-
-            manifest_file = temp_path / "skill-manifest.json"
-            if not manifest_file.exists():
-                manifests = list(temp_path.rglob("skill-manifest.json"))
-                if not manifests:
-                    _echo("[librarian] skill-manifest.json not found in the source.", err=True)
-                    sys.exit(1)
-                manifest_file = manifests[0]
-                temp_path = manifest_file.parent
-
-            with open(manifest_file) as f:
-                skill_data = json.load(f)
-
-            skill_name = skill_data["name"]
-
-            target_dir = target_root / "skills" / skill_name
-            target_dir.parent.mkdir(parents=True, exist_ok=True)
-
-            if target_dir.exists():
-                shutil.rmtree(target_dir)
-
-            shutil.copytree(temp_path, target_dir)
-
+        try:
+            skill_name = Librarian.import_skill_to_project(str(path_obj), str(Path.cwd()))
+        except (ValueError, FileNotFoundError) as exc:
+            _echo(f"[librarian] Skill import failed: {exc}", err=True)
+            sys.exit(1)
         _echo(f"[librarian] Successfully imported skill '{skill_name}' into root project.")
-        _echo(f"  Path: {target_root / 'skills' / skill_name}")  # .ai/skills/<name>
-        
-        # update_harness_files takes the project root (not the .ai/ sub-path)
-        Librarian.update_harness_files(str(Path.cwd()))
+        _echo(f"  Path: {Path.cwd() / HARNESS_ROOT / 'skills' / skill_name}")
         return
 
     target_root = _agent_root(target_agent)
