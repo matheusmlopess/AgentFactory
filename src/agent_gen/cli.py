@@ -12,7 +12,7 @@ from pathlib import Path
 
 import click
 
-from .librarian import TRACKED_DIRS, HARNESS_ROOT, CONTEXT_FILE, Librarian, _safe_extract, _FORMAT_REGISTRY
+from .librarian import TRACKED_DIRS, HARNESS_ROOT, CONTEXT_FILE, Librarian, _FORMAT_REGISTRY
 
 REGISTRY_URL = os.environ.get("AGENTFACTORY_REGISTRY_URL", "https://agentfactory.dev")
 

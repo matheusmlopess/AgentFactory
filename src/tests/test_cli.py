@@ -712,7 +712,7 @@ class TestWave1Fixes(unittest.TestCase):
             Path(f"{AGENTS}/printpath-agent/skills/s.md").write_text("# s\n<!-- version: 1.0.0 -->")
             result = self.runner.invoke(cli, ["wrap", "printpath-agent", "--print-path"])
             self.assertEqual(result.exit_code, 0, result.output)
-            lines = [l for l in result.output.strip().splitlines() if l.strip()]
+            lines = [ln for ln in result.output.strip().splitlines() if ln.strip()]
             last_line = lines[-1]
             self.assertTrue(last_line.endswith(".zip"), f"Expected .zip path, got: {last_line!r}")
 
@@ -730,7 +730,7 @@ class TestWave1Fixes(unittest.TestCase):
     def test_import_project_root_conflict_detected(self):
         """import --project-root detects agent conflict in the target, not CWD."""
         with self.runner.isolated_filesystem():
-            import tempfile, zipfile as _zf, shutil
+            import shutil
 
             # Build a minimal agent ZIP
             self.runner.invoke(cli, ["deploy", "conflict-agent"])
