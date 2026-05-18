@@ -232,3 +232,15 @@ Absorption notes: #152+#153→#160 · #165+#166+#169→#170 · #140+#141→#146 
 | #167 | generate Gemini-native .toml slash commands from shared command sources | enhancement | pending |
 | #171 | update Gemini docs and tests to canonical-plus-bridge model | documentation | pending |
 | #173 | [tracking] Gemini adapter alignment epic — close when #165–#171 done | epic | pending |
+
+### Wave 5 Deferred — Open-standard full-compliance (post-Wave 4+5)
+
+These items require the Wave 5 Gemini alignment work to land first.
+Tracked against the Agent Skills open standard (agentskills.io, 2026).
+
+| Item | Description | Depends on |
+|------|-------------|-----------|
+| W5-D1 | Add `.agents/skills/` root-level interop symlink — the cross-agent agreed scan path so Gemini, Copilot, Codex, and Cursor all see AgentFactory skills without adapter-specific paths | Wave 5 merged |
+| W5-D2 | Enforce `name` must match parent directory name in `_validate_and_reconcile_skill_manifest` (open standard §name constraint) | Wave 1 + Wave 5 merged |
+| W5-D3 | Parse and surface optional fields: `license`, `compatibility`, `allowed-tools` from SKILL.md frontmatter into skill-manifest.json | Wave 5 merged |
+| W5-D4 | Full YAML-aware `metadata.version` parsing — replace flat-line parser with a proper nested YAML reader so `metadata:\n  version:` resolves correctly even when other `metadata` sub-keys are present | Wave 5 merged |

@@ -611,5 +611,129 @@ class TestProjectContextInjection(unittest.TestCase):
         self.assertIn("project overview", identity)
 
 
+class TestOpenStandardSkillValidation(unittest.TestCase):
+    """Ensure _validate_and_reconcile_skill_manifest accepts open-standard skills.
+
+    The Agent Skills open standard (agentskills.io) only requires name + description.
+    version, triggers, and other fields are optional. AgentFactory must not reject
+    skills produced by Gemini CLI, Codex, Copilot, or other compliant agents.
+    """
+
+    def _make_skill_dir(self, tmp: Path, name: str, frontmatter: str) -> Path:
+        skill_dir = tmp / name
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text(
+            f"---\n{frontmatter}\n---\n\n# {name}\n",
+            encoding="utf-8",
+        )
+        return skill_dir
+
+    def test_minimal_open_standard_skill_is_accepted(self):
+        """name + description only — no version, no triggers."""
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = self._make_skill_dir(
+                Path(tmp), "lean-skill",
+                "name: lean-skill\ndescription: A minimal open-standard skill"
+            )
+            # Should not raise
+            Librarian._validate_and_reconcile_skill_manifest(skill_dir)
+            manifest = json.loads((skill_dir / "skill-manifest.json").read_text())
+            self.assertEqual(manifest["name"], "lean-skill")
+            self.assertEqual(manifest["description"], "A minimal open-standard skill")
+            self.assertNotIn("version", manifest)
+            self.assertNotIn("triggers", manifest)
+
+    def test_full_skill_with_optional_fields_is_accepted(self):
+        """name + description + version + triggers — full AgentFactory skill."""
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = self._make_skill_dir(
+                Path(tmp), "full-skill",
+                "name: full-skill\ndescription: Full skill\nversion: 1.2.0\ntriggers: when needed"
+            )
+            Librarian._validate_and_reconcile_skill_manifest(skill_dir)
+            manifest = json.loads((skill_dir / "skill-manifest.json").read_text())
+            self.assertEqual(manifest["version"], "1.2.0")
+            self.assertEqual(manifest["triggers"], "when needed")
+
+    def test_non_semver_version_is_accepted(self):
+        """version field is optional so non-semver strings should not raise."""
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = self._make_skill_dir(
+                Path(tmp), "dated-skill",
+                "name: dated-skill\ndescription: desc\nversion: 2026-05-18"
+            )
+            Librarian._validate_and_reconcile_skill_manifest(skill_dir)
+            manifest = json.loads((skill_dir / "skill-manifest.json").read_text())
+            self.assertEqual(manifest["version"], "2026-05-18")
+
+    def test_missing_name_raises(self):
+        """name is still required — raise ValueError if absent."""
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = self._make_skill_dir(
+                Path(tmp), "no-name-skill",
+                "description: A skill without a name"
+            )
+            with self.assertRaises(ValueError) as ctx:
+                Librarian._validate_and_reconcile_skill_manifest(skill_dir)
+            self.assertIn("name", str(ctx.exception))
+
+    def test_missing_description_raises(self):
+        """description is still required — raise ValueError if absent."""
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = self._make_skill_dir(
+                Path(tmp), "no-desc-skill",
+                "name: no-desc-skill"
+            )
+            with self.assertRaises(ValueError) as ctx:
+                Librarian._validate_and_reconcile_skill_manifest(skill_dir)
+            self.assertIn("description", str(ctx.exception))
+
+    def test_reconcile_keeps_existing_manifest_name(self):
+        """Reconcile path: existing manifest is updated without losing fields."""
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = self._make_skill_dir(
+                Path(tmp), "reconcile-skill",
+                "name: reconcile-skill\ndescription: Updated desc"
+            )
+            existing = {"name": "reconcile-skill", "extra_field": "preserved"}
+            (skill_dir / "skill-manifest.json").write_text(
+                json.dumps(existing), encoding="utf-8"
+            )
+            Librarian._validate_and_reconcile_skill_manifest(skill_dir)
+            manifest = json.loads((skill_dir / "skill-manifest.json").read_text())
+            self.assertEqual(manifest["name"], "reconcile-skill")
+            self.assertEqual(manifest["description"], "Updated desc")
+            self.assertEqual(manifest["extra_field"], "preserved")
+
+    def test_metadata_version_parsed_via_flat_parser(self):
+        """metadata.version (open-standard location) is resolved by flat YAML parser."""
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_md = Path(tmp) / "SKILL.md"
+            skill_md.write_text(
+                "---\nname: meta-skill\ndescription: desc\nmetadata:\n  version: 3.0.0\n---\n",
+                encoding="utf-8",
+            )
+            version = Librarian._parse_skill_md_version(skill_md)
+            self.assertEqual(version, "3.0.0")
+
+    def test_frontmatter_tolerates_leading_whitespace(self):
+        """SKILL.md with leading blank lines or spaces before --- is parsed correctly.
+
+        Editors (vim, heredocs) sometimes prepend whitespace. lstrip() absorbs it.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = Path(tmp) / "ws-skill"
+            skill_dir.mkdir()
+            # Leading newline + spaces before the opening fence
+            (skill_dir / "SKILL.md").write_text(
+                "\n  ---\nname: ws-skill\ndescription: Leading whitespace skill\n---\n",
+                encoding="utf-8",
+            )
+            Librarian._validate_and_reconcile_skill_manifest(skill_dir)
+            manifest = json.loads((skill_dir / "skill-manifest.json").read_text())
+            self.assertEqual(manifest["name"], "ws-skill")
+            self.assertEqual(manifest["description"], "Leading whitespace skill")
+
+
 if __name__ == '__main__':
     unittest.main()
