@@ -487,7 +487,13 @@ def uninstall(name: str):
 
 @cli.command()
 @click.argument("name")
-def audit(name: str):
+@click.option(
+    "--fix",
+    is_flag=True,
+    default=False,
+    help="Auto-sync manifest to resolve untracked-file warnings, then re-audit.",
+)
+def audit(name: str, fix: bool):
     """
     Check an agent for integrity drift and missing metadata.
     """
@@ -496,7 +502,17 @@ def audit(name: str):
 
     _echo(f"[librarian] Auditing '{name}'...")
     report = librarian.audit()
-    
+
+    # Auto-fix: sync manifest to pick up untracked files, then re-audit
+    if fix and report["untracked_files"]:
+        _echo(
+            f"[librarian] --fix: syncing {len(report['untracked_files'])} "
+            "untracked file(s) into manifest..."
+        )
+        librarian.sync()
+        _echo("[librarian] Re-auditing after sync...")
+        report = librarian.audit()
+
     fatal = False
 
     if report["broken_resources"]:
@@ -521,7 +537,7 @@ def audit(name: str):
     if report["untracked_files"]:
         _echo("[librarian] ! Untracked files (exist on disk but not yet in manifest):")
         for p in report["untracked_files"]:
-            _echo(f"  - {p} (run 'agentfactory-gen wrap {name}' or 'sync' to register)")
+            _echo(f"  - {p} (run 'agentfactory-gen wrap {name}', 'sync', or 'audit --fix' to register)")
 
     if report["missing_skill_manifests"]:
         _echo("[librarian] ! Missing skill-manifest.json in skill directories:")
@@ -711,7 +727,13 @@ def retrofit(path: str, yes: bool):
     default=".",
     help="Name of the target agent to receive the skill. Defaults to '.' (the root project).",
 )
-def import_skill(path: str, target_agent: str):
+@click.option(
+    "--project-root",
+    default=".",
+    show_default=True,
+    help="Root of the project receiving the skill (only used when --to is '.').",
+)
+def import_skill(path: str, target_agent: str, project_root: str):
     """
     Import a standalone skill into an existing agent or the root project.
     """
@@ -721,14 +743,22 @@ def import_skill(path: str, target_agent: str):
         sys.exit(1)
 
     if target_agent == ".":
+        # Validate project root is an initialised harness (#143 extension)
+        if project_root != ".":
+            project_path = _assert_valid_project_root(project_root)
+        else:
+            project_path = _assert_valid_project_root(".")
+        target_root = project_path / HARNESS_ROOT
         _echo(f"[librarian] Importing skill from {path_obj} into root project...")
         try:
-            skill_name = Librarian.import_skill_to_project(str(path_obj), str(Path.cwd()))
+            skill_name = Librarian.import_skill_to_project(str(path_obj), str(project_path))
         except (ValueError, FileNotFoundError) as exc:
             _echo(f"[librarian] Skill import failed: {exc}", err=True)
             sys.exit(1)
         _echo(f"[librarian] Successfully imported skill '{skill_name}' into root project.")
-        _echo(f"  Path: {Path.cwd() / HARNESS_ROOT / 'skills' / skill_name}")
+        _echo(f"  Path: {target_root / 'skills' / skill_name}")  # .ai/skills/<name>
+
+        Librarian.update_harness_files(str(project_path))
         return
 
     target_root = _agent_root(target_agent)
@@ -840,6 +870,28 @@ def import_agent(
         zip_path = tmp.name
         _cleanup = lambda p=tmp.name: os.unlink(p)  # noqa: E731
 
+        # Auto-verify if registry provides a checksum (#144 extension)
+        registry_sha256 = _entry.get("sha256")
+        if registry_sha256 and not checksum:
+            actual = hashlib.sha256(zip_bytes).hexdigest()
+            if actual != registry_sha256:
+                if _cleanup:
+                    _cleanup()
+                _echo(
+                    f"[librarian] Registry checksum mismatch — bundle may be tampered.\n"
+                    f"  Expected: {registry_sha256}\n"
+                    f"  Actual:   {actual}",
+                    err=True,
+                )
+                sys.exit(1)
+            _echo("[librarian] Registry checksum auto-verified.")
+        elif not registry_sha256 and not checksum:
+            _echo(
+                "[librarian] ⚠  Registry did not provide a checksum for this bundle. "
+                "Use --checksum <file> to verify provenance manually.",
+                err=True,
+            )
+
     zip_path = Path(zip_path).resolve()
 
     if not zip_path.exists():
@@ -880,10 +932,13 @@ def import_agent(
     project_path = Path(project_root).resolve()
     target_root = project_path / HARNESS_ROOT / "agents" / name
 
-    # --- Scripts gate (#142) ---
-    if info["scripts"] and not allow_scripts:
-        _echo(f"[librarian] ⚠  This agent includes {len(info['scripts'])} executable script(s):")
-        for s in info["scripts"]:
+    # --- Scripts gate (#142 + shebang extension) ---
+    if info["executable_files"] and not allow_scripts:
+        _echo(
+            f"[librarian] ⚠  This agent includes {len(info['executable_files'])} "
+            "executable script(s):"
+        )
+        for s in info["executable_files"]:
             _echo(f"  {s}")
         _echo("[librarian] Review these files before allowing execution.")
         if not click.confirm("Proceed with import?", default=False):
@@ -900,8 +955,10 @@ def import_agent(
         _echo(f"  Version : {peeked.get('version', 'unknown')}")
         _echo(f"  Target  : {target_root}")
         _echo(f"  Files   : {len(info['names'])}")
-        _echo(f"  Scripts : {len(info['scripts'])} file(s)" +
-              (f" — {info['scripts']}" if info["scripts"] else ""))
+        _echo(
+            f"  Scripts : {len(info['executable_files'])} file(s)" +
+            (f" — {info['executable_files']}" if info["executable_files"] else "")
+        )
         _echo(f"  Conflict: {conflict}")
         if _cleanup:
             _cleanup()
@@ -1000,12 +1057,8 @@ def adapter_add(name: str, project_root: str, check_completeness: bool, strict: 
     wires capability symlinks, compiles brief.md, then creates root symlinks.
     Idempotent — re-running recompiles the brief but does not overwrite edited configs.
     """
-    project_path = Path(project_root).resolve()
+    project_path = _assert_valid_project_root(project_root)
     ai_root = project_path / HARNESS_ROOT
-    if not ai_root.exists():
-        raise click.ClickException(
-            f"No harness found at {ai_root}. Run 'agentfactory-gen init' first."
-        )
 
     config = _FORMAT_REGISTRY[name]
     adapter_dir = ai_root / "adapters" / name
@@ -1220,12 +1273,8 @@ def brief_cmd(project_root: str):
     Regenerates brief.md for every adapter directory that exists, using the
     current skills, agents, commands, and rules from .ai/.
     """
-    project_path = Path(project_root).resolve()
+    project_path = _assert_valid_project_root(project_root)
     ai_root = project_path / HARNESS_ROOT
-    if not ai_root.exists():
-        raise click.ClickException(
-            f"No harness found at {ai_root}. Run 'agentfactory-gen init' first."
-        )
 
     Librarian.update_harness_files(str(project_path))
 
