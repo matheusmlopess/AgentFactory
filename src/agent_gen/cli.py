@@ -12,7 +12,7 @@ from pathlib import Path
 
 import click
 
-from .librarian import TRACKED_DIRS, HARNESS_ROOT, CONTEXT_FILE, Librarian, _FORMAT_REGISTRY
+from .librarian import TRACKED_DIRS, HARNESS_ROOT, MANIFEST_FILE, CONTEXT_FILE, Librarian, _FORMAT_REGISTRY
 
 REGISTRY_URL = os.environ.get("AGENTFACTORY_REGISTRY_URL", "https://agentfactory.dev")
 
@@ -112,6 +112,25 @@ def _assert_within_root(rel_path: str, root: Path) -> None:
         raise click.ClickException(
             f"Path '{rel_path}' resolves outside the agent root — possible path traversal."
         )
+
+
+def _normalize_git_url(url: str) -> str:
+    """
+    Accept a remote URL (https/http/git@/ssh/git:///file://) or a local path.
+
+    An existing local path is converted to an absolute ``file://`` URL so the same
+    code path works for remotes, local clones, and tests.
+    """
+    remote_schemes = ("https://", "http://", "git@", "ssh://", "git://", "file://")
+    if url.startswith(remote_schemes):
+        return url
+    p = Path(url).expanduser()
+    if p.exists():
+        return p.resolve().as_uri()
+    raise click.ClickException(
+        f"Invalid git target '{url}'. Use a URL "
+        f"({', '.join(remote_schemes)}) or an existing local path."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -821,6 +840,21 @@ def import_agent(zip_path: str, from_git: str, from_registry: str, project_root:
     _echo(f"[librarian] Registering '{name}' in project manifest...")
     Librarian.register_in_project(manifest, project_root)
 
+    # Record where this agent came from so `export` can patch changes back to it.
+    source_ref = None
+    if from_git:
+        source_ref = {"git": from_git}
+    elif from_registry:
+        source_ref = {"registry": from_registry}
+    if source_ref:
+        agent_manifest = target_root / MANIFEST_FILE
+        try:
+            data = json.loads(agent_manifest.read_text())
+            data["source"] = source_ref
+            agent_manifest.write_text(json.dumps(data, indent=2))
+        except (OSError, ValueError):
+            pass  # non-fatal: export can still take --git explicitly
+
     # Clean up temp dir from --from-git clone
     if _cleanup:
         _cleanup()
@@ -846,6 +880,154 @@ def import_agent(zip_path: str, from_git: str, from_registry: str, project_root:
         if claude_md:
             _echo(f"  Check {claude_md} for your new instructions.")
     _echo("=" * 60)
+
+
+# ---------------------------------------------------------------------------
+# export
+# ---------------------------------------------------------------------------
+
+@cli.command("export")
+@click.argument("name")
+@click.option(
+    "--git",
+    "git_url",
+    default=None,
+    metavar="URL",
+    help="Source repo to patch (default: the agent's recorded source from import).",
+)
+@click.option(
+    "--subpath",
+    default=None,
+    help="Path inside the source repo where the agent lives (default: auto-detect).",
+)
+@click.option(
+    "--branch",
+    "branch_name",
+    default=None,
+    help="Branch to create & push (default: agentfactory/export-<name>).",
+)
+@click.option("-m", "--message", "message", default=None, help="Commit message.")
+@click.option(
+    "--project-root", default=".", show_default=True, help="Project root holding the agent."
+)
+@click.option("--push/--no-push", default=True, help="Push the branch to the source remote.")
+@click.option("--pr/--no-pr", default=True, help="Open a PR with gh (requires --push).")
+def export_agent(name, git_url, subpath, branch_name, message, project_root, push, pr):
+    """
+    Patch a locally-modified agent back to its source-of-truth git repo.
+
+    Clones the source, copies this project's agents/<NAME>/ over the agent's
+    location in the source, commits on a new branch, pushes, and opens a PR —
+    so edits made to an imported agent flow back upstream.
+    """
+    project_path = Path(project_root).resolve()
+    agent_root = project_path / HARNESS_ROOT / "agents" / name
+    if not agent_root.is_dir():
+        raise click.ClickException(f"Agent '{name}' not found at {agent_root}.")
+
+    manifest_path = agent_root / MANIFEST_FILE
+    manifest = {}
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text())
+        except ValueError:
+            manifest = {}
+
+    src = git_url or (manifest.get("source") or {}).get("git")
+    if not src:
+        raise click.ClickException(
+            f"No source repo recorded for '{name}'. Pass --git URL "
+            "(this agent was imported from a ZIP/registry or deployed locally)."
+        )
+    src = _normalize_git_url(src)
+
+    branch_name = branch_name or f"agentfactory/export-{name}"
+    message = message or f"agent({name}): sync from AgentFactory export"
+
+    if subpath and ".." in Path(subpath).parts:
+        raise click.ClickException(f"--subpath '{subpath}' must not contain '..'.")
+
+    tmp_dir = tempfile.mkdtemp(prefix="agentfactory_export_")
+    clone_dir = os.path.join(tmp_dir, "src")
+
+    def _git(*args, check=True):
+        proc = subprocess.run(
+            ["git", "-C", clone_dir, *args], capture_output=True, text=True
+        )
+        if check and proc.returncode != 0:
+            raise click.ClickException(f"git {' '.join(args)} failed:\n{proc.stderr.strip()}")
+        return proc
+
+    try:
+        _echo(f"[librarian] Cloning {src} ...")
+        clone = subprocess.run(
+            ["git", "clone", "--quiet", src, clone_dir], capture_output=True, text=True
+        )
+        if clone.returncode != 0:
+            raise click.ClickException(f"git clone failed:\n{clone.stderr.strip()}")
+        clone_path = Path(clone_dir)
+
+        # Detect where the agent lives in the source repo.
+        if subpath is None:
+            if (clone_path / "agent" / MANIFEST_FILE).exists():
+                subpath = "agent"
+            elif (clone_path / MANIFEST_FILE).exists():
+                subpath = ""
+            else:
+                subpath = "agent"
+        dest = clone_path / subpath if subpath else clone_path
+        _assert_within_root(subpath or ".", clone_path)
+        dest.mkdir(parents=True, exist_ok=True)
+
+        # Apply the local agent (manifest + tracked resource dirs) over the source.
+        _echo(f"[librarian] Applying '{name}' → {subpath or '<repo root>'} ...")
+        if manifest_path.exists():
+            shutil.copy2(manifest_path, dest / MANIFEST_FILE)
+        for d in TRACKED_DIRS:
+            src_d = agent_root / d
+            if src_d.is_dir():
+                dst_d = dest / d
+                if dst_d.exists():
+                    shutil.rmtree(dst_d)
+                shutil.copytree(src_d, dst_d)
+
+        _git("checkout", "-b", branch_name)
+        _git("add", "-A")
+        if not _git("status", "--porcelain").stdout.strip():
+            _echo("[librarian] No changes to export — the source already matches. ✓")
+            return
+        _git(
+            "-c", "user.email=agentfactory@local", "-c", "user.name=AgentFactory",
+            "commit", "-m", message,
+        )
+        _echo("[librarian] Committed: " + _git("--no-pager", "log", "-1", "--oneline").stdout.strip())
+
+        if not push:
+            patch_file = project_path / f"{name}-export.patch"
+            patch_file.write_text(_git("--no-pager", "format-patch", "-1", "--stdout").stdout)
+            _echo(f"[librarian] --no-push: patch written to {patch_file}")
+            _echo(f"  apply upstream with:  git checkout -b {branch_name} && git am {patch_file.name}")
+            return
+
+        _echo(f"[librarian] Pushing '{branch_name}' to origin ...")
+        _git("push", "-u", "origin", branch_name)
+
+        if pr:
+            pr_proc = subprocess.run(
+                ["gh", "pr", "create", "--head", branch_name, "--title", message,
+                 "--body", f"Automated export of agent `{name}` from AgentFactory."],
+                cwd=clone_dir, capture_output=True, text=True,
+            )
+            if pr_proc.returncode == 0:
+                _echo(f"[librarian] PR opened: {pr_proc.stdout.strip()}")
+            else:
+                _echo(f"[librarian] Pushed '{branch_name}'; open a PR manually "
+                      f"(gh: {pr_proc.stderr.strip()})", err=True)
+        else:
+            _echo(f"[librarian] Pushed '{branch_name}'. Open a PR from it when ready.")
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
 
 # ---------------------------------------------------------------------------
 # adapter
