@@ -97,6 +97,63 @@ def _git_ref(path: str) -> str:
         return "untracked"
 
 
+def _atomic_write_json(path: Path, data: dict) -> None:
+    """Write JSON to *path* atomically via a temp-file + os.replace().
+
+    On POSIX, os.replace() is a single syscall (rename), so a concurrent reader
+    always sees either the old or the new file, never a partial write.  The temp
+    file is cleaned up on any error so it never sits alongside the real file.
+    """
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    try:
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        os.replace(tmp, path)
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def _inspect_zip(zip_path: Path) -> dict:
+    """Inspect a ZIP's contents without extracting anything to disk.
+
+    Returns:
+        has_manifest     — bool, agent-manifest.json present at root
+        names            — list of all member filenames
+        scripts          — list of members under scripts/ that are files (path-prefix)
+        executable_files — scripts/ members + shebang-detected files in commands/ and orchestration/
+        structure_ok     — bool, has agent-manifest.json + at least one tracked dir
+    """
+    _SHEBANG_DIRS = frozenset(("commands", "orchestration"))
+    with zipfile.ZipFile(zip_path) as zf:
+        names = zf.namelist()
+        shebang_files: list[str] = []
+        for n in names:
+            if n.endswith("/"):
+                continue
+            prefix = n.split("/")[0]
+            if prefix in _SHEBANG_DIRS:
+                try:
+                    with zf.open(n) as member:
+                        if member.read(2) == b"#!":
+                            shebang_files.append(n)
+                except Exception:
+                    pass
+    scripts = [n for n in names if n.startswith("scripts/") and not n.endswith("/")]
+    executable_files = scripts + shebang_files
+    has_manifest = "agent-manifest.json" in names
+    tracked_dirs_found = any(
+        any(n.startswith(d + "/") for n in names)
+        for d in ["skills", "commands", "docs", "scripts", "orchestration"]
+    )
+    return {
+        "has_manifest": has_manifest,
+        "names": names,
+        "scripts": scripts,
+        "executable_files": executable_files,
+        "structure_ok": has_manifest and tracked_dirs_found,
+    }
+
+
 CONVERSION_PROFILES = {
     "claude": {
         ".claude/skills": "skills",
@@ -188,11 +245,12 @@ _FORMAT_REGISTRY: dict[str, dict] = {
         "root_files": ["GEMINI.md"],
         "folder_symlink": ".gemini",
         "wiring": {
-            "tools": "../../skills",
+            # Gemini CLI scans .gemini/skills/ (renamed from .gemini/tools/ in 2026 open-standard alignment)
+            "skills": "../../skills",
         },
         "config_file": "config.json",
         "config_default": "{}",
-        "skill_path_template": ".gemini/tools/{name}/SKILL.md",
+        "skill_path_template": ".gemini/skills/{name}/SKILL.md",
         "command_prefix": "",
         "sections": {
             "skills": "_fmt_skills_tools",
@@ -239,16 +297,16 @@ def _fmt_skills_blocks(skills: list, config: dict) -> str:
 
 def _fmt_skills_tools(skills: list, config: dict) -> str:
     if not skills:
-        return "## Available Tools\n\nNo tools imported yet."
+        return "## Available Skills\n\nNo skills imported yet."
     template = config["skill_path_template"]
-    blocks = ["## Available Tools"]
+    blocks = ["## Available Skills"]
     for s in skills:
         path = template.replace("{name}", s["name"])
-        input_val = s.get('input_hint') or s.get('triggers') or 'see tool documentation'
+        trigger_val = s.get('triggers') or s.get('input_hint') or 'see skill documentation'
         block = (
             f"### {s['name']}\n"
             f"- Description: {s.get('description', 'No description')}\n"
-            f"- Input: {input_val}\n"
+            f"- Use when: {trigger_val}\n"
             f"- See: {path}"
         )
         blocks.append(block)
@@ -547,8 +605,7 @@ class Librarian:
             return json.load(f)
 
     def _save_manifest(self, manifest: dict) -> None:
-        with open(self.manifest_path, "w") as f:
-            json.dump(manifest, f, indent=2)
+        _atomic_write_json(self.manifest_path, manifest)
 
     def _crawl_resources(self) -> dict[str, list[str]]:
         resources: dict[str, list[str]] = {d: [] for d in TRACKED_DIRS}
@@ -1129,9 +1186,7 @@ class Librarian:
 
             if agent_name in global_manifest.get("agents", {}):
                 del global_manifest["agents"][agent_name]
-
-                with open(global_path, "w") as f:
-                    json.dump(global_manifest, f, indent=2)
+                _atomic_write_json(global_path, global_manifest)
 
     @classmethod
     def sync_to_global(cls, agent_manifest: dict, project_root: str = ".") -> None:
@@ -1158,9 +1213,7 @@ class Librarian:
                 global_manifest["agents"][name]["description"] = agent_manifest.get("description", "No description provided.")
                 global_manifest["agents"][name]["git_ref"] = agent_manifest.get("git_ref", "unknown")
                 global_manifest["agents"][name]["resources"] = agent_manifest.get("resources", {})
-                
-                with open(global_path, "w") as f:
-                    json.dump(global_manifest, f, indent=2)
+                _atomic_write_json(global_path, global_manifest)
                 updated = True
                 
         if updated:
@@ -1655,8 +1708,7 @@ class Librarian:
                 "resources": imported_manifest["resources"],
             }
 
-            with open(global_path, "w") as f:
-                json.dump(global_manifest, f, indent=2)
+            _atomic_write_json(global_path, global_manifest)
 
         # Update harness files (Context Awareness)
         cls.update_harness_files(project_root)

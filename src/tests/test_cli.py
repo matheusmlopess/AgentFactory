@@ -827,5 +827,325 @@ class TestWave1Fixes(unittest.TestCase):
             self.assertEqual(result.exit_code, 0, result.output)
 
 
+class TestWave2Security(unittest.TestCase):
+    """Wave 2 security regression tests (#142, #143, #144, #146)."""
+
+    def setUp(self):
+        self.runner = CliRunner()
+
+    def _make_agent_zip(self, runner, name="sec-agent", with_scripts=False) -> Path:
+        """Helper: deploy + optionally add scripts + wrap → return zip path."""
+        runner.invoke(cli, ["deploy", name])
+        Path(f"{AGENTS}/{name}/docs/readme.md").write_text("# hi")
+        if with_scripts:
+            Path(f"{AGENTS}/{name}/scripts/setup.sh").write_text("#!/bin/bash\necho hi")
+        runner.invoke(cli, ["wrap", name])
+        return Path(f"{name}-v1.0.0.zip")
+
+    # --- #146: atomic manifest writes ---
+
+    def test_save_manifest_atomic_tmp_absent_after_success(self):
+        """After a successful save, no .tmp file should remain next to the manifest."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "atomic-agent"])
+            manifest_path = Path(f"{AGENTS}/atomic-agent/agent-manifest.json")
+            tmp_path = manifest_path.with_suffix(".json.tmp")
+            self.assertFalse(tmp_path.exists(), ".tmp file must not persist after save")
+
+    # --- #146: dry-run mode ---
+
+    def test_import_dry_run_writes_nothing(self):
+        """--dry-run prints a preview and leaves the project directory untouched."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            zip_path = self._make_agent_zip(self.runner, "dr-agent")
+            # Uninstall the deployed agent so the zip is the only copy
+            self.runner.invoke(cli, ["uninstall", "dr-agent"], input="y\n")
+
+            result = self.runner.invoke(cli, ["import", str(zip_path), "--dry-run"])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("DRY RUN", result.output)
+            self.assertIn("dr-agent", result.output)
+            # Agent must NOT be registered
+            self.assertFalse(Path(f"{AGENTS}/dr-agent").exists())
+
+    def test_import_dry_run_shows_conflict(self):
+        """--dry-run reports a conflict when the agent already exists."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            zip_path = self._make_agent_zip(self.runner, "conflict-dr")
+            # Agent still exists (not uninstalled) → conflict
+            result = self.runner.invoke(cli, ["import", str(zip_path), "--dry-run"])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("conflict", result.output.lower())
+
+    # --- #142: scripts review gate ---
+
+    def test_import_scripts_prompts_user(self):
+        """import with scripts/ present prompts the user before proceeding."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            zip_path = self._make_agent_zip(self.runner, "script-agent", with_scripts=True)
+            self.runner.invoke(cli, ["uninstall", "script-agent"], input="y\n")
+
+            # Answer 'n' — import should be cancelled
+            result = self.runner.invoke(
+                cli, ["import", str(zip_path)], input="n\n"
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("cancelled", result.output.lower())
+            self.assertFalse(Path(f"{AGENTS}/script-agent").exists())
+
+    def test_import_allow_scripts_skips_prompt(self):
+        """--allow-scripts bypasses the interactive scripts gate."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            zip_path = self._make_agent_zip(self.runner, "skip-script-agent", with_scripts=True)
+            self.runner.invoke(cli, ["uninstall", "skip-script-agent"], input="y\n")
+
+            result = self.runner.invoke(
+                cli, ["import", str(zip_path), "--allow-scripts"]
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertTrue(Path(f"{AGENTS}/skip-script-agent").exists())
+
+    def test_import_no_scripts_no_prompt(self):
+        """import without scripts/ does not prompt the user."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            zip_path = self._make_agent_zip(self.runner, "clean-import-agent")
+            self.runner.invoke(cli, ["uninstall", "clean-import-agent"], input="y\n")
+
+            result = self.runner.invoke(cli, ["import", str(zip_path)])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertNotIn("executable script", result.output.lower())
+
+    # --- #144: checksum verification ---
+
+    def test_wrap_emits_sha256_sidecar(self):
+        """wrap produces a .sha256 sidecar alongside the ZIP."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "hash-agent"])
+            Path(f"{AGENTS}/hash-agent/docs/r.md").write_text("x")
+            self.runner.invoke(cli, ["wrap", "hash-agent"])
+            sidecar = Path("hash-agent-v1.0.0.zip.sha256")
+            self.assertTrue(sidecar.exists(), "SHA-256 sidecar not produced")
+            content = sidecar.read_text()
+            self.assertRegex(content, r"^[0-9a-f]{64}\s")
+
+    def test_import_checksum_valid_passes(self):
+        """import --checksum accepts the ZIP when the hash matches."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            zip_path = self._make_agent_zip(self.runner, "check-agent")
+            sidecar = Path("check-agent-v1.0.0.zip.sha256")
+            self.runner.invoke(cli, ["uninstall", "check-agent"], input="y\n")
+
+            result = self.runner.invoke(
+                cli, ["import", str(zip_path), "--checksum", str(sidecar)]
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("verified", result.output.lower())
+
+    def test_import_checksum_mismatch_fails(self):
+        """import --checksum exits 1 when the ZIP hash does not match the sidecar."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            zip_path = self._make_agent_zip(self.runner, "tamper-agent")
+            sidecar = Path("tamper-agent-v1.0.0.zip.sha256")
+            # Tamper the ZIP
+            zip_path.write_bytes(b"garbage" + zip_path.read_bytes())
+            self.runner.invoke(cli, ["uninstall", "tamper-agent"], input="y\n")
+
+            result = self.runner.invoke(
+                cli, ["import", str(zip_path), "--checksum", str(sidecar)]
+            )
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("mismatch", result.output.lower())
+
+    # --- #143: --project-root validation ---
+
+    def test_import_invalid_project_root_fails(self):
+        """import --project-root to a non-harness directory exits non-zero."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            zip_path = self._make_agent_zip(self.runner, "root-check-agent")
+            self.runner.invoke(cli, ["uninstall", "root-check-agent"], input="y\n")
+            # Point to a dir with no .ai/
+            bad_root = Path("not-a-project")
+            bad_root.mkdir()
+            result = self.runner.invoke(
+                cli, ["import", str(zip_path), "--project-root", str(bad_root)]
+            )
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("not an AgentFactory project", result.output)
+
+    def test_import_default_project_root_skips_validation(self):
+        """import with default --project-root '.' does not require pre-validated .ai/."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            zip_path = self._make_agent_zip(self.runner, "default-root-agent")
+            self.runner.invoke(cli, ["uninstall", "default-root-agent"], input="y\n")
+            result = self.runner.invoke(cli, ["import", str(zip_path)])
+            self.assertEqual(result.exit_code, 0, result.output)
+
+
+class TestGapMitigations(unittest.TestCase):
+    """Gap mitigation tests — Wave 1 + Wave 2 post-analysis items."""
+
+    def setUp(self):
+        self.runner = CliRunner()
+
+    def _make_agent_zip(self, runner, name="gap-agent", with_scripts=False,
+                        with_shebang_cmd=False) -> Path:
+        runner.invoke(cli, ["deploy", name])
+        Path(f"{AGENTS}/{name}/docs/readme.md").write_text("# hi")
+        if with_scripts:
+            Path(f"{AGENTS}/{name}/scripts/setup.sh").write_text("#!/bin/bash\necho hi")
+        if with_shebang_cmd:
+            Path(f"{AGENTS}/{name}/commands/evil.sh").write_text("#!/bin/bash\nrm -rf /")
+        runner.invoke(cli, ["wrap", name])
+        return Path(f"{name}-v1.0.0.zip")
+
+    # --- audit --fix (#Wave1-gap) ---
+
+    def test_audit_fix_resolves_untracked_files(self):
+        """audit --fix syncs untracked files into the manifest and exits 0."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "fix-agent"])
+            # Add a file without syncing → untracked
+            Path(f"{AGENTS}/fix-agent/skills/new.md").write_text("new skill")
+
+            # Without --fix, untracked is a warning (#132): exit 0, not clean
+            r = self.runner.invoke(cli, ["audit", "fix-agent"])
+            self.assertEqual(r.exit_code, 0, r.output)
+            self.assertIn("Untracked", r.output)
+            self.assertNotIn("clean", r.output.lower())
+
+            # With --fix, sync resolves it → exit 0
+            r = self.runner.invoke(cli, ["audit", "fix-agent", "--fix"])
+            self.assertEqual(r.exit_code, 0, r.output)
+            self.assertIn("clean", r.output.lower())
+
+    def test_audit_fix_does_not_hide_broken_resources(self):
+        """audit --fix still exits 1 when broken (missing) resources are present."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["deploy", "fix-broken"])
+            skill_file = Path(f"{AGENTS}/fix-broken/skills/gone.md")
+            skill_file.write_text("temp")
+            self.runner.invoke(cli, ["wrap", "fix-broken"])
+            skill_file.unlink()
+
+            r = self.runner.invoke(cli, ["audit", "fix-broken", "--fix"])
+            self.assertNotEqual(r.exit_code, 0)
+            self.assertIn("Broken", r.output)
+
+    # --- import-skill --project-root (#Wave1-gap) ---
+
+    def test_import_skill_project_root_explicit(self):
+        """import-skill --project-root places skill in the specified root's .ai/skills/."""
+        with self.runner.isolated_filesystem():
+            # Init two side-by-side project roots
+            import os
+            os.makedirs("proj-a")
+            self.runner.invoke(cli, ["init", "--project-root", "proj-a"])
+
+            skill_path = Path("my-skill")
+            skill_path.mkdir()
+            import json as _j
+            with open(skill_path / "skill-manifest.json", "w") as f:
+                _j.dump({"name": "my-skill", "version": "1.0.0", "description": "test"}, f)
+            (skill_path / "logic.md").write_text("content")
+
+            result = self.runner.invoke(
+                cli, ["import-skill", str(skill_path), "--project-root", "proj-a"]
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertTrue(Path("proj-a/.ai/skills/my-skill/logic.md").exists())
+
+    def test_import_skill_invalid_project_root_fails(self):
+        """import-skill --project-root to a non-harness dir exits non-zero."""
+        with self.runner.isolated_filesystem():
+            import os
+            os.makedirs("not-a-project")
+            skill_path = Path("dummy-skill")
+            skill_path.mkdir()
+            import json as _j
+            with open(skill_path / "skill-manifest.json", "w") as f:
+                _j.dump({"name": "dummy", "version": "1.0.0", "description": "d"}, f)
+
+            result = self.runner.invoke(
+                cli, ["import-skill", str(skill_path), "--project-root", "not-a-project"]
+            )
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("not an AgentFactory project", result.output)
+
+    # --- brief / adapter add use shared _assert_valid_project_root (#Wave2-gap) ---
+
+    def test_brief_invalid_project_root_error_message(self):
+        """brief with no harness emits the shared 'not an AgentFactory project' message."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["brief"])
+            self.assertNotEqual(result.exit_code, 0)
+            # Message comes from _assert_valid_project_root, not a one-off inline check
+            self.assertIn("not an AgentFactory project", result.output)
+
+    def test_adapter_add_invalid_project_root_error_message(self):
+        """adapter add with no harness emits the shared 'not an AgentFactory project' message."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["adapter", "add", "gemini"])
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertIn("not an AgentFactory project", result.output)
+
+    # --- shebang detection in commands/ and orchestration/ (#Wave2-gap) ---
+
+    def test_import_shebang_in_commands_triggers_gate(self):
+        """import prompts when commands/ contains a file with a shebang line."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            zip_path = self._make_agent_zip(
+                self.runner, "shebang-cmd-agent", with_shebang_cmd=True
+            )
+            self.runner.invoke(cli, ["uninstall", "shebang-cmd-agent"], input="y\n")
+
+            # Answer 'n' — import should be cancelled
+            result = self.runner.invoke(cli, ["import", str(zip_path)], input="n\n")
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("cancelled", result.output.lower())
+            self.assertFalse(Path(f"{AGENTS}/shebang-cmd-agent").exists())
+
+    def test_import_shebang_in_commands_allow_scripts_bypasses(self):
+        """--allow-scripts bypasses the shebang gate for commands/ files."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            zip_path = self._make_agent_zip(
+                self.runner, "shebang-allow-agent", with_shebang_cmd=True
+            )
+            self.runner.invoke(cli, ["uninstall", "shebang-allow-agent"], input="y\n")
+
+            result = self.runner.invoke(
+                cli, ["import", str(zip_path), "--allow-scripts"]
+            )
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertTrue(Path(f"{AGENTS}/shebang-allow-agent").exists())
+
+    def test_import_no_shebang_no_prompt(self):
+        """import does not prompt when commands/ has non-executable files."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init"])
+            # Normal commands/ file without shebang
+            self.runner.invoke(cli, ["deploy", "no-shebang-agent"])
+            Path(f"{AGENTS}/no-shebang-agent/commands/task.md").write_text(
+                "# Task\nDo something."
+            )
+            self.runner.invoke(cli, ["wrap", "no-shebang-agent"])
+            zip_path = Path("no-shebang-agent-v1.0.0.zip")
+            self.runner.invoke(cli, ["uninstall", "no-shebang-agent"], input="y\n")
+
+            result = self.runner.invoke(cli, ["import", str(zip_path)])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertNotIn("executable script", result.output.lower())
+
+
 if __name__ == '__main__':
     unittest.main()
