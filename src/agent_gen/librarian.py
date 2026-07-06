@@ -167,9 +167,18 @@ CONVERSION_PROFILES = {
         ".claude/agents": "orchestration/agents",
         "AGENTS.md": "orchestration/AGENTS.md"
     },
+    # Legacy Gemini CLI layout (retired 2026-06-18) — kept so old projects still retrofit
     "gemini": {
         ".gemini/skills": "skills",
         ".gemini/extensions": "skills/extensions",
+        "GEMINI.md": "docs/GEMINI.md",
+        "AGENTS.md": "orchestration/AGENTS.md"
+    },
+    # Antigravity CLI (agy) — successor to Gemini CLI, open-standard .agents/ layout
+    "antigravity": {
+        ".agents/skills": "skills",
+        ".agents/rules": "docs/rules",
+        ".agents/workflows": "orchestration/workflows",
         "GEMINI.md": "docs/GEMINI.md",
         "AGENTS.md": "orchestration/AGENTS.md"
     },
@@ -251,6 +260,37 @@ _FORMAT_REGISTRY: dict[str, dict] = {
         "config_file": "config.json",
         "config_default": "{}",
         "skill_path_template": ".gemini/skills/{name}/SKILL.md",
+        "command_prefix": "",
+        "sections": {
+            "skills": "_fmt_skills_tools",
+            "commands": None,
+            "agents": "_fmt_agents_list",
+            "rules": "_fmt_rules_list",
+        },
+        "section_order": ["skills", "agents", "rules"],
+        "skill_char_limit": 18_000,
+        "completeness_threshold": 90,
+        "context_char_limit": 4_000,
+    },
+    "antigravity": {
+        "output": "brief.md",
+        "header": "# AgentFactory Intelligence Brief — Antigravity CLI",
+        # Antigravity (agy) reads both AGENTS.md and GEMINI.md (GEMINI.md wins when
+        # both exist). GEMINI.md is owned by the gemini adapter, so this adapter
+        # claims AGENTS.md — the cross-tool open-standard context file. At init,
+        # codex (earlier in the registry) wins AGENTS.md; an explicit
+        # 'adapter add antigravity' re-points it.
+        "root_files": ["AGENTS.md"],
+        "folder_symlink": ".agents",
+        "wiring": {
+            # .agents/skills is the cross-agent open-standard scan path (agentskills.io)
+            "skills": "../../skills",
+            # Antigravity workspace rules live in .agents/rules/
+            "rules": "../../rules",
+        },
+        "config_file": "mcp_config.json",
+        "config_default": '{\n  "mcpServers": {}\n}\n',
+        "skill_path_template": ".agents/skills/{name}/SKILL.md",
         "command_prefix": "",
         "sections": {
             "skills": "_fmt_skills_tools",

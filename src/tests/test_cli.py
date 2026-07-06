@@ -86,6 +86,27 @@ class TestCliCommands(unittest.TestCase):
             self.assertTrue(os.path.exists("mock-gemini/docs/GEMINI.md"))
             self.assertTrue(os.path.exists("mock-gemini/skills/test.md"))
 
+    def test_retrofit_antigravity_canonical(self):
+        """Antigravity CLI (agy) projects use the open-standard .agents/ layout."""
+        with self.runner.isolated_filesystem():
+            mock_path = Path("mock-antigravity")
+            mock_path.mkdir()
+            agents_dir = mock_path / ".agents"
+            (agents_dir / "skills").mkdir(parents=True, exist_ok=True)
+            (agents_dir / "skills" / "test.md").touch()
+            (agents_dir / "rules").mkdir(parents=True, exist_ok=True)
+            (agents_dir / "rules" / "style.md").touch()
+            (agents_dir / "workflows").mkdir(parents=True, exist_ok=True)
+            (agents_dir / "workflows" / "deploy.md").touch()
+
+            result = self.runner.invoke(cli, ["retrofit", str(mock_path), "--yes"])
+            self.assertEqual(result.exit_code, 0)
+
+            self.assertTrue(os.path.exists("mock-antigravity/agent-manifest.json"))
+            self.assertTrue(os.path.exists("mock-antigravity/skills/test.md"))
+            self.assertTrue(os.path.exists("mock-antigravity/docs/rules/style.md"))
+            self.assertTrue(os.path.exists("mock-antigravity/orchestration/workflows/deploy.md"))
+
     def test_retrofit_codex_canonical(self):
         with self.runner.isolated_filesystem():
             mock_path = Path("mock-codex")
@@ -167,7 +188,7 @@ class TestCliCommands(unittest.TestCase):
             self.assertEqual(result.exit_code, 0)
 
             # Directory tree
-            for subdir in ["adapters/claude", "adapters/gemini", "adapters/codex",
+            for subdir in ["adapters/claude", "adapters/gemini", "adapters/antigravity", "adapters/codex",
                            "rules", "commands", "skills", "agents", "memory"]:
                 self.assertTrue(os.path.isdir(f".ai/{subdir}"), f"missing .ai/{subdir}")
 
@@ -482,6 +503,32 @@ class TestCliCommands(unittest.TestCase):
             self.assertTrue(brief_path.exists())
             self.assertTrue(os.path.islink("GEMINI.md"))
 
+    def test_adapter_add_antigravity_repoints_agents_md(self):
+        """'adapter add antigravity' wires .agents layout and re-points AGENTS.md to its brief."""
+        with self.runner.isolated_filesystem():
+            self.runner.invoke(cli, ["init", "--primary", "claude"])
+            result = self.runner.invoke(cli, ["adapter", "add", "antigravity"])
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertTrue(Path(f"{HARNESS_ROOT}/adapters/antigravity/brief.md").exists())
+            # Explicit activation re-points the shared AGENTS.md root file
+            self.assertTrue(os.path.islink("AGENTS.md"))
+            self.assertIn("antigravity", os.readlink("AGENTS.md"))
+            # mcp_config.json scaffolded for MCP servers
+            self.assertTrue(Path(f"{HARNESS_ROOT}/adapters/antigravity/mcp_config.json").exists())
+
+    def test_gemini_and_antigravity_coexist(self):
+        """Both Gemini CLI and Antigravity CLI adapters are active after init."""
+        with self.runner.isolated_filesystem():
+            result = self.runner.invoke(cli, ["init"])
+            self.assertEqual(result.exit_code, 0)
+            self.assertTrue(Path(f"{HARNESS_ROOT}/adapters/gemini/brief.md").exists())
+            self.assertTrue(Path(f"{HARNESS_ROOT}/adapters/antigravity/brief.md").exists())
+            # Distinct folder symlinks: .gemini (legacy) and .agents (open standard)
+            self.assertTrue(os.path.islink(".gemini"))
+            self.assertIn("gemini", os.readlink(".gemini"))
+            self.assertTrue(os.path.islink(".agents"))
+            self.assertIn("antigravity", os.readlink(".agents"))
+
     def test_init_creates_all_adapter_root_symlinks(self):
         """init with default --primary claude creates root symlinks for all adapters (#120)."""
         with self.runner.isolated_filesystem():
@@ -611,6 +658,7 @@ class TestCliCommands(unittest.TestCase):
             # Cross-adapter references for all registry adapters
             self.assertIn("codex", content)
             self.assertIn("gemini", content)
+            self.assertIn("antigravity", content)
             # Key harness paths present
             self.assertIn("agent-manifest.json", content)
             self.assertIn("milestones.md", content)

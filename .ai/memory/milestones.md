@@ -1,5 +1,5 @@
 # Milestones
-<!-- version: 1.9.0 -->
+<!-- version: 1.10.0 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
@@ -232,6 +232,21 @@ Absorption notes: #152+#153→#160 · #165+#166+#169→#170 · #140+#141→#146 
 | #167 | generate Gemini-native .toml slash commands from shared command sources | enhancement | pending |
 | #171 | update Gemini docs and tests to canonical-plus-bridge model | documentation | pending |
 | #173 | [tracking] Gemini adapter alignment epic — close when #165–#171 done | epic | pending |
+
+### Antigravity CLI adapter (2026-07-06)
+
+Gemini CLI was retired 2026-06-18; its successor is Antigravity CLI (`agy`, v1.0.16).
+Both are kept as separate adapters — they are distinct tools with different layouts.
+
+| Item | Title | Type | Status | Branch |
+|------|-------|------|--------|--------|
+| AGY-1 | Add `antigravity` adapter: `.agents/` folder symlink, `.agents/skills` + `.agents/rules` wiring, `mcp_config.json`, AGENTS.md root file | feature | in-progress | feature/antigravity-cli-adapter |
+| AGY-2 | Antigravity retrofit profile (`.agents/skills`, `.agents/rules`, `.agents/workflows`) | feature | in-progress | feature/antigravity-cli-adapter |
+| AGY-3 | Live probe via `agy -p`; provider-error skips (quota/retirement) for all live agent tests | test | in-progress | feature/antigravity-cli-adapter |
+
+Note: `AGENTS.md` is a shared cross-tool root file — codex owns it at `init`
+(registry order), and an explicit `adapter add antigravity` re-points it.
+Wave 5 (Gemini adapter alignment) remains valid for the legacy `gemini` adapter.
 
 ### Wave 5 Deferred — Open-standard full-compliance (post-Wave 4+5)
 

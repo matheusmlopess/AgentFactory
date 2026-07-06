@@ -284,6 +284,7 @@ def init_project(project_root: str, primary: str):
     dirs = [
         ai_root / "adapters" / "claude",
         ai_root / "adapters" / "gemini",
+        ai_root / "adapters" / "antigravity",
         ai_root / "adapters" / "codex",
         ai_root / "rules",
         ai_root / "commands",

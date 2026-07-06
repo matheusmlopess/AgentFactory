@@ -1,7 +1,7 @@
-# AgentFactory Intelligence Brief — Codex CLI
+# AgentFactory Intelligence Brief — Antigravity CLI
 <!-- @compiled-by: agentfactory-gen -->
 <!-- @source: .ai/ -->
-<!-- @adapter: codex -->
+<!-- @adapter: antigravity -->
 <!-- @recompile: agentfactory-gen brief -->
 
 ## Harness
@@ -10,7 +10,7 @@ AgentFactory project. All adapters share the same harness context.
 
 ```
   Harness root : .ai/
-  This adapter : codex
+  This adapter : antigravity
   Recompile    : agentfactory-gen brief
 ```
 
@@ -25,9 +25,9 @@ Shared context (read these to understand the project):
 All adapter briefs (same project, different CLI):
 
   claude   CLAUDE.md            → .ai/adapters/claude/brief.md
-  codex    AGENTS.md / CODEX.md → .ai/adapters/codex/brief.md ← YOU ARE HERE
+  codex    AGENTS.md / CODEX.md → .ai/adapters/codex/brief.md
   gemini   GEMINI.md            → .ai/adapters/gemini/brief.md
-  antigravity AGENTS.md            → .ai/adapters/antigravity/brief.md
+  antigravity AGENTS.md            → .ai/adapters/antigravity/brief.md ← YOU ARE HERE
 
 If switching CLI: run `agentfactory-gen brief` to recompile all active adapter briefs.
 
@@ -71,24 +71,29 @@ Internal layout:
 5. `.ai/memory/`: Project state and context.
 6. `.ai/adapters/`: Per-CLI config + capability symlinks (commands→, skills→, tools→).
 
-<!-- ⚠ context truncated: 2035 → 2000 chars for 95% budget. -->
+### Core Engine: The Librarian (`src/agent_gen/librarian.py`)
+Central class driving every lifecycle operation. Key responsibilities:
+- **Manifest Integrity:** Load/validate/save `agent-manifest.json` per agent.
+- **Lifecycle:** `init`, `sync`, `audit`, `wrap`, `unpack`, `import_skill`, `migrate` (retrofit), `uninstall`.
+- **Global registry:** `sync_to_global`, `register_in_project`, `update_harness_files` keep `.ai/AgentFactory.md` and `.ai/agent-manifest.json` in sync across all agents.
+- **Intelligence Layer:** `_detect_dependencies` (AST-based Python import parsing + `
 
 ## Available Skills
 
 ### diff-visualizer
 - Description: Generates HTML diff reports visualizing what changed between two versions of the repo.
-- See: .codex/skills/diff-visualizer/SKILL.md
-- Use when: 
+- Use when: see skill documentation
+- See: .agents/skills/diff-visualizer/SKILL.md
 
 ### git-versioning
 - Description: Manages project-wide versioning and repo-state.md updates.
-- See: .codex/skills/git-versioning/SKILL.md
-- Use when: 
+- Use when: see skill documentation
+- See: .agents/skills/git-versioning/SKILL.md
 
 ### issue-tracker
 - Description: Regenerates the issue priority report and dependency matrix from live GitHub data.
-- See: .codex/skills/issue-tracker/SKILL.md
-- Use when: 
+- Use when: see skill documentation
+- See: .agents/skills/issue-tracker/SKILL.md
 
 ## Registered Agents
 - **test-agent**: Manual Description
