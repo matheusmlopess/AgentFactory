@@ -16,6 +16,7 @@ Run Tier 2 (live CLIs required):
     pytest src/tests/test_cli_swap_scenarios.py -m live -v
 """
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -71,13 +72,13 @@ def _you_are_here_row(content: str) -> str:
 class TestInitPrimary:
     """init --primary <adapter> creates all root files + correct YOU ARE HERE."""
 
-    @pytest.mark.parametrize("adapter", ["claude", "codex", "gemini"])
+    @pytest.mark.parametrize("adapter", ["claude", "codex", "gemini", "antigravity"])
     def test_init_exit_zero(self, runner, adapter):
         with runner.isolated_filesystem():
             r = runner.invoke(cli, ["init", "--primary", adapter])
             assert r.exit_code == 0, r.output
 
-    @pytest.mark.parametrize("adapter", ["claude", "codex", "gemini"])
+    @pytest.mark.parametrize("adapter", ["claude", "codex", "gemini", "antigravity"])
     def test_you_are_here_on_correct_row(self, runner, adapter):
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init", "--primary", adapter])
@@ -87,14 +88,14 @@ class TestInitPrimary:
             assert adapter in row, \
                 f"YOU ARE HERE row does not mention '{adapter}': {row!r}"
 
-    @pytest.mark.parametrize("adapter", ["claude", "codex", "gemini"])
+    @pytest.mark.parametrize("adapter", ["claude", "codex", "gemini", "antigravity"])
     def test_you_are_here_appears_exactly_once(self, runner, adapter):
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init", "--primary", adapter])
             content = _read_brief(adapter)
             assert content.count("← YOU ARE HERE") == 1
 
-    @pytest.mark.parametrize("adapter", ["claude", "codex", "gemini"])
+    @pytest.mark.parametrize("adapter", ["claude", "codex", "gemini", "antigravity"])
     def test_project_context_present(self, runner, adapter):
         """## Project Context injected once preamble is written to AgentFactory.md."""
         with runner.isolated_filesystem():
@@ -113,6 +114,7 @@ class TestInitPrimary:
         ("claude", ["CLAUDE.md"]),
         ("codex",  ["AGENTS.md", "CODEX.md"]),
         ("gemini", ["GEMINI.md"]),
+        ("antigravity", ["AGENTS.md"]),
     ])
     def test_root_files_exist_for_primary(self, runner, adapter, root_files):
         with runner.isolated_filesystem():
@@ -171,6 +173,24 @@ class TestAdapterSwap:
             assert "claude" in row
             assert Path("CLAUDE.md").is_symlink()
 
+    def test_claude_to_antigravity(self, runner):
+        with runner.isolated_filesystem():
+            content = self._swap(runner, "claude", "antigravity")
+            row = _you_are_here_row(content)
+            assert "antigravity" in row
+            # Explicit activation re-points the shared AGENTS.md root file
+            assert Path("AGENTS.md").is_symlink()
+            assert "antigravity" in os.readlink("AGENTS.md")
+            # Open-standard folder symlink wired
+            assert Path(".agents").is_symlink()
+
+    def test_antigravity_to_claude(self, runner):
+        with runner.isolated_filesystem():
+            content = self._swap(runner, "antigravity", "claude")
+            row = _you_are_here_row(content)
+            assert "claude" in row
+            assert Path("CLAUDE.md").is_symlink()
+
     def test_gemini_to_codex(self, runner):
         with runner.isolated_filesystem():
             content = self._swap(runner, "gemini", "codex")
@@ -199,14 +219,14 @@ class TestThreeWayLifecycle:
 
     def _full_lifecycle(self, runner, primary: str):
         """Activate all three adapters starting from `primary`. Return dict of brief contents."""
-        others = [a for a in ["claude", "codex", "gemini"] if a != primary]
+        others = [a for a in ["claude", "codex", "gemini", "antigravity"] if a != primary]
         runner.invoke(cli, ["init", "--primary", primary])
         for other in others:
             runner.invoke(cli, ["adapter", "add", other])
         runner.invoke(cli, ["brief"])
-        return {a: _read_brief(a) for a in ["claude", "codex", "gemini"]}
+        return {a: _read_brief(a) for a in ["claude", "codex", "gemini", "antigravity"]}
 
-    @pytest.mark.parametrize("primary", ["claude", "codex", "gemini"])
+    @pytest.mark.parametrize("primary", ["claude", "codex", "gemini", "antigravity"])
     def test_each_brief_has_exactly_one_you_are_here(self, runner, primary):
         with runner.isolated_filesystem():
             briefs = self._full_lifecycle(runner, primary)
@@ -215,7 +235,7 @@ class TestThreeWayLifecycle:
                 assert count == 1, \
                     f"{adapter} brief has {count} YOU ARE HERE markers (expected 1)"
 
-    @pytest.mark.parametrize("primary", ["claude", "codex", "gemini"])
+    @pytest.mark.parametrize("primary", ["claude", "codex", "gemini", "antigravity"])
     def test_each_brief_you_are_here_on_own_row(self, runner, primary):
         with runner.isolated_filesystem():
             briefs = self._full_lifecycle(runner, primary)
@@ -224,17 +244,17 @@ class TestThreeWayLifecycle:
                 assert adapter in row, \
                     f"{adapter} brief YOU ARE HERE on wrong row: {row!r}"
 
-    @pytest.mark.parametrize("primary", ["claude", "codex", "gemini"])
+    @pytest.mark.parametrize("primary", ["claude", "codex", "gemini", "antigravity"])
     def test_all_three_adapters_in_cross_table(self, runner, primary):
         """Cross-adapter table in every brief lists all three adapters."""
         with runner.isolated_filesystem():
             briefs = self._full_lifecycle(runner, primary)
             for adapter, content in briefs.items():
-                for listed in ["claude", "codex", "gemini"]:
+                for listed in ["claude", "codex", "gemini", "antigravity"]:
                     assert listed in content, \
                         f"{adapter} brief missing '{listed}' from cross-adapter table"
 
-    @pytest.mark.parametrize("primary", ["claude", "codex", "gemini"])
+    @pytest.mark.parametrize("primary", ["claude", "codex", "gemini", "antigravity"])
     def test_all_root_files_present(self, runner, primary):
         with runner.isolated_filesystem():
             self._full_lifecycle(runner, primary)
@@ -279,7 +299,7 @@ class TestBriefContentAssertions:
         """Harness identity block must mention .ai/AgentFactory.md in every brief."""
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init"])
-            for adapter in ["claude", "codex", "gemini"]:
+            for adapter in ["claude", "codex", "gemini", "antigravity"]:
                 content = _read_brief(adapter)
                 assert "AgentFactory.md" in content, \
                     f"AgentFactory.md reference missing from {adapter} brief"
@@ -287,7 +307,7 @@ class TestBriefContentAssertions:
     def test_all_briefs_have_rules_section(self, runner):
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init"])
-            for adapter in ["claude", "codex", "gemini"]:
+            for adapter in ["claude", "codex", "gemini", "antigravity"]:
                 content = _read_brief(adapter)
                 assert "## Behavior Rules" in content, \
                     f"## Behavior Rules missing from {adapter} brief"
@@ -302,7 +322,7 @@ class TestBriefContentAssertions:
             af.write_text("## Overview\n\nTest project description.\n\n" + original,
                           encoding="utf-8")
             runner.invoke(cli, ["brief"])
-            for adapter in ["claude", "codex", "gemini"]:
+            for adapter in ["claude", "codex", "gemini", "antigravity"]:
                 content = _read_brief(adapter)
                 harness_pos = content.find("## Harness")
                 context_pos = content.find("## Project Context")
@@ -390,22 +410,26 @@ _PROBE_PROMPT = (
 )
 
 # Best-effort CLI flags per agent. Users should verify for their installed version.
+# Note: Gemini CLI was retired 2026-06-18; Antigravity CLI (binary: agy) is its
+# successor. The gemini entry stays for environments that still have it installed.
 _CLI_INVOCATION = {
-    "claude": ["claude", "--print", _PROBE_PROMPT],
-    "codex":  ["codex",  "exec", "--skip-git-repo-check", _PROBE_PROMPT],
-    "gemini": ["gemini", "--prompt", _PROBE_PROMPT],
+    "claude":      ["claude", "--print", _PROBE_PROMPT],
+    "codex":       ["codex",  "exec", "--skip-git-repo-check", _PROBE_PROMPT],
+    "gemini":      ["gemini", "--prompt", _PROBE_PROMPT],
+    "antigravity": ["agy", "-p", _PROBE_PROMPT],
 }
 
 # Keywords that a well-briefed agent should mention.
 _EXPECTED_KEYWORDS = {
-    "claude": [".ai"],
-    "codex":  [".ai"],
-    "gemini": [".ai"],
+    "claude":      [".ai"],
+    "codex":       [".ai"],
+    "gemini":      [".ai"],
+    "antigravity": [".ai"],
 }
 
 
 @pytest.mark.live
-@pytest.mark.parametrize("adapter", ["claude", "codex", "gemini"])
+@pytest.mark.parametrize("adapter", ["claude", "codex", "gemini", "antigravity"])
 def test_live_agent_acknowledges_harness(adapter, runner, tmp_path):
     """
     Invoke the real CLI agent in a fresh project and assert it acknowledges the
@@ -413,8 +437,9 @@ def test_live_agent_acknowledges_harness(adapter, runner, tmp_path):
 
     Skipped automatically when the CLI is not installed.
     """
-    if not shutil.which(adapter):
-        pytest.skip(f"{adapter} CLI not installed")
+    binary = _CLI_INVOCATION[adapter][0]
+    if not shutil.which(binary):
+        pytest.skip(f"{adapter} CLI ('{binary}') not installed")
 
     proj = tmp_path / "live_proj"
     proj.mkdir()
@@ -436,8 +461,22 @@ def test_live_agent_acknowledges_harness(adapter, runner, tmp_path):
         capture_output=True,
         text=True,
         timeout=120,
+        stdin=subprocess.DEVNULL,  # codex 0.142+ blocks on stdin otherwise
     )
     response = (proc.stdout + proc.stderr).lower()
+
+    # Provider-side failures (quota, outage, product retirement) say nothing about
+    # the harness brief — skip instead of failing. agy in particular returns
+    # exit 0 with no output at all when quota is exhausted.
+    if not response.strip():
+        pytest.skip(f"{adapter} CLI returned an empty response (quota/outage?) — cannot verify")
+    provider_errors = [
+        "usage limit", "quota", "resource_exhausted", "rate limit",
+        "no longer supported", "unsupported_client",
+    ]
+    hit = next((m for m in provider_errors if m in response), None)
+    if hit:
+        pytest.skip(f"{adapter} CLI unavailable ('{hit}' in response) — cannot verify")
 
     missing = [kw for kw in _EXPECTED_KEYWORDS[adapter] if kw.lower() not in response]
     assert not missing, (

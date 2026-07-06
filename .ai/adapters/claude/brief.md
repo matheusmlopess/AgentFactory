@@ -27,6 +27,7 @@ All adapter briefs (same project, different CLI):
   claude   CLAUDE.md            → .ai/adapters/claude/brief.md ← YOU ARE HERE
   codex    AGENTS.md / CODEX.md → .ai/adapters/codex/brief.md
   gemini   GEMINI.md            → .ai/adapters/gemini/brief.md
+  antigravity AGENTS.md            → .ai/adapters/antigravity/brief.md
 
 If switching CLI: run `agentfactory-gen brief` to recompile all active adapter briefs.
 

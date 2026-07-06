@@ -1,1 +1,1 @@
-.ai/adapters/codex/brief.md
+.ai/adapters/antigravity/brief.md
