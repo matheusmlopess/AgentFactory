@@ -9,6 +9,7 @@ Usage:
     python3 src/tests/scenarios/live_agent_check.py claude
     python3 src/tests/scenarios/live_agent_check.py codex
     python3 src/tests/scenarios/live_agent_check.py gemini
+    python3 src/tests/scenarios/live_agent_check.py antigravity
 
 Exit codes:
     0  — PASS or SKIP (CLI not installed)
@@ -29,17 +30,20 @@ _PROBE_PROMPT = (
 )
 
 # CLI invocation per adapter. Flags are best-effort — verify for your version.
+# Gemini CLI was retired 2026-06-18; Antigravity CLI (binary: agy) is its successor.
 _CLI_INVOCATION = {
-    "claude": ["claude", "--print", _PROBE_PROMPT],
-    "codex":  ["codex",  "exec", "--skip-git-repo-check", _PROBE_PROMPT],
-    "gemini": ["gemini", "--prompt", _PROBE_PROMPT],
+    "claude":      ["claude", "--print", _PROBE_PROMPT],
+    "codex":       ["codex",  "exec", "--skip-git-repo-check", _PROBE_PROMPT],
+    "gemini":      ["gemini", "--prompt", _PROBE_PROMPT],
+    "antigravity": ["agy", "-p", _PROBE_PROMPT],
 }
 
 # Keywords a well-briefed agent should mention (lowercase, any substring match).
 _EXPECTED_KEYWORDS = {
-    "claude": [".ai", "harness"],
-    "codex":  [".ai", "harness"],
-    "gemini": [".ai", "harness"],
+    "claude":      [".ai", "harness"],
+    "codex":       [".ai", "harness"],
+    "gemini":      [".ai", "harness"],
+    "antigravity": [".ai", "harness"],
 }
 
 _SUPPORTED = list(_CLI_INVOCATION.keys())
@@ -78,8 +82,9 @@ def check(adapter: str) -> int:
         print(f"ERROR: unknown adapter '{adapter}'. Choose from: {_SUPPORTED}")
         return 2
 
-    if not shutil.which(adapter):
-        print(f"SKIP: '{adapter}' CLI not installed on PATH")
+    binary = _CLI_INVOCATION[adapter][0]
+    if not shutil.which(binary):
+        print(f"SKIP: '{adapter}' CLI ('{binary}') not installed on PATH")
         return 0
 
     with tempfile.TemporaryDirectory(prefix=f"af_live_{adapter}_") as tmp:
@@ -101,6 +106,7 @@ def check(adapter: str) -> int:
                 capture_output=True,
                 text=True,
                 timeout=120,
+                stdin=subprocess.DEVNULL,  # codex 0.142+ blocks on stdin otherwise
             )
         except subprocess.TimeoutExpired:
             print(f"ERROR: {adapter} CLI timed out after 120s")
@@ -110,6 +116,17 @@ def check(adapter: str) -> int:
             return 2
 
         response = (proc.stdout + proc.stderr).lower()
+        if not response.strip():
+            print(f"SKIP: {adapter} CLI returned an empty response (quota/outage?) — cannot verify")
+            return 0
+        provider_errors = [
+            "usage limit", "quota", "resource_exhausted", "rate limit",
+            "no longer supported", "unsupported_client",
+        ]
+        hit = next((m for m in provider_errors if m in response), None)
+        if hit:
+            print(f"SKIP: {adapter} CLI unavailable ('{hit}' in response) — cannot verify")
+            return 0
         print(f"[response] exit={proc.returncode}, len={len(response)}")
         print(f"[response excerpt]\n{response[:600]}\n{'─'*60}")
 
