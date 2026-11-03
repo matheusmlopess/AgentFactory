@@ -470,11 +470,8 @@ def test_live_agent_acknowledges_harness(adapter, runner, tmp_path):
     # exit 0 with no output at all when quota is exhausted.
     if not response.strip():
         pytest.skip(f"{adapter} CLI returned an empty response (quota/outage?) — cannot verify")
-    provider_errors = [
-        "usage limit", "quota", "resource_exhausted", "rate limit",
-        "no longer supported", "unsupported_client",
-    ]
-    hit = next((m for m in provider_errors if m in response), None)
+    from agent_gen.orchestrate.runners import PROVIDER_ERROR_MARKERS
+    hit = next((m for m in PROVIDER_ERROR_MARKERS if m in response), None)
     if hit:
         pytest.skip(f"{adapter} CLI unavailable ('{hit}' in response) — cannot verify")
 
