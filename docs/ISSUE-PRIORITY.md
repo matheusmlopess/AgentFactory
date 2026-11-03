@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-11-03 20:34 UTC -->
-<!-- open-issues: 39 -->
+<!-- generated: 2026-11-03 20:41 UTC -->
+<!-- open-issues: 35 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
@@ -15,7 +15,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   │  Harness / CLI   │                                             │
   │  Webapp / UI     │                                             │
   │  Platform Core   │                                             │
-  │  Platform Upper  │  #133  #134  #135  #136  #137  #138  #139  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #179│
+  │  Platform Upper  │  #137  #138  #139  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #179│
   └──────────────────┴───────────────────────────────────────────┘
 ```
 
@@ -24,10 +24,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Depends on                Unblocks                  Title
   ──────  ────────────────────────  ────────────────────────  ────────────────────────────────────────
-  #133    —                         —                         bug(cli): --version flag not defined on root 
-  #134    —                         —                         bug+enhancement(cli): SKILL.md frontmatter no
-  #135    —                         —                         bug(cli): import --project-root resolves conf
-  #136    —                         —                         enhancement(cli): wrap --out flag undiscovera
   #137    —                         —                         enhancement(cli): add agentfactory-gen status
   #138    —                         —                         enhancement(cli): add agentfactory-gen upgrad
   #139    —                         #178                      enhancement(cli): promote skill-completeness-
@@ -72,10 +68,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Effort    Track             Unblocks              Title
   ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #133    ?         Platform Upper    —                     bug(cli): --version flag not defined on root 
-  #134    ?         Platform Upper    —                     bug+enhancement(cli): SKILL.md frontmatter no
-  #135    ?         Platform Upper    —                     bug(cli): import --project-root resolves conf
-  #136    ?         Platform Upper    —                     enhancement(cli): wrap --out flag undiscovera
   #137    ?         Platform Upper    —                     enhancement(cli): add agentfactory-gen status
   #138    ?         Platform Upper    —                     enhancement(cli): add agentfactory-gen upgrad
   #139    ?         Platform Upper    #178                  enhancement(cli): promote skill-completeness-
@@ -141,5 +133,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-11-03 20:34 UTC by `generate-priority-report.py`._
+_Generated 2026-11-03 20:41 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
