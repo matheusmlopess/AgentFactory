@@ -1,19 +1,56 @@
 # Changelog
-<!-- version: 2.8.0 -->
+<!-- version: 2.9.0 -->
 
 ## [Unreleased]
 
-### Fixed (orchestrate)
-- Steps run with the project root as working directory, so `orchestrate run --project-root X` runs
-  shell and agent steps inside `X` instead of the caller's current directory.
-- Contract policies `default_remediation`, `max_retries` and `timeout_seconds` now fill in any step
-  field the workflow leaves out (they were never read before).
-- `max_retries` counts retries after the first attempt: `remediation: retry` with the default
-  `max_retries: 1` now retries once (it retried zero times).
-- Nested-run depth (`AGENTFACTORY_ORCH_DEPTH`) is passed to child processes instead of being
-  written into the parent's `os.environ`.
+## [v0.4.0] - 2026-11-03
+
+First PyPI release since 0.3.1. From now on the package version lives only in `pyproject.toml`;
+the `v2.x` sections below were internal milestone tags (never published to PyPI) and their changes
+ship in 0.4.0 as well.
+
+### Added
+- **Orchestration (PR1 of 4)**: `agentfactory-gen orchestrate init|list|validate|run` runs CLI agents
+  (claude, codex, agy, nested harness) through workflows under a project contract
+  (`.ai/config/orchestration.json`), with remediation policies, `expects` checks and evidence in
+  `.ai/memory/orchestration-runs/`. Sequential mode; DAG/checkpoint and delegation follow (#183).
+- **Antigravity CLI (`agy`) adapter** alongside Gemini CLI, with a retrofit profile (#181).
+- **`agentfactory-gen export <name>`** — patch a locally-modified agent back to its
+  source-of-truth git repo (the inverse of `import`). Clones the source, applies this
+  project's `.ai/agents/<name>/` over the agent's location (auto-detected `agent/`
+  subpath or repo root), commits on `agentfactory/export-<name>`, pushes, and opens a PR.
+  - `--git URL` (default: the source recorded at import) · `--subpath` · `--branch` ·
+    `-m/--message` · `--no-push` (writes a `.patch`) · `--no-pr`.
+  - `import` now records the source (`{"git": url}` / `{"registry": slug}`) in the agent
+    manifest so `export` defaults to it.
+  - `--git` accepts local paths / `file://` (offline + testable).
+- `agentfactory-gen publish` and `import --from-registry` (#82, #129).
+- Completeness oracle extended to preamble truncation in compiled briefs (#126).
+- `security-review` agent: reusable skill + CLI assessment (#131).
+- Codex and Gemini adapter study docs (#174).
+- `oracle` extra (`pip install agentfactory-gen[oracle]`) for the oracle's API backend.
+
+### Changed
+- **Claude subscription is the default for the completeness oracle**: `skill-completeness-check.py` (v2.1.0),
+  `brief --check-completeness`, the preamble oracle and `harness-doctor.sh` run Claude through the Claude Code CLI
+  (`claude -p`) with your subscription login or `CLAUDE_CODE_OAUTH_TOKEN`. `ANTHROPIC_API_KEY` is now an optional
+  fallback (`--claude-backend api` / `AGENTFACTORY_CLAUDE_BACKEND=api`) and is stripped from the CLI's environment
+  so subscription runs are never billed to the API. New `--check-access` flag.
+- Oracle models are aliases (`haiku` default, `sonnet`, `opus`) that resolve to the Claude 5 family on the API.
+- `settings.local.json.example` no longer puts `ANTHROPIC_API_KEY` in Claude Code's `env`: that setting switches
+  Claude Code from the subscription to API billing.
+- Gemini adapter follows the 2026 Agent Skills open standard: `.gemini/tools/` → `.gemini/skills/` (#177).
+- `--version`, `agent_gen.__version__` and the API's OpenAPI version all read the package version.
+- `release.yml` refuses a tag that does not equal `v` + the pyproject version or that has no
+  CHANGELOG section, and runs the unit tests with the coverage gate before publishing.
+- `pytest` skips `live` tests by default (`addopts = -m 'not live'`); run them with `pytest -m live`.
+- `.venv/` is no longer tracked in git (#184); CI pins `ruff>=0.15,<0.16`.
+- The Claude adapter's `settings.json` no longer carries keys Claude Code ignores
+  (`default_model`, `theme`, …).
 
 ### Security
+- Wave 2 (#177): executable-content gate on `import` (`--allow-scripts`), `--project-root`
+  validation, SHA-256 verification for registry imports, atomic manifest writes.
 - Agent and skill names (bundle manifests, `skill-manifest.json`/SKILL.md, CLI arguments) must be a
   single safe path component (`[A-Za-z0-9][A-Za-z0-9._-]{0,63}`, no `..`) and must resolve inside
   their target directory. Previously a crafted name could make `import`/`import-skill` delete or
@@ -24,14 +61,6 @@
   go through the same review gate as `scripts/`.
 - `.gitignore` now covers orchestrate evidence (`.ai/memory/orchestration-runs/`),
   `.ai/config/user.json` (license key) and `*.json.lock`.
-
-### Fixed
-- `import --dry-run` prints its preview without first asking to confirm executable scripts (#179).
-- `import --from-git` accepts an existing local directory (cloned via `file://`) (#179).
-- `migrate` swaps the staged copy in atomically and restores the original if the swap fails;
-  before, a failed move after `rmtree` could lose the agent directory.
-
-### Security (API)
 - **Breaking:** `POST /v1/validate` no longer trusts the key prefix (`pro_…`, `enterprise_…` were accepted
   for any suffix). Keys are random (`afk_…`), issued with `agentfactory-api keys add --plan <plan>`,
   stored only as sha256 hashes in a new `license_keys` table, and revocable with
@@ -45,26 +74,23 @@
   auto-reload; previously always `0.0.0.0` with reload) and `keys add|revoke`.
 - API tests skip cleanly when the `[api]` extra is not installed.
 
-### Added
-- **`agentfactory-gen export <name>`** — patch a locally-modified agent back to its
-  source-of-truth git repo (the inverse of `import`). Clones the source, applies this
-  project's `.ai/agents/<name>/` over the agent's location (auto-detected `agent/`
-  subpath or repo root), commits on `agentfactory/export-<name>`, pushes, and opens a PR.
-  - `--git URL` (default: the source recorded at import) · `--subpath` · `--branch` ·
-    `-m/--message` · `--no-push` (writes a `.patch`) · `--no-pr`.
-  - `import` now records the source (`{"git": url}` / `{"registry": slug}`) in the agent
-    manifest so `export` defaults to it.
-  - `--git` accepts local paths / `file://` (offline + testable).
-
-### Changed
-- **Claude subscription is the default for the completeness oracle**: `skill-completeness-check.py` (v2.1.0),
-  `brief --check-completeness`, the preamble oracle and `harness-doctor.sh` run Claude through the Claude Code CLI
-  (`claude -p`) with your subscription login or `CLAUDE_CODE_OAUTH_TOKEN`. `ANTHROPIC_API_KEY` is now an optional
-  fallback (`--claude-backend api` / `AGENTFACTORY_CLAUDE_BACKEND=api`) and is stripped from the CLI's environment
-  so subscription runs are never billed to the API. New `--check-access` flag.
-- Oracle models are aliases (`haiku` default, `sonnet`, `opus`) that resolve to the Claude 5 family on the API.
-- `settings.local.json.example` no longer puts `ANTHROPIC_API_KEY` in Claude Code's `env`: that setting switches
-  Claude Code from the subscription to API billing.
+### Fixed
+- Wave 1 (#175): `audit` syncs untracked files before failing, `--version` flag, SKILL.md
+  frontmatter parsing on `import-skill`, `import --project-root` conflict check, `wrap --out` discoverability.
+- `import --dry-run` prints its preview without first asking to confirm executable scripts (#179).
+- `import --from-git` accepts an existing local directory (cloned via `file://`) (#179).
+- `migrate` swaps the staged copy in atomically and restores the original if the swap fails;
+  before, a failed move after `rmtree` could lose the agent directory.
+- Steps run with the project root as working directory, so `orchestrate run --project-root X` runs
+  shell and agent steps inside `X` instead of the caller's current directory.
+- Contract policies `default_remediation`, `max_retries` and `timeout_seconds` now fill in any step
+  field the workflow leaves out (they were never read before).
+- `max_retries` counts retries after the first attempt: `remediation: retry` with the default
+  `max_retries: 1` now retries once (it retried zero times).
+- Nested-run depth (`AGENTFACTORY_ORCH_DEPTH`) is passed to child processes instead of being
+  written into the parent's `os.environ`.
+- Messages that pointed to non-existent commands or options (`sync`, `retrofit --profile`,
+  `agentfactory-gen login`, the old `agent-gen` name).
 
 ## [v2.8.0] - 2026-04-22
 

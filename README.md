@@ -1,14 +1,15 @@
 # AgentFactory
-<!-- version: 2.9.0 -->
+<!-- version: 2.10.0 -->
 
 A Python CLI (`agentfactory-gen`) for building, packaging, and deploying AI agents
 as portable, framework-agnostic units. The web platform lives at
 [agentfactory-webapp](https://github.com/matheusmlopess/agentfactory-webapp) (private).
 
 AgentFactory provides a **Unified AI Harness** — a single `.ai/` directory that lets
-Claude, Codex, and Gemini work on the same project simultaneously, each reading a
-compiled brief tailored to their format while sharing the same skills, rules, and
-agent manifest.
+Claude Code, Codex, Antigravity (`agy`) and Gemini work on the same project simultaneously,
+each reading a compiled brief tailored to their format while sharing the same skills, rules,
+and agent manifest. `agentfactory-gen orchestrate` runs those CLI agents together through
+workflows (sequential today; DAG, checkpoint and delegation are planned).
 
 ---
 
@@ -22,6 +23,7 @@ project/
 ├── .claude    → .ai/adapters/claude/
 ├── .codex     → .ai/adapters/codex/
 ├── .gemini    → .ai/adapters/gemini/
+├── .agents   → .ai/adapters/antigravity/        ← Antigravity also reads AGENTS.md
 └── .ai/
     ├── AgentFactory.md          ← master compiled brief (preamble + registries + rules + commands)
     ├── agent-manifest.json      ← global agent registry
@@ -108,7 +110,7 @@ agentfactory-gen brief
 agentfactory-gen init                              # scaffold .ai/ harness + root symlinks
 agentfactory-gen init --project-root <path>        # target a different directory
 
-agentfactory-gen adapter add <name>                # activate a CLI adapter (claude/codex/gemini)
+agentfactory-gen adapter add <name>                # activate a CLI adapter (claude/codex/antigravity/gemini)
 agentfactory-gen adapter add <name> \
   --check-completeness                             # also run skill completeness gate
 agentfactory-gen adapter add <name> --strict       # exit non-zero if any skill fails threshold
@@ -134,6 +136,21 @@ agentfactory-gen publish <name>              # upload wrapped agent to public re
 agentfactory-gen publish <name> --version <v> --tag <t>  # override version and add tags
 agentfactory-gen uninstall <name>            # remove agent cleanly
 ```
+
+### Orchestration
+
+```bash
+agentfactory-gen orchestrate init                        # contract (.ai/config/orchestration.json) + example workflow
+agentfactory-gen orchestrate list                        # workflows in the project and in deployed agents
+agentfactory-gen orchestrate validate <workflow>         # check a workflow against the contract
+agentfactory-gen orchestrate run <workflow> --dry-run    # print steps without executing
+agentfactory-gen orchestrate run <workflow> --json       # run; RunResult as JSON (for nesting)
+```
+
+Steps run inside `--project-root`; evidence is written to `.ai/memory/orchestration-runs/`.
+`claude` steps use your Claude subscription (API key variables are stripped); set
+`AGENTFACTORY_CLAUDE_BACKEND=api` to use `ANTHROPIC_API_KEY` instead.
+Design and roadmap: [`docs/DECISIONS-ORCHESTRATION.md`](docs/DECISIONS-ORCHESTRATION.md).
 
 ### Skills
 
@@ -302,12 +319,21 @@ result in the harness.
 
 | Trigger | Workflow | What runs |
 |---------|----------|-----------|
-| Push / PR (any branch) | `ci.yml` | ruff lint → pytest (3.11 + 3.12) → coverage ≥ 80% → harness-doctor |
+| Push / PR to `main` | `ci.yml` | ruff lint → pytest (3.11 + 3.12) → coverage ≥ 80% → harness-doctor |
 | Push / PR (SKILL.md changed) | `skill-completeness.yml` | two-phase completeness oracle per skill |
-| Push to `dev` / `main` | `issue-tracker.yml` | regenerate `docs/ISSUE-PRIORITY.md` |
-| `git tag v*` | `release.yml` | build wheel + sdist → GitHub Release → PyPI |
+| Push to `main` | `issue-tracker.yml` | regenerate `docs/ISSUE-PRIORITY.md` |
+| `git tag v*` | `release.yml` | tag must equal `v` + pyproject version and have a CHANGELOG section → tests → build → GitHub Release → PyPI |
 
-Branch protection on `dev` requires **Tests + Coverage** to pass before merge.
+`main` is the only long-lived branch. PRs from stacked branches get CI once they target `main`.
+
+### Versioning
+
+- The **package version** lives only in `pyproject.toml` (`agentfactory-gen --version`,
+  `agent_gen.__version__` and the API version read it). PyPI releases: 0.3.1 → **0.4.0**.
+- `<!-- version: X.Y.Z -->` markers at the top of Markdown files are **document versions**
+  (bumped when that file changes), not the package version.
+- Tags `v2.0.0`–`v2.8.0` were internal milestone tags from April 2026; they were never
+  published to PyPI.
 
 ---
 

@@ -10,9 +10,29 @@ permissions:
   id-token: write       # needed for PyPI OIDC trusted publishing
 
 jobs:
-  integration-test:
-    name: Integration Tests (pre-release gate)
+  version-check:
+    name: Tag matches pyproject version
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare tag with [project].version and CHANGELOG
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::Tag $TAG does not match pyproject version $VERSION (expected v$VERSION)."
+            exit 1
+          fi
+          if ! grep -q "^## \[$TAG\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$TAG]' section for the release notes."
+            exit 1
+          fi
+
+  tests:
+    name: Tests (pre-release gate)
+    runs-on: ubuntu-latest
+    needs: version-check
 
     steps:
       - uses: actions/checkout@v4
@@ -22,15 +42,18 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,api]"
 
-      - name: Run integration stress tests
+      - name: Unit tests with coverage gate
+        run: pytest -m "not integration and not live" --cov=agent_gen --cov-fail-under=80
+
+      - name: Integration stress tests
         run: pytest -m integration -v --no-cov
 
   build:
     name: Build distribution
     runs-on: ubuntu-latest
-    needs: integration-test
+    needs: tests
 
     steps:
       - uses: actions/checkout@v4
@@ -104,4 +127,4 @@ jobs:
           path: dist/
 
       - name: Publish to PyPI (OIDC trusted publishing)
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3

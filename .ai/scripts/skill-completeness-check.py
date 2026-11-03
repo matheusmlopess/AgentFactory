@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # skill-completeness-check.py — Semantic completeness checker for SKILL.md files
-# <!-- version: 2.1.0 -->
+# <!-- version: 2.1.1 -->
 #
 # Usage:
 #   python3 .ai/scripts/skill-completeness-check.py [options]
@@ -323,7 +323,7 @@ def require_plan(minimum: str) -> None:
     key = os.environ.get("AGENTFACTORY_LICENSE_KEY") or _read_local_key()
     if not key:
         print(f"\033[31m✗\033[0m This feature requires a {minimum} plan.")
-        print("  Set AGENTFACTORY_LICENSE_KEY or run: agentfactory-gen login")
+        print('  Set AGENTFACTORY_LICENSE_KEY or store {"license_key": "..."} in .ai/config/user.json')
         print("  Upgrade at https://agentfactory.dev/upgrade")
         sys.exit(3)
 
@@ -344,7 +344,6 @@ def require_plan(minimum: str) -> None:
 
     print(f"\033[31m✗\033[0m Valid {minimum} license key required.")
     print("  Upgrade at https://agentfactory.dev/upgrade")
-    print("  Run: agentfactory-gen login")
     sys.exit(3)
 
 

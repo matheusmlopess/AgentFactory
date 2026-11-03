@@ -45,7 +45,7 @@ jobs:
         run: pip install -e ".[dev,api]"
 
       - name: Run tests with coverage
-        run: pytest -m "not integration" --cov=agent_gen --cov-report=term-missing --cov-fail-under=80
+        run: pytest -m "not integration and not live" --cov=agent_gen --cov-report=term-missing --cov-fail-under=80
 
   integration-test:
     name: Integration Tests

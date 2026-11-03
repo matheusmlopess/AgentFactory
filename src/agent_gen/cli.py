@@ -1,4 +1,4 @@
-"""agent-gen CLI — deploy, wrap, import."""
+"""agentfactory-gen CLI — init, deploy, import, wrap, publish, orchestrate."""
 
 import json
 import os
@@ -12,6 +12,7 @@ from pathlib import Path
 
 import click
 
+from . import __version__
 from .librarian import (
     TRACKED_DIRS, HARNESS_ROOT, MANIFEST_FILE, CONTEXT_FILE,
     Librarian, _FORMAT_REGISTRY, _inspect_zip, validate_name,
@@ -272,7 +273,7 @@ def _attach_auth_header(req) -> None:
 # ---------------------------------------------------------------------------
 
 @click.group()
-@click.version_option(package_name="agentfactory-gen")
+@click.version_option(__version__, prog_name="agentfactory-gen")
 @click.option("--quiet", "-q", is_flag=True, default=False, help="Suppress informational output.")
 @click.pass_context
 def cli(ctx: click.Context, quiet: bool):
@@ -583,7 +584,7 @@ def audit(name: str, fix: bool):
     if report["untracked_files"]:
         _echo("[librarian] ! Untracked files (exist on disk but not yet in manifest):")
         for p in report["untracked_files"]:
-            _echo(f"  - {p} (run 'agentfactory-gen wrap {name}', 'sync', or 'audit --fix' to register)")
+            _echo(f"  - {p} (run 'agentfactory-gen audit {name} --fix' to register)")
 
     if report["missing_skill_manifests"]:
         _echo("[librarian] ! Missing skill-manifest.json in skill directories:")
@@ -640,7 +641,7 @@ def wrap(name: str, out: str, print_path: bool):
 
     if report["broken_resources"] or report["broken_dependencies"] or report.get("invalid_skill_manifests"):
         _echo("[librarian] Audit failed — fix broken paths, dependencies, or invalid skill manifests before wrapping.", err=True)
-        _echo(f"[librarian] Run 'agent-gen audit {name}' for details.", err=True)
+        _echo(f"[librarian] Run 'agentfactory-gen audit {name}' for details.", err=True)
         sys.exit(1)
 
     _echo("[librarian] Audit passed.")
@@ -734,7 +735,7 @@ def retrofit(path: str, yes: bool):
     if len(all_profiles) > 1:
         _echo(
             f"[librarian] Warning: multiple profiles matched: {all_profiles}. "
-            f"Using '{profile}' — pass --profile to override.",
+            f"Using '{profile}'; review the proposed mapping below before confirming.",
             err=True,
         )
     _echo("[librarian] Proposed Mapping:")
