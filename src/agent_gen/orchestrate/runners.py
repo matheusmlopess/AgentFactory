@@ -29,6 +29,10 @@ PROVIDER_ERROR_MARKERS = [
 ]
 
 
+# Nested-orchestration depth, passed to child processes (never set in our own environment).
+DEPTH_ENV = "AGENTFACTORY_ORCH_DEPTH"
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -36,8 +40,16 @@ def _now() -> str:
 class ShellRunner:
     """Execute a shell step. Timeout maps to exit code 124 (POSIX)."""
 
-    def __init__(self, dry_run: bool = False):
+    def __init__(self, dry_run: bool = False, cwd: str | None = None,
+                 env_overrides: dict[str, str] | None = None):
         self.dry_run = dry_run
+        self.cwd = cwd
+        self.env_overrides = env_overrides or {}
+
+    def _child_env(self) -> dict | None:
+        if not self.env_overrides:
+            return None
+        return {**os.environ, **self.env_overrides}
 
     def run(self, step: WorkflowStep, command: str, attempt: int = 1) -> Evidence:
         timestamp = _now()
@@ -50,7 +62,7 @@ class ShellRunner:
         try:
             result = subprocess.run(
                 command, shell=True, capture_output=True, text=True,
-                timeout=step.timeout_seconds,
+                timeout=step.timeout_seconds, cwd=self.cwd, env=self._child_env(),
             )
             return Evidence(
                 step_id=step.id, command=command, exit_code=result.returncode,
@@ -76,11 +88,14 @@ class CliAgentRunner:
     keeps them).
     """
 
-    def __init__(self, name: str, spec: dict, policies: dict, dry_run: bool = False):
+    def __init__(self, name: str, spec: dict, policies: dict, dry_run: bool = False,
+                 cwd: str | None = None, env_overrides: dict[str, str] | None = None):
         self.name = name
         self.spec = spec
         self.policies = policies
         self.dry_run = dry_run
+        self.cwd = cwd
+        self.env_overrides = env_overrides or {}
 
     def _build_command(self, prompt: str) -> list[str]:
         return [
@@ -91,9 +106,13 @@ class CliAgentRunner:
     def _child_env(self) -> dict | None:
         """Environment for the agent process, or None to inherit unchanged."""
         unset = self.spec.get("env_unset") or []
-        if not unset or os.environ.get("AGENTFACTORY_CLAUDE_BACKEND", "").strip().lower() == "api":
+        if os.environ.get("AGENTFACTORY_CLAUDE_BACKEND", "").strip().lower() == "api":
+            unset = []
+        if not unset and not self.env_overrides:
             return None
-        return {k: v for k, v in os.environ.items() if k not in unset}
+        env = {k: v for k, v in os.environ.items() if k not in unset}
+        env.update(self.env_overrides)
+        return env
 
     def run(self, step: WorkflowStep, prompt: str, attempt: int = 1) -> Evidence:
         timestamp = _now()
@@ -111,7 +130,7 @@ class CliAgentRunner:
         try:
             result = subprocess.run(
                 cmd, capture_output=True, text=True,
-                timeout=step.timeout_seconds, stdin=stdin, env=self._child_env(),
+                timeout=step.timeout_seconds, stdin=stdin, env=self._child_env(), cwd=self.cwd,
             )
         except subprocess.TimeoutExpired:
             return Evidence(

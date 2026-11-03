@@ -36,11 +36,19 @@ class BaseExecutor:
         contract: OrchestrationContract,
         dry_run: bool = False,
         sink=None,
+        cwd: str | None = None,
+        env_overrides: dict[str, str] | None = None,
     ):
         self.contract = contract
         self.dry_run = dry_run
         self.sink = sink or NullSink()
-        self._shell = ShellRunner(dry_run=dry_run)
+        self.cwd = cwd
+        self.env_overrides = env_overrides or {}
+        self._shell = ShellRunner(dry_run=dry_run, cwd=cwd, env_overrides=self.env_overrides)
+
+    def _apply_policies(self, workflow: Workflow) -> None:
+        for step in workflow.steps:
+            step.apply_policy_defaults(self.contract.policies)
 
     # -- to be provided by subclasses ---------------------------------------
 
@@ -69,7 +77,10 @@ class BaseExecutor:
         elif step.type == "agent":
             agent_name = step.agent or self.contract.default_agent
             spec = self.contract.agent_spec(agent_name)
-            runner = CliAgentRunner(agent_name, spec, policies, dry_run=self.dry_run)
+            runner = CliAgentRunner(
+                agent_name, spec, policies, dry_run=self.dry_run,
+                cwd=self.cwd, env_overrides=self.env_overrides,
+            )
             prompt = step.render_prompt(evidence_by_step)
             ev = runner.run(step, prompt, attempt=attempt)
         else:  # delegate — planning happens in the executor loop, not here
@@ -129,6 +140,7 @@ class SequentialExecutor(BaseExecutor):
             workflow_id=workflow.workflow_id,
             mode="sequential",
         )
+        self._apply_policies(workflow)
         evidence_by_step: dict[str, Evidence] = {}
         remediation_round = 0
         max_rounds = self.contract.policies.get("max_remediation_rounds", 2)
@@ -169,7 +181,8 @@ class SequentialExecutor(BaseExecutor):
 
             if policy == "retry":
                 recovered = False
-                for attempt in range(2, step.max_retries + 1):
+                # max_retries counts retries after the first attempt.
+                for attempt in range(2, step.max_retries + 2):
                     ev = self._execute_step(step, evidence_by_step, attempt=attempt)
                     result.evidence.append(ev)
                     evidence_by_step[step.id] = ev

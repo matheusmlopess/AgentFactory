@@ -38,7 +38,7 @@ from .models import (
     load_workflow,
     validate_workflow_data,
 )
-from .runners import PROVIDER_ERROR_MARKERS, CliAgentRunner, ShellRunner
+from .runners import DEPTH_ENV, PROVIDER_ERROR_MARKERS, CliAgentRunner, ShellRunner
 
 __all__ = [
     "CONTRACT_RELPATH",
@@ -65,7 +65,7 @@ __all__ = [
 ]
 
 # Nested-orchestration guard: each harness-in-harness level increments this.
-_DEPTH_ENV = "AGENTFACTORY_ORCH_DEPTH"
+_DEPTH_ENV = DEPTH_ENV
 
 
 def run_workflow(
@@ -95,11 +95,13 @@ def run_workflow(
         else NullSink()
     )
 
-    executor = executor_cls(contract, dry_run=dry_run, sink=sink)
-    os.environ[_DEPTH_ENV] = str(depth + 1)
-    try:
-        result = executor.run(wf)
-    finally:
-        os.environ[_DEPTH_ENV] = str(depth)
+    # Steps run inside the project, and child processes (nested harness runs) see the
+    # next depth through their own environment; this process's environment is untouched.
+    executor = executor_cls(
+        contract, dry_run=dry_run, sink=sink,
+        cwd=str(Path(project_root).resolve()),
+        env_overrides={_DEPTH_ENV: str(depth + 1)},
+    )
+    result = executor.run(wf)
     result.mode = resolved_mode
     return result

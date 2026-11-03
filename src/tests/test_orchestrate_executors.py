@@ -89,7 +89,7 @@ class TestRemediationPolicies:
         result = run_workflow(wf, project_root=orch_project)
         assert result.statuses["bad"] == "failed"
         attempts = [e.attempt for e in result.evidence if e.step_id == "bad"]
-        assert attempts == [1, 2]
+        assert attempts == [1, 2, 3]  # first attempt + max_retries=2 retries
 
 
 class TestExpectsAndPolicies:
@@ -179,3 +179,53 @@ class TestModeSelection:
             assert result.ok
         finally:
             _EXECUTOR_REGISTRY.pop("echo-mode", None)
+
+
+class TestContractPoliciesAndProjectRoot:
+    """Contract policies fill step defaults; steps run inside project_root (fixes #183 review)."""
+
+    def _from_dict(self, steps):
+        return Workflow.from_dict({"name": "p", "mode": "sequential", "steps": steps})
+
+    def test_steps_run_in_project_root_not_caller_cwd(self, orch_project, tmp_path, monkeypatch):
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)
+        wf = self._from_dict([{"id": "where", "type": "shell", "command": "pwd"}])
+        result = run_workflow(wf, project_root=orch_project)
+        assert result.ok
+        assert result.evidence[0].stdout.strip() == str(orch_project.resolve())
+
+    def test_policy_defaults_apply_to_unset_fields(self, orch_project):
+        contract = orch_project / ".ai" / "config" / "orchestration.json"
+        data = json.loads(contract.read_text()) if contract.exists() else {}
+        data.setdefault("policies", {}).update(
+            {"default_remediation": "retry", "max_retries": 2, "timeout_seconds": 7}
+        )
+        contract.parent.mkdir(parents=True, exist_ok=True)
+        contract.write_text(json.dumps(data))
+        wf = self._from_dict([
+            {"id": "bad", "type": "shell", "command": "exit 1"},
+            {"id": "own", "type": "shell", "command": "true", "timeout_seconds": 3,
+             "remediation": "skip", "max_retries": 0},
+        ])
+        result = run_workflow(wf, project_root=orch_project)
+        bad, own = wf.steps
+        assert (bad.remediation, bad.max_retries, bad.timeout_seconds) == ("retry", 2, 7)
+        assert (own.remediation, own.max_retries, own.timeout_seconds) == ("skip", 0, 3)
+        assert [e.attempt for e in result.evidence if e.step_id == "bad"] == [1, 2, 3]
+
+    def test_code_built_steps_keep_their_values(self, orch_project):
+        step = _shell("x", "true")
+        run_workflow(_wf(step), project_root=orch_project)
+        assert (step.remediation, step.max_retries, step.timeout_seconds) == ("escalate", 1, 60)
+
+    def test_depth_passed_to_children_without_touching_own_env(self, orch_project, monkeypatch):
+        import os
+        monkeypatch.delenv("AGENTFACTORY_ORCH_DEPTH", raising=False)
+        wf = self._from_dict([
+            {"id": "d", "type": "shell", "command": "echo depth=$AGENTFACTORY_ORCH_DEPTH"},
+        ])
+        result = run_workflow(wf, project_root=orch_project)
+        assert result.evidence[0].stdout.strip() == "depth=1"
+        assert "AGENTFACTORY_ORCH_DEPTH" not in os.environ
