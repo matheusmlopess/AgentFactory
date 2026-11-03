@@ -1,9 +1,10 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-11-03 20:46 UTC -->
-<!-- open-issues: 35 -->
+<!-- generated: 2026-11-03 21:00 UTC -->
+<!-- open-issues: 45 -->
 
-Living priority matrix — regenerated automatically on every merge to `dev`.
+Living priority matrix — regenerated automatically on every push to `main`.
+Priority and effort come from the `p0`–`p3` and `size:S|M|L` labels.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
 
 ## Track Overview
@@ -12,10 +13,10 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ┌──────────────────┬───────────────────────────────────────────┐
   │  Track           │  Issues                                    │
   ├──────────────────┼───────────────────────────────────────────┤
-  │  Harness / CLI   │                                             │
+  │  Harness / CLI   │  #137  #138  #139  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #179  #189  #190  #191  #194  #195  #196  #197  #198│
   │  Webapp / UI     │                                             │
-  │  Platform Core   │                                             │
-  │  Platform Upper  │  #137  #138  #139  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #179│
+  │  Platform Core   │  #192  #193                                 │
+  │  Platform Upper  │                                             │
   └──────────────────┴───────────────────────────────────────────┘
 ```
 
@@ -59,6 +60,16 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #173    —                         —                         [Gemini] Tracking issue for Gemini adapter al
   #178    #139                      —                         Umbrella(cli): SKILL.md frontmatter parsing +
   #179    —                         —                         Umbrella(cli): agent import fidelity & ergono
+  #189    —                         —                         refactor(librarian): split librarian.py and s
+  #190    —                         —                         refactor(cli): split cli.py per command group
+  #191    —                         —                         ci: type checking, formatting, dependency and
+  #192    —                         —                         api: production readiness (database, containe
+  #193    —                         —                         feat(api): registry router for publish / fetc
+  #194    —                         —                         feat(orchestrate): load and write the canonic
+  #195    —                         —                         feat(orchestrate): DAG and checkpoint executi
+  #196    —                         —                         feat(orchestrate): delegate steps and nested 
+  #197    —                         —                         feat(orchestrate): workflows in Portable Unit
+  #198    —                         —                         fix(brief): agent registry links point to doc
 ```
 
 ## Priority Waves
@@ -66,50 +77,60 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ### Wave 1 — Start now — no blockers
 
 ```
-  #       Effort    Track             Unblocks              Title
-  ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #137    ?         Platform Upper    —                     enhancement(cli): add agentfactory-gen status
-  #138    ?         Platform Upper    —                     enhancement(cli): add agentfactory-gen upgrad
-  #139    ?         Platform Upper    #178                  enhancement(cli): promote skill-completeness-
-  #144    ?         Platform Upper    —                     security(import): no checksum or signature ve
-  #145    ?         Platform Upper    —                     Skill creation pipeline: 10 CLI gaps discover
-  #146    ?         Platform Upper    —                     enhancement(cli): import atomicity + safety o
-  #147    ?         Platform Upper    —                     enhancement(cli): warn when skill version unc
-  #148    ?         Platform Upper    —                     enhancement(cli): add create-skill command wi
-  #149    ?         Platform Upper    —                     enhancement(cli): add test-skill smoke-test r
-  #150    ?         Platform Upper    —                     [Codex] Align Codex retrofit naming with CODE
-  #151    ?         Platform Upper    —                     [Codex] Add collision and recovery coverage f
-  #152    ?         Platform Upper    —                     [Codex] Teach harness doctor to validate code
-  #153    ?         Platform Upper    —                     [Codex] Add codex skills symlink to harness d
-  #154    ?         Platform Upper    —                     [Codex] Document AgentFactory prompt mapping 
-  #155    ?         Platform Upper    —                     [Codex] Add project-local .mcp.json awareness
-  #156    ?         Platform Upper    —                     [Codex] Document and inventory global ~/.code
-  #157    ?         Platform Upper    —                     [Codex] Expose global ~/.codex skills and rul
-  #158    ?         Platform Upper    —                     [Codex] Add plugin inventory awareness to Cod
-  #159    ?         Platform Upper    —                     [Codex] Define AgentFactory mapping model for
-  #160    ?         Platform Upper    —                     [Codex] Expand harness doctor to cover manage
-  #161    ?         Platform Upper    —                     [Codex] Broaden Codex retrofit profile to mat
-  #162    ?         Platform Upper    —                     [Codex] Reconcile historical harness-init rep
-  #163    ?         Platform Upper    —                     [Codex] Add Codex edge-case tests for MCP, .c
-  #164    ?         Platform Upper    —                     [Codex] Add live Codex environment verificati
-  #165    ?         Platform Upper    —                     [Gemini] Add canonical .gemini/skills support
-  #166    ?         Platform Upper    —                     [Gemini] Move Gemini canonical config from co
-  #167    ?         Platform Upper    —                     [Gemini] Generate Gemini-native .toml slash c
-  #168    ?         Platform Upper    —                     [Gemini] Project mcpServers from .mcp.json in
-  #169    ?         Platform Upper    —                     [Gemini] Update harness doctor to validate th
-  #170    ?         Platform Upper    —                     [Gemini] Align Gemini retrofit, generation, a
-  #171    ?         Platform Upper    —                     [Gemini] Update Gemini docs and tests to the 
-  #172    ?         Platform Upper    —                     [Codex] Tracking issue for Codex adapter alig
-  #173    ?         Platform Upper    —                     [Gemini] Tracking issue for Gemini adapter al
-  #179    ?         Platform Upper    —                     Umbrella(cli): agent import fidelity & ergono
+  #       Pri  Effort    Track             Unblocks              Title
+  ──────  ───  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
+  #144    p1   medium    Harness / CLI     —                     security(import): no checksum or signature ve
+  #146    p1   medium    Harness / CLI     —                     enhancement(cli): import atomicity + safety o
+  #179    p1   large     Harness / CLI     —                     Umbrella(cli): agent import fidelity & ergono
+  #137    p2   medium    Harness / CLI     —                     enhancement(cli): add agentfactory-gen status
+  #138    p2   large     Harness / CLI     —                     enhancement(cli): add agentfactory-gen upgrad
+  #139    p2   medium    Harness / CLI     #178                  enhancement(cli): promote skill-completeness-
+  #145    p2   large     Harness / CLI     —                     Skill creation pipeline: 10 CLI gaps discover
+  #147    p2   small     Harness / CLI     —                     enhancement(cli): warn when skill version unc
+  #148    p2   medium    Harness / CLI     —                     enhancement(cli): add create-skill command wi
+  #149    p2   medium    Harness / CLI     —                     enhancement(cli): add test-skill smoke-test r
+  #150    p2   small     Harness / CLI     —                     [Codex] Align Codex retrofit naming with CODE
+  #151    p2   medium    Harness / CLI     —                     [Codex] Add collision and recovery coverage f
+  #155    p2   medium    Harness / CLI     —                     [Codex] Add project-local .mcp.json awareness
+  #160    p2   medium    Harness / CLI     —                     [Codex] Expand harness doctor to cover manage
+  #161    p2   medium    Harness / CLI     —                     [Codex] Broaden Codex retrofit profile to mat
+  #163    p2   medium    Harness / CLI     —                     [Codex] Add Codex edge-case tests for MCP, .c
+  #189    p2   large     Harness / CLI     —                     refactor(librarian): split librarian.py and s
+  #190    p2   large     Harness / CLI     —                     refactor(cli): split cli.py per command group
+  #191    p2   medium    Harness / CLI     —                     ci: type checking, formatting, dependency and
+  #192    p2   medium    Platform Core     —                     api: production readiness (database, containe
+  #193    p2   large     Platform Core     —                     feat(api): registry router for publish / fetc
+  #194    p2   medium    Harness / CLI     —                     feat(orchestrate): load and write the canonic
+  #195    p2   large     Harness / CLI     —                     feat(orchestrate): DAG and checkpoint executi
+  #196    p2   large     Harness / CLI     —                     feat(orchestrate): delegate steps and nested 
+  #197    p2   medium    Harness / CLI     —                     feat(orchestrate): workflows in Portable Unit
+  #152    p3   small     Harness / CLI     —                     [Codex] Teach harness doctor to validate code
+  #153    p3   small     Harness / CLI     —                     [Codex] Add codex skills symlink to harness d
+  #154    p3   small     Harness / CLI     —                     [Codex] Document AgentFactory prompt mapping 
+  #156    p3   small     Harness / CLI     —                     [Codex] Document and inventory global ~/.code
+  #157    p3   small     Harness / CLI     —                     [Codex] Expose global ~/.codex skills and rul
+  #158    p3   medium    Harness / CLI     —                     [Codex] Add plugin inventory awareness to Cod
+  #159    p3   medium    Harness / CLI     —                     [Codex] Define AgentFactory mapping model for
+  #162    p3   small     Harness / CLI     —                     [Codex] Reconcile historical harness-init rep
+  #164    p3   medium    Harness / CLI     —                     [Codex] Add live Codex environment verificati
+  #165    p3   medium    Harness / CLI     —                     [Gemini] Add canonical .gemini/skills support
+  #166    p3   medium    Harness / CLI     —                     [Gemini] Move Gemini canonical config from co
+  #167    p3   medium    Harness / CLI     —                     [Gemini] Generate Gemini-native .toml slash c
+  #168    p3   medium    Harness / CLI     —                     [Gemini] Project mcpServers from .mcp.json in
+  #169    p3   medium    Harness / CLI     —                     [Gemini] Update harness doctor to validate th
+  #170    p3   medium    Harness / CLI     —                     [Gemini] Align Gemini retrofit, generation, a
+  #171    p3   medium    Harness / CLI     —                     [Gemini] Update Gemini docs and tests to the 
+  #172    p3   small     Harness / CLI     —                     [Codex] Tracking issue for Codex adapter alig
+  #173    p3   medium    Harness / CLI     —                     [Gemini] Tracking issue for Gemini adapter al
+  #198    p3   small     Harness / CLI     —                     fix(brief): agent registry links point to doc
 ```
 
 ### Wave 2 — After Wave 1
 
 ```
-  #       Effort    Track             Unblocks              Title
-  ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #178    ?         Platform Upper    —                     Umbrella(cli): SKILL.md frontmatter parsing +
+  #       Pri  Effort    Track             Unblocks              Title
+  ──────  ───  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
+  #178    p2   large     Harness / CLI     —                     Umbrella(cli): SKILL.md frontmatter parsing +
 ```
 
 ## Cross-Track Dependencies
@@ -133,5 +154,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-11-03 20:46 UTC by `generate-priority-report.py`._
+_Generated 2026-11-03 21:00 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_

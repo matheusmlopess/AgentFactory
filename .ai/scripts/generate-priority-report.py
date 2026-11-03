@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # generate-priority-report.py — Issue Priority & Dependency Report Generator
-# <!-- version: 1.0.0 -->
+# <!-- version: 1.1.0 -->
 #
 # Fetches all open GitHub issues, categorises them into tracks,
 # resolves a full dependency graph, computes priority waves, and
@@ -67,11 +67,32 @@ EFFORT: dict[int, str] = {
 HARNESS_NUMBERS: set[int] = {96, 100, 101, 102, 103}
 WEBAPP_NUMBERS:  set[int] = {78, 79, 80, 83, 88, 104, 105}
 
+# Labels drive classification since 2026-11-03: p0-p3 (priority), size:S|M|L (effort)
+# and area labels (track). The number-based tables above remain for historical issues.
+_HARNESS_LABELS = {"harness", "cli", "agents", "audit", "testing", "security", "orchestrate",
+                   "refactor", "ci"}
+_SIZE_EFFORT = {"size:S": "small", "size:M": "medium", "size:L": "large"}
+_PRIORITIES = ("p0", "p1", "p2", "p3")
+
+
+def effort_of(number: int, labels: list[str]) -> str:
+    for label in labels:
+        if label in _SIZE_EFFORT:
+            return _SIZE_EFFORT[label]
+    return EFFORT.get(number, "?")
+
+
+def priority_of(labels: list[str]) -> str:
+    return next((p for p in _PRIORITIES if p in labels), "—")
+
+
 def classify_track(number: int, title: str, labels: list[str]) -> str:
-    if number in HARNESS_NUMBERS:
+    if number in HARNESS_NUMBERS or _HARNESS_LABELS & set(labels):
         return "harness"
-    if number in WEBAPP_NUMBERS:
+    if number in WEBAPP_NUMBERS or {"webapp", "frontend"} & set(labels):
         return "webapp"
+    if {"registry", "billing"} & set(labels):
+        return "platform-core"
     p = re.search(r"\[P(\d)\]", title)
     p_level = int(p.group(1)) if p else 0
     if "platform" in labels:
@@ -194,7 +215,8 @@ def render_report(issues: list[dict]) -> str:
         f"<!-- generated: {now} -->",
         f"<!-- open-issues: {open_count} -->",
         "",
-        "Living priority matrix — regenerated automatically on every merge to `dev`.",
+        "Living priority matrix — regenerated automatically on every push to `main`.",
+        "Priority and effort come from the `p0`–`p3` and `size:S|M|L` labels.",
         "Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`",
         "",
     ]
@@ -251,25 +273,29 @@ def render_report(issues: list[dict]) -> str:
     lines += ["## Priority Waves", ""]
     max_wave = max(waves.values()) if waves else 1
     for wave in range(1, max_wave + 1):
-        wave_issues = sorted(n for n, w in waves.items() if w == wave)
+        wave_issues = sorted(
+            (n for n, w in waves.items() if w == wave),
+            key=lambda n: (priority_of(label_map.get(n, [])), n),
+        )
         wave_label = {1: "Start now — no blockers", 2: "After Wave 1",
                       3: "After Wave 2", 4: "Monetisation ceiling"}.get(wave, f"Wave {wave}")
         lines += [
             f"### Wave {wave} — {wave_label}",
             "",
             "```",
-            f"  {'#':<6}  {'Effort':<8}  {'Track':<16}  {'Unblocks':<20}  Title",
-            f"  {'─'*6}  {'─'*8}  {'─'*16}  {'─'*20}  {'─'*40}",
+            f"  {'#':<6}  {'Pri':<3}  {'Effort':<8}  {'Track':<16}  {'Unblocks':<20}  Title",
+            f"  {'─'*6}  {'─'*3}  {'─'*8}  {'─'*16}  {'─'*20}  {'─'*40}",
         ]
         for n in wave_issues:
-            effort   = EFFORT.get(n, "?")
+            effort   = effort_of(n, label_map[n])
+            pri      = priority_of(label_map[n])
             track    = classify_track(n, title_map[n], label_map[n])
             unblocks = compute_unblocks(graph, n)
             unb_str  = " ".join(f"#{u}" for u in unblocks[:4]) or "—"
             if len(unblocks) > 4:
                 unb_str += " …"
             title = title_map[n][:45]
-            lines.append(f"  #{n:<5}  {effort:<8}  {TRACK_LABEL[track]:<16}  {unb_str:<20}  {title}")
+            lines.append(f"  #{n:<5}  {pri:<3}  {effort:<8}  {TRACK_LABEL[track]:<16}  {unb_str:<20}  {title}")
         lines += ["```", ""]
 
     # ── Cross-track callouts ──────────────────────────────────────────
