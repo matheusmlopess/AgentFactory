@@ -14,7 +14,7 @@ import click
 
 from .librarian import (
     TRACKED_DIRS, HARNESS_ROOT, MANIFEST_FILE, CONTEXT_FILE,
-    Librarian, _FORMAT_REGISTRY, _inspect_zip,
+    Librarian, _FORMAT_REGISTRY, _inspect_zip, validate_name,
 )
 
 REGISTRY_URL = os.environ.get("AGENTFACTORY_REGISTRY_URL", "https://agentfactory.dev")
@@ -24,7 +24,24 @@ REGISTRY_URL = os.environ.get("AGENTFACTORY_REGISTRY_URL", "https://agentfactory
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _require_safe_url(url: str, what: str) -> str:
+    """Allow https anywhere and http only for localhost; never file:, ftp: or others."""
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    local = parsed.hostname in ("localhost", "127.0.0.1", "::1")
+    if parsed.scheme == "https" or (parsed.scheme == "http" and local):
+        return url
+    raise click.ClickException(
+        f"Refusing {what} '{url}': only https:// (or http://localhost) is allowed."
+    )
+
+
 def _agent_root(name: str) -> Path:
+    try:
+        validate_name(name, "agent")
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
     new = Path.cwd() / HARNESS_ROOT / "agents" / name
     legacy = Path.cwd() / "agents" / name
     # Backward-compat: fall back to legacy path if .ai/agents/ doesn't exist yet
@@ -40,6 +57,11 @@ def _clone_and_prepare(url: str) -> tuple[str, object]:
     Returns:
         (zip_path_str, cleanup_fn) — caller must call cleanup_fn() after import.
     """
+    # A local checkout is accepted as a file:// URL (#179 gap 2).
+    local = Path(url).expanduser()
+    if "://" not in url and not url.startswith("git@") and local.is_dir():
+        url = local.resolve().as_uri()
+
     # Derive agent name from URL and sanitize (#S4)
     name = url.rstrip("/").split("/")[-1]
     if name.endswith(".git"):
@@ -53,10 +75,11 @@ def _clone_and_prepare(url: str) -> tuple[str, object]:
 
     try:
         # Validate URL scheme before passing to subprocess (#58)
-        allowed_schemes = ("https://", "http://", "git@", "ssh://", "git://")
+        allowed_schemes = ("https://", "http://", "git@", "ssh://", "git://", "file://")
         if not any(url.startswith(s) for s in allowed_schemes):
             raise click.ClickException(
                 f"Invalid git URL '{url}'. Must start with one of: {', '.join(allowed_schemes)}"
+                " (or be an existing local directory)"
             )
 
         _echo(f"[librarian] Cloning {url} ...")
@@ -182,6 +205,7 @@ def _registry_publish(manifest: dict, zip_path: Path) -> dict:
     ]
     body = b"".join(parts)
 
+    _require_safe_url(REGISTRY_URL, "registry URL")
     req = urllib.request.Request(
         f"{REGISTRY_URL}/registry/publish", data=body, method="POST"
     )
@@ -209,6 +233,7 @@ def _registry_fetch(slug: str) -> tuple[dict, bytes]:
     name, _, version = slug.partition("@")
     path = f"/registry/{name}/{version}" if version else f"/registry/{name}"
 
+    _require_safe_url(REGISTRY_URL, "registry URL")
     req = urllib.request.Request(f"{REGISTRY_URL}{path}", method="GET")
     _attach_auth_header(req)
 
@@ -225,6 +250,7 @@ def _registry_fetch(slug: str) -> tuple[dict, bytes]:
     zip_url = entry.get("zip_url")
     if not zip_url:
         raise click.ClickException(f"Registry response missing 'zip_url' for '{slug}'.")
+    _require_safe_url(zip_url, "download URL")
 
     try:
         with urllib.request.urlopen(zip_url, timeout=60) as resp:
@@ -947,25 +973,15 @@ def import_agent(
         with zf.open("agent-manifest.json") as mf:
             peeked = json.load(mf)
 
-    name = peeked["name"]
+    try:
+        name = validate_name(peeked.get("name"), "agent")
+    except ValueError as exc:
+        if _cleanup:
+            _cleanup()
+        raise click.ClickException(f"Invalid bundle: {exc}") from exc
     # Resolve target_root against project_root, not CWD (#135)
     project_path = Path(project_root).resolve()
     target_root = project_path / HARNESS_ROOT / "agents" / name
-
-    # --- Scripts gate (#142 + shebang extension) ---
-    if info["executable_files"] and not allow_scripts:
-        _echo(
-            f"[librarian] ⚠  This agent includes {len(info['executable_files'])} "
-            "executable script(s):"
-        )
-        for s in info["executable_files"]:
-            _echo(f"  {s}")
-        _echo("[librarian] Review these files before allowing execution.")
-        if not click.confirm("Proceed with import?", default=False):
-            _echo("[librarian] Import cancelled.")
-            if _cleanup:
-                _cleanup()
-            sys.exit(0)
 
     # --- Dry-run: print preview and exit (#140 / #146) ---
     if dry_run:
@@ -983,6 +999,21 @@ def import_agent(
         if _cleanup:
             _cleanup()
         sys.exit(0)
+
+    # --- Scripts gate (#142 + shebang extension) ---
+    if info["executable_files"] and not allow_scripts:
+        _echo(
+            f"[librarian] ⚠  This agent includes {len(info['executable_files'])} "
+            "executable script(s):"
+        )
+        for s in info["executable_files"]:
+            _echo(f"  {s}")
+        _echo("[librarian] Review these files before allowing execution.")
+        if not click.confirm("Proceed with import?", default=False):
+            _echo("[librarian] Import cancelled.")
+            if _cleanup:
+                _cleanup()
+            sys.exit(0)
 
     if target_root.exists():
         _echo(
