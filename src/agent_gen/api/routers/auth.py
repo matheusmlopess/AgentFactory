@@ -4,7 +4,9 @@ Implements the contract from docs/FEATURE-AUTH.md §6.
 """
 import os
 import secrets
+import time
 import uuid
+from urllib.parse import urlencode
 from datetime import datetime, timezone
 
 import httpx
@@ -25,9 +27,26 @@ _GITHUB_REDIRECT_URI  = os.environ.get(
 )
 _WEBAPP_URL = os.environ.get("WEBAPP_URL", "http://localhost:5173")
 
-# In-memory CSRF state store — fine for single process.
-# Replace with Redis when running multiple API replicas.
-_pending_states: dict[str, bool] = {}
+# In-memory CSRF state store: state -> expiry (epoch seconds). Fine for a single process;
+# replace with Redis when running multiple API replicas. Entries expire and the store is
+# capped, so unauthenticated /auth/github calls cannot grow it without bound.
+_STATE_TTL_SECONDS = 600
+_MAX_PENDING_STATES = 10_000
+_pending_states: dict[str, float] = {}
+
+
+def _remember_state(state: str) -> None:
+    now = time.time()
+    for key in [k for k, exp in _pending_states.items() if exp <= now]:
+        del _pending_states[key]
+    while len(_pending_states) >= _MAX_PENDING_STATES:
+        del _pending_states[next(iter(_pending_states))]  # oldest first (insertion order)
+    _pending_states[state] = now + _STATE_TTL_SECONDS
+
+
+def _consume_state(state: str) -> bool:
+    expiry = _pending_states.pop(state, None)
+    return expiry is not None and expiry > time.time()
 
 
 @router.get("/github")
@@ -39,15 +58,14 @@ def github_login() -> RedirectResponse:
             detail="GitHub OAuth not configured (GITHUB_CLIENT_ID not set)",
         )
     state = secrets.token_urlsafe(32)
-    _pending_states[state] = True
-    url = (
-        "https://github.com/login/oauth/authorize"
-        f"?client_id={_GITHUB_CLIENT_ID}"
-        f"&redirect_uri={_GITHUB_REDIRECT_URI}"
-        f"&scope=read:user,user:email"
-        f"&state={state}"
-    )
-    return RedirectResponse(url=url)
+    _remember_state(state)
+    query = urlencode({
+        "client_id": _GITHUB_CLIENT_ID,
+        "redirect_uri": _GITHUB_REDIRECT_URI,
+        "scope": "read:user user:email",
+        "state": state,
+    })
+    return RedirectResponse(url=f"https://github.com/login/oauth/authorize?{query}")
 
 
 @router.get("/github/callback")
@@ -57,7 +75,7 @@ def github_callback(code: str, state: str, response: Response) -> RedirectRespon
     Exchanges code for access_token, upserts User, issues JWT session cookie.
     """
     # CSRF validation
-    if not _pending_states.pop(state, False):
+    if not _consume_state(state):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OAuth state")
 
     # Exchange code for access_token
@@ -72,6 +90,8 @@ def github_callback(code: str, state: str, response: Response) -> RedirectRespon
         headers={"Accept": "application/json"},
         timeout=10,
     )
+    if token_resp.status_code != 200:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="GitHub token exchange failed")
     token_data = token_resp.json()
     access_token = token_data.get("access_token")
     if not access_token:

@@ -8,6 +8,8 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: "sqlite:///./data/agentfactory.db"
+      # Development stack: allows the example JWT_SECRET. Remove for production.
+      AGENTFACTORY_ENV: "dev"
       CORS_ORIGINS: "http://localhost:5173,http://localhost:4173"
     volumes:
       - ./src:/app/src:ro

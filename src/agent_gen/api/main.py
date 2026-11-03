@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import init_db
+from .jwt_utils import check_config
 from .routers import auth, license
 
 _CORS_ORIGINS = [
@@ -18,6 +19,7 @@ _CORS_ORIGINS = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    check_config()
     init_db()
     yield
 
@@ -50,6 +52,58 @@ def health() -> dict:
 
 
 def run() -> None:
-    """Entry point for `agentfactory-api` CLI command."""
-    import uvicorn
-    uvicorn.run("agent_gen.api.main:app", host="0.0.0.0", port=8000, reload=True)
+    """Entry point for the `agentfactory-api` command (see `agentfactory-api --help`)."""
+    _cli()
+
+
+def _build_cli():
+    import click
+
+    @click.group(invoke_without_command=True)
+    @click.pass_context
+    def cli(ctx: click.Context) -> None:
+        """AgentFactory API server and admin commands. With no command: `serve`."""
+        if ctx.invoked_subcommand is None:
+            ctx.invoke(serve)
+
+    @cli.command()
+    @click.option("--host", default="127.0.0.1", show_default=True)
+    @click.option("--port", default=8000, show_default=True, type=int)
+    @click.option("--dev", is_flag=True, help="Auto-reload on code changes (development only).")
+    def serve(host: str, port: int, dev: bool) -> None:
+        """Run the API with uvicorn."""
+        import uvicorn
+
+        check_config()
+        uvicorn.run("agent_gen.api.main:app", host=host, port=port, reload=dev)
+
+    @cli.group()
+    def keys() -> None:
+        """Issue and revoke license keys (stored hashed in the database)."""
+
+    @keys.command("add")
+    @click.option("--plan", required=True, type=click.Choice(["free", "pro", "team", "enterprise"]))
+    @click.option("--user-id", default=None, help="Optional users.id the key belongs to.")
+    def keys_add(plan: str, user_id: str | None) -> None:
+        """Create a key and print it once; only its hash is stored."""
+        from .db import issue_license_key
+
+        init_db()
+        click.echo(issue_license_key(plan, user_id))
+
+    @keys.command("revoke")
+    @click.argument("key")
+    def keys_revoke(key: str) -> None:
+        """Revoke an issued key."""
+        from .db import revoke_license_key
+
+        init_db()
+        if not revoke_license_key(key):
+            raise click.ClickException("No active key matches.")
+        click.echo("revoked")
+
+    return cli
+
+
+def _cli() -> None:
+    _build_cli()()

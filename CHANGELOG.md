@@ -21,6 +21,20 @@
 - `migrate` swaps the staged copy in atomically and restores the original if the swap fails;
   before, a failed move after `rmtree` could lose the agent directory.
 
+### Security (API)
+- **Breaking:** `POST /v1/validate` no longer trusts the key prefix (`pro_…`, `enterprise_…` were accepted
+  for any suffix). Keys are random (`afk_…`), issued with `agentfactory-api keys add --plan <plan>`,
+  stored only as sha256 hashes in a new `license_keys` table, and revocable with
+  `agentfactory-api keys revoke <key>`.
+- The API refuses to start when `JWT_SECRET` is missing, shorter than 32 characters or a known
+  placeholder, unless `AGENTFACTORY_ENV=dev|test` (the dev `docker-compose.yml` sets it). The secret
+  is read at call time instead of import time.
+- GitHub OAuth: pending `state` values expire after 10 minutes and the store is capped; the
+  authorize URL is URL-encoded; a non-200 token exchange returns 502 instead of parsing the body.
+- `agentfactory-api` is now a command group: `serve` (default; binds 127.0.0.1, `--dev` for
+  auto-reload; previously always `0.0.0.0` with reload) and `keys add|revoke`.
+- API tests skip cleanly when the `[api]` extra is not installed.
+
 ### Added
 - **`agentfactory-gen export <name>`** — patch a locally-modified agent back to its
   source-of-truth git repo (the inverse of `import`). Clones the source, applies this
