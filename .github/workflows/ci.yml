@@ -18,7 +18,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install ruff
-        run: pip install ruff
+        run: pip install "ruff>=0.15,<0.16"  # 0.16 changed default rules; bump deliberately
 
       - name: Run ruff
         run: ruff check src/
