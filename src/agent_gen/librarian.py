@@ -29,6 +29,31 @@ def _safe_extract(zf: zipfile.ZipFile, target_dir: Path) -> None:
         zf.extract(member, target_dir)
 
 
+# Agent and skill names become directory names under .ai/agents/ and skills/.
+# They come from untrusted sources (bundle manifests, SKILL.md frontmatter, CLI args),
+# so they must never carry path separators, "..", or absolute paths.
+_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
+
+def validate_name(name: object, kind: str = "agent") -> str:
+    """Return *name* if it is a safe single path component, else raise ValueError."""
+    if not isinstance(name, str) or not _NAME_RE.fullmatch(name) or ".." in name:
+        raise ValueError(
+            f"Invalid {kind} name {name!r}: use 1-64 letters, digits, '.', '_' or '-', "
+            "starting with a letter or digit."
+        )
+    return name
+
+
+def safe_child(base: Path, name: object, kind: str = "agent") -> Path:
+    """Join a validated *name* onto *base* and confirm the result stays inside *base*."""
+    validate_name(name, kind)
+    child = base / name
+    if not child.resolve().is_relative_to(base.resolve()):
+        raise ValueError(f"{kind} name {name!r} resolves outside {base}")
+    return child
+
+
 def _sanitize_for_markdown(text: object) -> str:
     """
     Strip prompt-injection vectors before embedding text in AI-readable markdown.
@@ -113,6 +138,18 @@ def _atomic_write_json(path: Path, data: dict) -> None:
         raise
 
 
+def _workflow_has_shell_steps(raw: bytes) -> bool:
+    """True when a .workflow.json declares any shell step (or cannot be parsed: assume yes)."""
+    try:
+        data = json.loads(raw.decode("utf-8"))
+        return any(
+            isinstance(step, dict) and step.get("type", "shell") == "shell"  # models.py default
+            for step in data.get("steps", [])
+        )
+    except (ValueError, AttributeError, UnicodeDecodeError):
+        return True
+
+
 def _inspect_zip(zip_path: Path) -> dict:
     """Inspect a ZIP's contents without extracting anything to disk.
 
@@ -121,6 +158,7 @@ def _inspect_zip(zip_path: Path) -> dict:
         names            — list of all member filenames
         scripts          — list of members under scripts/ that are files (path-prefix)
         executable_files — scripts/ members + shebang-detected files in commands/ and orchestration/
+                           + orchestration workflows that declare shell steps
         structure_ok     — bool, has agent-manifest.json + at least one tracked dir
     """
     _SHEBANG_DIRS = frozenset(("commands", "orchestration"))
@@ -134,7 +172,11 @@ def _inspect_zip(zip_path: Path) -> dict:
             if prefix in _SHEBANG_DIRS:
                 try:
                     with zf.open(n) as member:
-                        if member.read(2) == b"#!":
+                        head = member.read(2)
+                        if head == b"#!":
+                            shebang_files.append(n)
+                        elif n.endswith(".workflow.json") and _workflow_has_shell_steps(head + member.read()):
+                            # Workflow shell steps run through `orchestrate run` (shell=True).
                             shebang_files.append(n)
                 except Exception:
                     pass
@@ -624,14 +666,24 @@ class Librarian:
                             dest_path.parent.mkdir(parents=True, exist_ok=True)
                             shutil.move(str(src_path), str(dest_path))
 
-                # 3. If everything succeeds, swap the staging directory with the original
-                shutil.rmtree(self.agent_root)
-                shutil.move(str(staging_path), str(self.agent_root))
-
             except Exception as exc:
-                # Rollback is automatic since we operated on the staging copy.
-                # The original agent_root is left untouched.
+                # Nothing outside the staging copy has been touched yet.
                 raise RuntimeError(f"Migration failed and was safely rolled back. Reason: {exc}")
+
+            # 3. Swap: move the original aside, move staging in, then drop the original.
+            # If the move-in fails, the original is put back, so the agent is never lost.
+            backup = self.agent_root.with_name(f".{self.agent_root.name}.pre-migrate")
+            if backup.exists():
+                shutil.rmtree(backup)
+            os.replace(self.agent_root, backup)
+            try:
+                shutil.move(str(staging_path), str(self.agent_root))
+            except Exception as exc:
+                if self.agent_root.exists():
+                    shutil.rmtree(self.agent_root, ignore_errors=True)
+                os.replace(backup, self.agent_root)
+                raise RuntimeError(f"Migration failed and was safely rolled back. Reason: {exc}")
+            shutil.rmtree(backup, ignore_errors=True)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -1105,7 +1157,7 @@ class Librarian:
                 raise ValueError("skill-manifest.json must contain a 'name' field.")
 
             skill_name = skill_data["name"]
-            target_dir = self.agent_root / "skills" / skill_name
+            target_dir = safe_child(self.agent_root / "skills", skill_name, "skill")
 
             # Ensure skills directory exists
             target_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -1167,7 +1219,7 @@ class Librarian:
                 raise ValueError("skill-manifest.json must contain a 'name' field.")
 
             skill_name = skill_data["name"]
-            target_dir = target_root / "skills" / skill_name
+            target_dir = safe_child(target_root / "skills", skill_name, "skill")
             target_dir.parent.mkdir(parents=True, exist_ok=True)
 
             if target_dir.exists():

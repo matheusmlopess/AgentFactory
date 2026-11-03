@@ -37,3 +37,11 @@ data/
 .ai/adapters/*/logs/
 .ai/adapters/*/sessions/
 .ai/adapters/*/context/
+
+# Runtime state that must never be committed
+# - orchestrate evidence (full agent stdout/stderr)
+.ai/memory/orchestration-runs/
+# - holds the license key
+.ai/config/user.json
+# - filelock files from manifest writes
+*.json.lock

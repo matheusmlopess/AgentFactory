@@ -3,6 +3,24 @@
 
 ## [Unreleased]
 
+### Security
+- Agent and skill names (bundle manifests, `skill-manifest.json`/SKILL.md, CLI arguments) must be a
+  single safe path component (`[A-Za-z0-9][A-Za-z0-9._-]{0,63}`, no `..`) and must resolve inside
+  their target directory. Previously a crafted name could make `import`/`import-skill` delete or
+  overwrite directories outside `.ai/`.
+- Registry: `AGENTFACTORY_REGISTRY_URL` and the `zip_url` returned by the registry must be `https://`
+  (or `http://localhost`); `file:` and other schemes are refused.
+- `import` treats orchestration workflows that declare shell steps as executable content, so they
+  go through the same review gate as `scripts/`.
+- `.gitignore` now covers orchestrate evidence (`.ai/memory/orchestration-runs/`),
+  `.ai/config/user.json` (license key) and `*.json.lock`.
+
+### Fixed
+- `import --dry-run` prints its preview without first asking to confirm executable scripts (#179).
+- `import --from-git` accepts an existing local directory (cloned via `file://`) (#179).
+- `migrate` swaps the staged copy in atomically and restores the original if the swap fails;
+  before, a failed move after `rmtree` could lose the agent directory.
+
 ### Added
 - **`agentfactory-gen export <name>`** — patch a locally-modified agent back to its
   source-of-truth git repo (the inverse of `import`). Clones the source, applies this
