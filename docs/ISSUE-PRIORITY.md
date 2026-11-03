@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-05-18 19:20 UTC -->
-<!-- open-issues: 39 -->
+<!-- generated: 2026-11-03 20:19 UTC -->
+<!-- open-issues: 41 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
@@ -15,7 +15,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   │  Harness / CLI   │                                             │
   │  Webapp / UI     │                                             │
   │  Platform Core   │                                             │
-  │  Platform Upper  │  #133  #134  #135  #136  #137  #138  #139  #142  #143  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173│
+  │  Platform Upper  │  #133  #134  #135  #136  #137  #138  #139  #142  #143  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #179│
   └──────────────────┴───────────────────────────────────────────┘
 ```
 
@@ -30,7 +30,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #136    —                         —                         enhancement(cli): wrap --out flag undiscovera
   #137    —                         —                         enhancement(cli): add agentfactory-gen status
   #138    —                         —                         enhancement(cli): add agentfactory-gen upgrad
-  #139    —                         —                         enhancement(cli): promote skill-completeness-
+  #139    —                         #178                      enhancement(cli): promote skill-completeness-
   #142    —                         —                         security(import): scripts/ in imported agents
   #143    —                         —                         security(cli): --project-root accepts path tr
   #144    —                         —                         security(import): no checksum or signature ve
@@ -63,6 +63,8 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #171    —                         —                         [Gemini] Update Gemini docs and tests to the 
   #172    —                         —                         [Codex] Tracking issue for Codex adapter alig
   #173    —                         —                         [Gemini] Tracking issue for Gemini adapter al
+  #178    #139                      —                         Umbrella(cli): SKILL.md frontmatter parsing +
+  #179    —                         —                         Umbrella(cli): agent import fidelity & ergono
 ```
 
 ## Priority Waves
@@ -78,7 +80,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #136    ?         Platform Upper    —                     enhancement(cli): wrap --out flag undiscovera
   #137    ?         Platform Upper    —                     enhancement(cli): add agentfactory-gen status
   #138    ?         Platform Upper    —                     enhancement(cli): add agentfactory-gen upgrad
-  #139    ?         Platform Upper    —                     enhancement(cli): promote skill-completeness-
+  #139    ?         Platform Upper    #178                  enhancement(cli): promote skill-completeness-
   #142    ?         Platform Upper    —                     security(import): scripts/ in imported agents
   #143    ?         Platform Upper    —                     security(cli): --project-root accepts path tr
   #144    ?         Platform Upper    —                     security(import): no checksum or signature ve
@@ -111,6 +113,15 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #171    ?         Platform Upper    —                     [Gemini] Update Gemini docs and tests to the 
   #172    ?         Platform Upper    —                     [Codex] Tracking issue for Codex adapter alig
   #173    ?         Platform Upper    —                     [Gemini] Tracking issue for Gemini adapter al
+  #179    ?         Platform Upper    —                     Umbrella(cli): agent import fidelity & ergono
+```
+
+### Wave 2 — After Wave 1
+
+```
+  #       Effort    Track             Unblocks              Title
+  ──────  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
+  #178    ?         Platform Upper    —                     Umbrella(cli): SKILL.md frontmatter parsing +
 ```
 
 ## Cross-Track Dependencies
@@ -134,5 +145,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-05-18 19:20 UTC by `generate-priority-report.py`._
+_Generated 2026-11-03 20:19 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
