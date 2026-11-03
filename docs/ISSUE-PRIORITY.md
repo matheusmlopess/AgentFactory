@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-11-03 20:22 UTC -->
-<!-- open-issues: 41 -->
+<!-- generated: 2026-11-03 20:24 UTC -->
+<!-- open-issues: 39 -->
 
 Living priority matrix — regenerated automatically on every merge to `dev`.
 Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY-SPEC.md`
@@ -15,7 +15,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   │  Harness / CLI   │                                             │
   │  Webapp / UI     │                                             │
   │  Platform Core   │                                             │
-  │  Platform Upper  │  #133  #134  #135  #136  #137  #138  #139  #142  #143  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #179│
+  │  Platform Upper  │  #133  #134  #135  #136  #137  #138  #139  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #179│
   └──────────────────┴───────────────────────────────────────────┘
 ```
 
@@ -31,8 +31,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #137    —                         —                         enhancement(cli): add agentfactory-gen status
   #138    —                         —                         enhancement(cli): add agentfactory-gen upgrad
   #139    —                         #178                      enhancement(cli): promote skill-completeness-
-  #142    —                         —                         security(import): scripts/ in imported agents
-  #143    —                         —                         security(cli): --project-root accepts path tr
   #144    —                         —                         security(import): no checksum or signature ve
   #145    —                         —                         Skill creation pipeline: 10 CLI gaps discover
   #146    —                         —                         enhancement(cli): import atomicity + safety o
@@ -81,8 +79,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #137    ?         Platform Upper    —                     enhancement(cli): add agentfactory-gen status
   #138    ?         Platform Upper    —                     enhancement(cli): add agentfactory-gen upgrad
   #139    ?         Platform Upper    #178                  enhancement(cli): promote skill-completeness-
-  #142    ?         Platform Upper    —                     security(import): scripts/ in imported agents
-  #143    ?         Platform Upper    —                     security(cli): --project-root accepts path tr
   #144    ?         Platform Upper    —                     security(import): no checksum or signature ve
   #145    ?         Platform Upper    —                     Skill creation pipeline: 10 CLI gaps discover
   #146    ?         Platform Upper    —                     enhancement(cli): import atomicity + safety o
@@ -145,5 +141,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-11-03 20:22 UTC by `generate-priority-report.py`._
+_Generated 2026-11-03 20:24 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
