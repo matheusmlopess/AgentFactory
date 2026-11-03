@@ -3,6 +3,16 @@
 
 ## [Unreleased]
 
+### Fixed (orchestrate)
+- Steps run with the project root as working directory, so `orchestrate run --project-root X` runs
+  shell and agent steps inside `X` instead of the caller's current directory.
+- Contract policies `default_remediation`, `max_retries` and `timeout_seconds` now fill in any step
+  field the workflow leaves out (they were never read before).
+- `max_retries` counts retries after the first attempt: `remediation: retry` with the default
+  `max_retries: 1` now retries once (it retried zero times).
+- Nested-run depth (`AGENTFACTORY_ORCH_DEPTH`) is passed to child processes instead of being
+  written into the parent's `os.environ`.
+
 ### Security
 - Agent and skill names (bundle manifests, `skill-manifest.json`/SKILL.md, CLI arguments) must be a
   single safe path component (`[A-Za-z0-9][A-Za-z0-9._-]{0,63}`, no `..`) and must resolve inside

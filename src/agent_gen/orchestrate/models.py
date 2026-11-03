@@ -20,6 +20,12 @@ from pathlib import Path
 from typing import Any, Optional
 
 STEP_TYPES = ("shell", "agent", "delegate")
+# Step field -> contract policy that supplies its default when the workflow omits it.
+POLICY_DEFAULTS = {
+    "remediation": "default_remediation",
+    "max_retries": "max_retries",
+    "timeout_seconds": "timeout_seconds",
+}
 REMEDIATION_POLICIES = ("retry", "escalate", "skip", "abort")
 
 # Synthetic exit codes (never produced by the child process itself)
@@ -100,8 +106,23 @@ class WorkflowStep:
             payload["remediation"] = payload.pop("remediation_policy")
         payload.setdefault("seq", seq)
         step = cls(**payload)
+        # Fields the workflow left out may be filled from contract policies at run time.
+        step._explicit_fields = frozenset(payload)
         step.validate()
         return step
+
+    def apply_policy_defaults(self, policies: dict) -> None:
+        """Fill fields the workflow did not set from the contract's policies.
+
+        Steps built in code (not via from_dict) keep their values unchanged.
+        """
+        explicit = getattr(self, "_explicit_fields", None)
+        if explicit is None:
+            return
+        for field_name, policy_key in POLICY_DEFAULTS.items():
+            if field_name not in explicit and policy_key in policies:
+                setattr(self, field_name, policies[policy_key])
+        self.validate()
 
     def validate(self) -> None:
         if self.type not in STEP_TYPES:

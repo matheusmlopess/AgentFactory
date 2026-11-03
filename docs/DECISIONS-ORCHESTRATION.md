@@ -168,6 +168,11 @@ Lives beside the existing `completeness.json` (convention already established). 
 }
 ```
 
+`default_remediation`, `max_retries` and `timeout_seconds` are the defaults for any step that does not set
+`remediation`, `max_retries` or `timeout_seconds` itself. `max_retries` counts retries **after** the first attempt
+(`max_retries: 2` → up to 3 attempts). Steps run with the project root as their working directory, and nested runs
+get `AGENTFACTORY_ORCH_DEPTH` through the child's environment (the parent process environment is never changed).
+
 `empty_output_is_failure` defaults **true** for all agent steps (generalizes the agy-quota lesson: an empty answer is never good evidence). The `harness` agent entry = nested orchestration (your requirement), recursion-guarded by `AGENTFACTORY_ORCH_DEPTH` env check.
 
 ---
