@@ -156,7 +156,7 @@
           "license"
         ],
         "summary": "Validate License",
-        "description": "Validate a license key against a minimum plan tier.\n\nKeys are formatted as: <plan>_<random>\nExample: pro_abc123...\n\nIn production, replace this with a real key lookup in the users table\nor a dedicated license_keys table with hashed keys.",
+        "description": "Valid when the key is active and its plan is at least the requested tier.",
         "operationId": "validate_license_v1_validate_post",
         "requestBody": {
           "content": {

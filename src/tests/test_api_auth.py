@@ -7,8 +7,13 @@ import uuid
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+pytest.importorskip("fastapi", reason="API tests need the [api] extra")
+pytest.importorskip("jose", reason="API tests need the [api] extra")
+
 # Set required env vars before importing the app
-os.environ.setdefault("JWT_SECRET", "test-secret-for-tests-only")
+os.environ.setdefault("JWT_SECRET", "test-secret-for-tests-only-0123456789abcdef")
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_agentfactory.db")
 os.environ.setdefault("GITHUB_CLIENT_ID", "test-client-id")
 os.environ.setdefault("GITHUB_CLIENT_SECRET", "test-client-secret")
@@ -32,7 +37,7 @@ class TestDatabaseInit(unittest.TestCase):
 
 class TestJwtUtils(unittest.TestCase):
     def setUp(self):
-        os.environ["JWT_SECRET"] = "test-jwt-secret-32chars-long-ok"
+        os.environ["JWT_SECRET"] = "test-jwt-secret-at-least-32-characters-long"
 
     def test_create_and_decode_token(self):
         from agent_gen.api.jwt_utils import create_token, decode_token
@@ -53,41 +58,55 @@ class TestJwtUtils(unittest.TestCase):
 
 
 class TestLicenseValidation(unittest.TestCase):
-    def _get_client(self):
+    """Keys are random and looked up by hash; the key text no longer encodes a plan."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        os.environ["DATABASE_URL"] = f"sqlite:///{self._tmp.name}/test.db"
+        import agent_gen.api.db as db_module
+        importlib.reload(db_module)
+        db_module.init_db()
+        self.db = db_module
         from fastapi.testclient import TestClient
-        from agent_gen.api.main import app
-        return TestClient(app, raise_server_exceptions=True)
+        import agent_gen.api.main as main_module
+        self.client = TestClient(main_module.app, raise_server_exceptions=True)
 
-    def test_valid_pro_key_for_pro_tier(self):
-        client = self._get_client()
-        resp = client.post("/v1/validate", json={"key": "pro_abc123", "tier": "pro"})
-        self.assertEqual(resp.status_code, 200)
-        self.assertTrue(resp.json()["valid"])
-        self.assertEqual(resp.json()["tier"], "pro")
+    def tearDown(self):
+        self._tmp.cleanup()
 
-    def test_pro_key_valid_for_free_tier(self):
-        client = self._get_client()
-        resp = client.post("/v1/validate", json={"key": "pro_abc123", "tier": "free"})
+    def _validate(self, key: str, tier: str) -> dict:
+        resp = self.client.post("/v1/validate", json={"key": key, "tier": tier})
         self.assertEqual(resp.status_code, 200)
-        self.assertTrue(resp.json()["valid"])
+        return resp.json()
 
-    def test_free_key_invalid_for_pro_tier(self):
-        client = self._get_client()
-        resp = client.post("/v1/validate", json={"key": "free_abc123", "tier": "pro"})
-        self.assertEqual(resp.status_code, 200)
-        self.assertFalse(resp.json()["valid"])
+    def test_issued_pro_key_valid_for_pro_and_free(self):
+        key = self.db.issue_license_key("pro")
+        self.assertEqual(self._validate(key, "pro"), {"valid": True, "tier": "pro"})
+        self.assertTrue(self._validate(key, "free")["valid"])
 
-    def test_invalid_key_format(self):
-        client = self._get_client()
-        resp = client.post("/v1/validate", json={"key": "notavalidkey", "tier": "pro"})
-        self.assertEqual(resp.status_code, 200)
-        self.assertFalse(resp.json()["valid"])
+    def test_pro_key_invalid_for_team_tier(self):
+        key = self.db.issue_license_key("pro")
+        self.assertFalse(self._validate(key, "team")["valid"])
 
-    def test_enterprise_key_for_team_tier(self):
-        client = self._get_client()
-        resp = client.post("/v1/validate", json={"key": "enterprise_xyz", "tier": "team"})
-        self.assertEqual(resp.status_code, 200)
-        self.assertTrue(resp.json()["valid"])
+    def test_forged_prefix_keys_are_rejected(self):
+        for forged in ("pro_abc123", "enterprise_xyz", "enterprise_" + "x" * 40):
+            self.assertFalse(self._validate(forged, "free")["valid"], forged)
+
+    def test_revoked_key_is_rejected(self):
+        key = self.db.issue_license_key("team")
+        self.assertTrue(self.db.revoke_license_key(key))
+        self.assertFalse(self._validate(key, "free")["valid"])
+
+    def test_unknown_tier_is_rejected(self):
+        key = self.db.issue_license_key("enterprise")
+        self.assertFalse(self._validate(key, "platinum")["valid"])
+
+    def test_only_hash_is_stored(self):
+        key = self.db.issue_license_key("pro")
+        with self.db.get_conn() as conn:
+            rows = [tuple(r) for r in conn.execute("SELECT * FROM license_keys").fetchall()]
+        self.assertTrue(rows)
+        self.assertFalse(any(key in str(col) for row in rows for col in row))
 
 
 class TestAuthMe(unittest.TestCase):
@@ -227,18 +246,18 @@ class TestGithubOAuthCallback(unittest.TestCase):
 
     def test_github_callback_no_access_token_returns_502(self):
         client, auth_module, state = self._get_client_and_state()
-        auth_module._pending_states[state] = True
+        auth_module._remember_state(state)
         with patch("agent_gen.api.routers.auth.httpx.post") as mock_post:
-            mock_post.return_value = MagicMock(json=lambda: {})
+            mock_post.return_value = MagicMock(status_code=200, json=lambda: {})
             resp = client.get(f"/auth/github/callback?code=testcode&state={state}")
             self.assertEqual(resp.status_code, 502)
 
     def test_github_callback_user_fetch_failure_returns_502(self):
         client, auth_module, state = self._get_client_and_state()
-        auth_module._pending_states[state] = True
+        auth_module._remember_state(state)
         with patch("agent_gen.api.routers.auth.httpx.post") as mock_post, \
              patch("agent_gen.api.routers.auth.httpx.get") as mock_get:
-            mock_post.return_value = MagicMock(json=lambda: {"access_token": "tok"})
+            mock_post.return_value = MagicMock(status_code=200, json=lambda: {"access_token": "tok"})
             mock_get.return_value = MagicMock(status_code=500)
             resp = client.get(f"/auth/github/callback?code=testcode&state={state}")
             self.assertEqual(resp.status_code, 502)
@@ -247,10 +266,10 @@ class TestGithubOAuthCallback(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             db = self._setup_db(tmp)
             client, auth_module, state = self._get_client_and_state()
-            auth_module._pending_states[state] = True
+            auth_module._remember_state(state)
             with patch("agent_gen.api.routers.auth.httpx.post") as mock_post, \
                  patch("agent_gen.api.routers.auth.httpx.get") as mock_get:
-                mock_post.return_value = MagicMock(json=lambda: {"access_token": "tok"})
+                mock_post.return_value = MagicMock(status_code=200, json=lambda: {"access_token": "tok"})
                 user_data = {
                     "id": 11111, "login": "newuser",
                     "email": "new@example.com", "avatar_url": "",
@@ -284,10 +303,10 @@ class TestGithubOAuthCallback(unittest.TestCase):
                     (existing_id, 22222, "oldhandle", "old@x.com", "", "pro", now, now),
                 )
             client, auth_module, state = self._get_client_and_state()
-            auth_module._pending_states[state] = True
+            auth_module._remember_state(state)
             with patch("agent_gen.api.routers.auth.httpx.post") as mock_post, \
                  patch("agent_gen.api.routers.auth.httpx.get") as mock_get:
-                mock_post.return_value = MagicMock(json=lambda: {"access_token": "tok"})
+                mock_post.return_value = MagicMock(status_code=200, json=lambda: {"access_token": "tok"})
                 updated = {"id": 22222, "login": "newhandle", "email": "new@x.com", "avatar_url": ""}
                 mock_get.return_value = MagicMock(status_code=200, json=lambda: updated)
                 client.get(
@@ -307,10 +326,10 @@ class TestGithubOAuthCallback(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             db = self._setup_db(tmp)
             client, auth_module, state = self._get_client_and_state()
-            auth_module._pending_states[state] = True
+            auth_module._remember_state(state)
             with patch("agent_gen.api.routers.auth.httpx.post") as mock_post, \
                  patch("agent_gen.api.routers.auth.httpx.get") as mock_get:
-                mock_post.return_value = MagicMock(json=lambda: {"access_token": "tok"})
+                mock_post.return_value = MagicMock(status_code=200, json=lambda: {"access_token": "tok"})
                 # First call: user has no email
                 user_no_email = {"id": 33333, "login": "noemailer", "email": None, "avatar_url": ""}
                 # Second call: /user/emails returns primary
@@ -328,6 +347,132 @@ class TestGithubOAuthCallback(unittest.TestCase):
                     "SELECT email FROM users WHERE github_id = ?", (33333,)
                 ).fetchone()
             self.assertEqual(row["email"], "private@x.com")
+
+
+class TestJwtSecretPolicy(unittest.TestCase):
+    def setUp(self):
+        self._saved = {k: os.environ.get(k) for k in ("JWT_SECRET", "AGENTFACTORY_ENV")}
+
+    def tearDown(self):
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+    def test_missing_secret_refuses_outside_dev(self):
+        from agent_gen.api.jwt_utils import InsecureConfigError, check_config
+        os.environ.pop("JWT_SECRET", None)
+        os.environ.pop("AGENTFACTORY_ENV", None)
+        with self.assertRaises(InsecureConfigError):
+            check_config()
+
+    def test_placeholder_and_short_secrets_refused(self):
+        from agent_gen.api.jwt_utils import InsecureConfigError, check_config
+        os.environ.pop("AGENTFACTORY_ENV", None)
+        for bad in ("change_me_generate_a_real_secret", "dev-secret-change-in-production", "short"):
+            os.environ["JWT_SECRET"] = bad
+            with self.assertRaises(InsecureConfigError, msg=bad):
+                check_config()
+
+    def test_dev_env_allows_default_secret(self):
+        from agent_gen.api.jwt_utils import check_config, create_token, decode_token
+        os.environ.pop("JWT_SECRET", None)
+        os.environ["AGENTFACTORY_ENV"] = "dev"
+        check_config()
+        self.assertEqual(decode_token(create_token("u1")), "u1")
+
+    def test_app_startup_fails_without_secret(self):
+        from fastapi.testclient import TestClient
+        from agent_gen.api.jwt_utils import InsecureConfigError
+        import agent_gen.api.main as main_module
+        os.environ.pop("JWT_SECRET", None)
+        os.environ.pop("AGENTFACTORY_ENV", None)
+        with self.assertRaises(InsecureConfigError):
+            with TestClient(main_module.app):
+                pass
+
+    def test_secret_is_read_at_call_time(self):
+        from agent_gen.api.jwt_utils import create_token, decode_token
+        os.environ.pop("AGENTFACTORY_ENV", None)
+        os.environ["JWT_SECRET"] = "a" * 40
+        token = create_token("u2")
+        os.environ["JWT_SECRET"] = "b" * 40
+        self.assertIsNone(decode_token(token))
+
+
+class TestOAuthStateStore(unittest.TestCase):
+    def setUp(self):
+        import agent_gen.api.routers.auth as auth_module
+        self.auth = auth_module
+        self.auth._pending_states.clear()
+
+    def test_state_is_single_use(self):
+        self.auth._remember_state("s1")
+        self.assertTrue(self.auth._consume_state("s1"))
+        self.assertFalse(self.auth._consume_state("s1"))
+
+    def test_expired_state_rejected(self):
+        self.auth._remember_state("s2")
+        with patch("agent_gen.api.routers.auth.time.time", return_value=10**12):
+            self.assertFalse(self.auth._consume_state("s2"))
+
+    def test_store_is_capped(self):
+        with patch.object(self.auth, "_MAX_PENDING_STATES", 5):
+            for i in range(20):
+                self.auth._remember_state(f"s{i}")
+            self.assertEqual(len(self.auth._pending_states), 5)
+            self.assertIn("s19", self.auth._pending_states)
+
+    def test_login_redirect_is_url_encoded(self):
+        from fastapi.testclient import TestClient
+        import agent_gen.api.main as main_module
+        os.environ["GITHUB_REDIRECT_URI"] = "http://localhost:8000/auth/github/callback?x=1&y=2"
+        try:
+            importlib.reload(self.auth)
+            importlib.reload(main_module)
+            client = TestClient(main_module.app)
+            location = client.get("/auth/github", follow_redirects=False).headers["location"]
+        finally:
+            os.environ.pop("GITHUB_REDIRECT_URI", None)
+            importlib.reload(self.auth)
+            importlib.reload(main_module)
+        self.assertIn(
+            "redirect_uri=http%3A%2F%2Flocalhost%3A8000%2Fauth%2Fgithub%2Fcallback%3Fx%3D1%26y%3D2",
+            location,
+        )
+
+    def test_token_exchange_http_error_returns_502(self):
+        from fastapi.testclient import TestClient
+        import agent_gen.api.main as main_module
+        importlib.reload(self.auth)
+        importlib.reload(main_module)
+        client = TestClient(main_module.app, raise_server_exceptions=True)
+        self.auth._remember_state("s3")
+        with patch("agent_gen.api.routers.auth.httpx.post") as mock_post:
+            mock_post.return_value = MagicMock(status_code=500, json=lambda: {"access_token": "tok"})
+            resp = client.get("/auth/github/callback?code=c&state=s3")
+        self.assertEqual(resp.status_code, 502)
+
+
+class TestKeysCli(unittest.TestCase):
+    def test_add_and_revoke(self):
+        from click.testing import CliRunner
+        import agent_gen.api.db as db_module
+        from agent_gen.api.main import _build_cli
+        with tempfile.TemporaryDirectory() as tmp:
+            os.environ["DATABASE_URL"] = f"sqlite:///{tmp}/k.db"
+            importlib.reload(db_module)
+            cli = _build_cli()
+            runner = CliRunner()
+            out = runner.invoke(cli, ["keys", "add", "--plan", "team"])
+            self.assertEqual(out.exit_code, 0, out.output)
+            key = out.output.strip()
+            self.assertTrue(key.startswith("afk_"))
+            self.assertEqual(db_module.license_plan(key), "team")
+            self.assertEqual(runner.invoke(cli, ["keys", "revoke", key]).exit_code, 0)
+            self.assertIsNone(db_module.license_plan(key))
+            self.assertNotEqual(runner.invoke(cli, ["keys", "revoke", key]).exit_code, 0)
 
 
 if __name__ == "__main__":

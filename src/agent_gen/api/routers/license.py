@@ -1,34 +1,25 @@
 """
 POST /v1/validate — server-side license key validation.
 Called by .ai/scripts/skill-completeness-check.py require_plan().
+
+Keys are random strings issued with `agentfactory-api keys add --plan <plan>`; only their
+sha256 hash is stored (license_keys table). The key text itself carries no plan.
 """
 from fastapi import APIRouter
 
+from ..db import PLAN_RANK, license_plan
 from ..models import ValidateRequest, ValidateResponse
 
 router = APIRouter(prefix="/v1", tags=["license"])
 
-_PLAN_RANK = {"free": 0, "pro": 1, "team": 2, "enterprise": 3}
-
 
 @router.post("/validate", response_model=ValidateResponse)
 def validate_license(req: ValidateRequest) -> ValidateResponse:
-    """
-    Validate a license key against a minimum plan tier.
-
-    Keys are formatted as: <plan>_<random>
-    Example: pro_abc123...
-
-    In production, replace this with a real key lookup in the users table
-    or a dedicated license_keys table with hashed keys.
-    """
-    # Extract plan from key prefix (format: plan_<token>)
-    parts = req.key.split("_", 1)
-    if len(parts) != 2 or parts[0] not in _PLAN_RANK:
+    """Valid when the key is active and its plan is at least the requested tier."""
+    required_rank = PLAN_RANK.get(req.tier)
+    if required_rank is None or not req.key:
         return ValidateResponse(valid=False)
-
-    key_plan = parts[0]
-    required_rank = _PLAN_RANK.get(req.tier, 999)
-    if _PLAN_RANK[key_plan] >= required_rank:
-        return ValidateResponse(valid=True, tier=key_plan)
+    plan = license_plan(req.key)
+    if plan is not None and PLAN_RANK.get(plan, -1) >= required_rank:
+        return ValidateResponse(valid=True, tier=plan)
     return ValidateResponse(valid=False)
