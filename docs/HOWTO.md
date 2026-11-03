@@ -268,7 +268,7 @@ and scroll to the **Skill Completeness** section.
 When a `SKILL.md` is edited, the cached report in `.ai/reports/` becomes stale.
 Regenerate it, then restart the dev server:
 
-**Step 1 — Re-run the completeness check** (requires `ANTHROPIC_API_KEY`):
+**Step 1 — Re-run the completeness check** (uses your Claude subscription via Claude Code; `ANTHROPIC_API_KEY` is an optional fallback):
 
 ```bash
 # Claude adapter (default 90% threshold)
@@ -396,6 +396,6 @@ itself is read-only — it always renders whatever score the last CLI run produc
 |---------|-----|
 | Viewer shows old score after editing SKILL.md | Re-run `skill-completeness-check.py`, then `node scripts/copy-reports.mjs` |
 | `npm run dev` shows a stale score | Stop the server, re-run the check, restart |
-| `Error: ANTHROPIC_API_KEY not set` | Set `export ANTHROPIC_API_KEY=sk-ant-...` before running the check script |
+| `Error: No Claude access found` | Run `claude auth login` (subscription), or `export ANTHROPIC_API_KEY=sk-ant-...` (optional API fallback). Check with `--check-access` |
 | New skill not appearing in tabs | Add it to the `REPORTS` object in `CompletenessViewer.tsx` |
 | Score shows as `?` in harness-doctor | The report JSON is missing — run the completeness check for that skill |

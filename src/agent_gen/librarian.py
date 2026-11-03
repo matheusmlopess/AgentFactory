@@ -352,9 +352,6 @@ def _run_preamble_oracle(original: str, truncated: str, project_root: str) -> in
     Prints result to stderr. Never raises.
     """
     try:
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            return None
         script_path = Path(project_root) / HARNESS_ROOT / "scripts" / "skill-completeness-check.py"
         if not script_path.exists():
             return None
@@ -362,8 +359,13 @@ def _run_preamble_oracle(original: str, truncated: str, project_root: str) -> in
         spec = importlib.util.spec_from_file_location("_oracle", script_path)
         oracle = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(oracle)  # type: ignore[union-attr]
-        import anthropic as _anthropic
-        client = _anthropic.Anthropic(api_key=api_key)
+        if not hasattr(oracle, "make_client"):
+            return None  # project still has a pre-2.1 oracle script
+        try:
+            # Claude subscription (Claude Code CLI) first, ANTHROPIC_API_KEY as the optional fallback.
+            client = oracle.make_client()
+        except oracle.ClaudeAccessError:
+            return None
         model = oracle._DEFAULT_MODEL
         atoms = oracle.phase1_extract_atoms(client, original, model)
         results = oracle.phase2_verify_atoms(client, atoms, truncated, model)

@@ -144,7 +144,7 @@ agentfactory-gen retrofit <path>                      # convert Claude/Gemini/Co
 python3 .ai/scripts/skill-completeness-check.py --skill <name> --adapter <adapter>
 python3 .ai/scripts/skill-completeness-check.py --agent <name> --adapter <adapter>
 python3 .ai/scripts/skill-completeness-check.py --skill <name> --mode new   # new skill self-check [pro]
-python3 .ai/scripts/skill-completeness-check.py --skill <name> --oracle-model claude-sonnet-4-6
+python3 .ai/scripts/skill-completeness-check.py --skill <name> --oracle-model sonnet
 ```
 
 ### Global flag
@@ -250,7 +250,7 @@ python3 .ai/scripts/skill-completeness-check.py \
 
 # Higher accuracy
 python3 .ai/scripts/skill-completeness-check.py \
-  --skill git-versioning --oracle-model claude-sonnet-4-6
+  --skill git-versioning --oracle-model sonnet
 ```
 
 Phase 1 extracts **functional atoms** (commands, decision paths, error cases,

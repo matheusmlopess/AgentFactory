@@ -86,7 +86,7 @@ Central class driving every lifecycle operation. Key responsibilities:
 | issue-tracker |  | `.claude/skills/issue-tracker/SKILL.md` |
 
 ## Commands
-- `/completeness-check` — <!-- version: 1.0.0 -->
+- `/completeness-check` — <!-- version: 1.1.0 -->
 - `/git-workflow` — <!-- version: 1.0.0 -->
 
 ## Registered Agents
