@@ -3,6 +3,17 @@
 
 ## [Unreleased]
 
+### Added
+- **`agentfactory-gen export <name>`** — patch a locally-modified agent back to its
+  source-of-truth git repo (the inverse of `import`). Clones the source, applies this
+  project's `.ai/agents/<name>/` over the agent's location (auto-detected `agent/`
+  subpath or repo root), commits on `agentfactory/export-<name>`, pushes, and opens a PR.
+  - `--git URL` (default: the source recorded at import) · `--subpath` · `--branch` ·
+    `-m/--message` · `--no-push` (writes a `.patch`) · `--no-pr`.
+  - `import` now records the source (`{"git": url}` / `{"registry": slug}`) in the agent
+    manifest so `export` defaults to it.
+  - `--git` accepts local paths / `file://` (offline + testable).
+
 ### Changed
 - **Claude subscription is the default for the completeness oracle**: `skill-completeness-check.py` (v2.1.0),
   `brief --check-completeness`, the preamble oracle and `harness-doctor.sh` run Claude through the Claude Code CLI
