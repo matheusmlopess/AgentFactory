@@ -79,6 +79,25 @@ class TestCliAgentRunner:
         assert ev.exit_code == 127
         assert "not found" in ev.stderr
 
+    def test_env_unset_strips_api_key_for_subscription(self, fake_agent_script, monkeypatch, tmp_path):
+        probe = tmp_path / "probe.py"
+        probe.write_text("import os; print('KEY' if 'ANTHROPIC_API_KEY' in os.environ else 'NOKEY')")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+        monkeypatch.delenv("AGENTFACTORY_CLAUDE_BACKEND", raising=False)
+        spec = {"invocation": [sys.executable, str(probe)], "env_unset": ["ANTHROPIC_API_KEY"]}
+        ev = CliAgentRunner("claude", spec, {}).run(_step(), "hi")
+        assert ev.stdout.strip() == "NOKEY"
+        monkeypatch.setenv("AGENTFACTORY_CLAUDE_BACKEND", "api")
+        ev = CliAgentRunner("claude", spec, {}).run(_step(), "hi")
+        assert ev.stdout.strip() == "KEY"
+
+    def test_default_claude_contract_strips_api_key_vars(self):
+        from agent_gen.orchestrate.contract import DEFAULT_CONTRACT
+
+        assert DEFAULT_CONTRACT["agents"]["claude"]["env_unset"] == [
+            "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN",
+        ]
+
     def test_dry_run(self, fake_agent_script):
         ev = _runner(fake_agent_script, dry_run=True).run(_step(), "MODE:FAIL")
         assert ev.succeeded

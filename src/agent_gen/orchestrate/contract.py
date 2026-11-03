@@ -30,6 +30,10 @@ DEFAULT_CONTRACT: dict = {
     "agents": {
         "claude": {
             "invocation": ["claude", "--print", "{prompt}"],
+            # Subscription first: without these, an exported ANTHROPIC_API_KEY makes
+            # Claude Code bill the API instead of the user's Claude plan. Set
+            # AGENTFACTORY_CLAUDE_BACKEND=api (or "env_unset": []) to use the key.
+            "env_unset": ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"],
         },
         "codex": {
             "invocation": ["codex", "exec", "--skip-git-repo-check", "{prompt}"],

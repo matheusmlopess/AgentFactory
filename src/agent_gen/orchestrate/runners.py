@@ -11,6 +11,7 @@ retirement must never look like a successful step.
 """
 from __future__ import annotations
 
+import os
 import subprocess
 from datetime import datetime, timezone
 
@@ -69,7 +70,10 @@ class CliAgentRunner:
 
     spec fields: invocation (list, "{prompt}"/"{workflow}" placeholders),
     stdin ("devnull"), enabled (bool), empty_output_is_failure (bool,
-    falls back to the contract-level policy).
+    falls back to the contract-level policy), env_unset (list of env vars
+    removed from the agent's environment; the claude default strips the API
+    key vars so runs use the Claude subscription — AGENTFACTORY_CLAUDE_BACKEND=api
+    keeps them).
     """
 
     def __init__(self, name: str, spec: dict, policies: dict, dry_run: bool = False):
@@ -83,6 +87,13 @@ class CliAgentRunner:
             part.replace("{prompt}", prompt).replace("{workflow}", prompt)
             for part in self.spec["invocation"]
         ]
+
+    def _child_env(self) -> dict | None:
+        """Environment for the agent process, or None to inherit unchanged."""
+        unset = self.spec.get("env_unset") or []
+        if not unset or os.environ.get("AGENTFACTORY_CLAUDE_BACKEND", "").strip().lower() == "api":
+            return None
+        return {k: v for k, v in os.environ.items() if k not in unset}
 
     def run(self, step: WorkflowStep, prompt: str, attempt: int = 1) -> Evidence:
         timestamp = _now()
@@ -100,7 +111,7 @@ class CliAgentRunner:
         try:
             result = subprocess.run(
                 cmd, capture_output=True, text=True,
-                timeout=step.timeout_seconds, stdin=stdin,
+                timeout=step.timeout_seconds, stdin=stdin, env=self._child_env(),
             )
         except subprocess.TimeoutExpired:
             return Evidence(
