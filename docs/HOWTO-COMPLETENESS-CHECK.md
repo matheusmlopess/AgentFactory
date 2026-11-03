@@ -1,5 +1,5 @@
 # HOWTO: Skill Completeness Check
-<!-- version: 1.1.0 -->
+<!-- version: 1.2.0 -->
 
 The skill completeness oracle verifies that a trimmed `SKILL.md` preserves all
 functional behaviour of the original. It uses a two-phase Claude Haiku pipeline to
@@ -8,6 +8,19 @@ from the original, then verifies each atom is present in the trimmed version.
 
 The oracle now supports three modes, agent-level checking, and model selection.
 Some flags require a Pro plan — these are marked `[pro]` in the reference below.
+
+## Claude access: subscription first, API key optional
+
+The oracle talks to Claude in one of two ways. With the default `auto`, it picks the first one available:
+
+| Backend | How it authenticates | Set up |
+|---|---|---|
+| `subscription` (default) | Claude Code CLI (`claude -p`) with your Claude Pro/Max subscription. `ANTHROPIC_API_KEY` is removed from the child process so usage stays on the plan | `claude auth login`. Headless/CI: `claude setup-token`, then export `CLAUDE_CODE_OAUTH_TOKEN` |
+| `api` (optional) | Anthropic API, billed per token | `export ANTHROPIC_API_KEY=…` and `pip install anthropic` |
+
+Force one with `--claude-backend subscription|api` or `AGENTFACTORY_CLAUDE_BACKEND`. `--check-access` prints the
+backend that would be used (exit 0) or how to set one up (exit 2). `AGENTFACTORY_CLAUDE_BIN` overrides the `claude`
+executable. The subscription run uses no tools, no MCP servers, no saved session, and an empty working directory.
 
 ---
 
@@ -26,7 +39,11 @@ Mode:
   --mode diff            Force diff against git baseline. Fails if no baseline.
 
 Model:
-  --oracle-model <id>    (default: claude-haiku-4-5-20251001)
+  --oracle-model <id>    (default: haiku)
+
+Claude access:
+  --claude-backend <b>   auto (default: subscription, then API key) | subscription | api
+  --check-access         Print the backend that would be used and exit
 
 Other:
   --old <git-ref>        Git ref for baseline (default: HEAD)
@@ -38,11 +55,14 @@ Other:
 
 ### Oracle models
 
-| Model                        | Cost  | Use for                                  |
-|------------------------------|-------|------------------------------------------|
-| `claude-haiku-4-5-20251001`  | ~1×   | Routine CI / pre-commit (default)        |
-| `claude-sonnet-4-6`          | ~6×   | Pre-merge, higher-accuracy atom extract  |
-| `claude-opus-4-6`            | ~20×  | Maximum fidelity, complex skills         |
+Pass an alias or a full model id. On the subscription backend the Claude Code CLI resolves the alias; on the API
+backend the script maps it to the current model id.
+
+| Alias    | API model id         | Use for                                  |
+|----------|----------------------|------------------------------------------|
+| `haiku`  | `claude-haiku-5-5`   | Routine CI / pre-commit (default)        |
+| `sonnet` | `claude-sonnet-5-5`  | Pre-merge, higher-accuracy atom extract  |
+| `opus`   | `claude-opus-5-5`    | Maximum fidelity, complex skills         |
 
 ### Exit codes
 
@@ -81,7 +101,7 @@ Other:
     Skill  : git-versioning
     Old    : HEAD (v1.3.0)
     New    : .ai/skills/git-versioning/SKILL.md (v1.3.0)
-    Adapter: claude   Model: claude-haiku-4-5-20251001
+    Adapter: claude   Model: haiku
   ════════════════════════════════════════════════════════════
 
   PASSED: score 98% meets threshold 90%
@@ -101,7 +121,7 @@ Other:
           │
   ╔═══════════════════════════════════════════════════════════╗
   ║  Phase 0 — Auto-trim              [NEW SKILL MODE]        ║
-  ║  Model: claude-haiku-4-5-20251001 (default)               ║
+  ║  Model: haiku (default)               ║
   ║  Limit: 18,000 chars (claude adapter)                     ║
   ║  Output: trimmed_content (in-memory, never on disk)       ║
   ╚═══════════════════════════════════════════════════════════╝
@@ -116,7 +136,7 @@ Other:
     skill-completeness-check  [NEW SKILL SELF-CHECK]
     Skill  : my-new-skill
     Mode   : new skill — auto-trimmed to 18,000 chars
-    Adapter: claude   Model: claude-haiku-4-5-20251001
+    Adapter: claude   Model: haiku
   ════════════════════════════════════════════════════════════
 
   ● New-skill self-check complete (Phase 0 trim used tokens).
@@ -243,7 +263,7 @@ Other:
 
   New fields in v2.0.0:
     "mode":         "diff" | "new_skill"
-    "oracle_model": "claude-haiku-4-5-20251001"
+    "oracle_model": "haiku"
     "old_ref":      "HEAD" | "working_tree"
 ```
 
@@ -253,7 +273,7 @@ Example v2.0.0 report:
 {
   "skill":        "git-versioning",
   "mode":         "diff",
-  "oracle_model": "claude-haiku-4-5-20251001",
+  "oracle_model": "haiku",
   "old_ref":      "HEAD",
   "old_version":  "1.3.0",
   "new_version":  "1.3.0",
@@ -284,10 +304,14 @@ Exit code 3 (pro gate) should be treated as a warning, not a blocking failure, i
 
 ### CI (GitHub Actions)
 
+CI has no interactive login. Use a subscription token from `claude setup-token` (needs the Claude Code CLI on the
+runner) or an API key:
+
 ```yaml
 - name: Skill completeness check
   env:
-    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}   # subscription, or…
+    ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}               # …API key (used only if no subscription)
   run: |
     python3 .ai/scripts/skill-completeness-check.py \
       --skill git-versioning --adapter claude --quiet
@@ -312,7 +336,7 @@ Before switching an agent from Claude → Codex:
 ```bash
 python3 .ai/scripts/skill-completeness-check.py \
   --skill git-versioning --mode new --adapter codex \
-  --oracle-model claude-sonnet-4-6
+  --oracle-model sonnet
 ```
 
 Shows what percentage of atoms survive the 10,000-char Codex limit.

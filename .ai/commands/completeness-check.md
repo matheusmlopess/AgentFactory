@@ -1,5 +1,5 @@
 # Completeness Check
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 
 Run the skill completeness oracle to verify that a SKILL.md preserves all
 functional behaviour after trimming, or to self-audit a new skill or agent
@@ -8,6 +8,10 @@ before committing.
 > **Pro plan required** for `--mode new`, `--mode auto` on uncommitted skills,
 > and all `--agent` checks. Diff mode on committed skills is free.
 > Set plan: `echo '{"plan":"pro"}' > .ai/config/user.json`
+
+> **Claude access:** uses your Claude subscription through Claude Code by default (`claude auth login`).
+> `ANTHROPIC_API_KEY` is an optional fallback; force one with `--claude-backend subscription|api`.
+> Check with `--check-access`.
 
 ## Commands
 
@@ -24,7 +28,7 @@ before committing.
   `python3 .ai/scripts/skill-completeness-check.py --skill <name> --mode diff`
 
 - **Higher accuracy:**
-  Add `--oracle-model claude-sonnet-4-6`
+  Add `--oracle-model sonnet`
 
 ## Modes
 
@@ -36,11 +40,11 @@ before committing.
 
 ## Oracle Models
 
-| Model                        | Cost  | Use for                                 |
-|------------------------------|-------|-----------------------------------------|
-| `claude-haiku-4-5-20251001`  | ~1×   | Routine CI / pre-commit (default)       |
-| `claude-sonnet-4-6`          | ~6×   | Pre-merge, complex skills               |
-| `claude-opus-4-6`            | ~20×  | Maximum fidelity, final sign-off        |
+| Alias    | API model id         | Use for                                 |
+|----------|----------------------|-----------------------------------------|
+| `haiku`  | `claude-haiku-5-5`   | Routine CI / pre-commit (default)       |
+| `sonnet` | `claude-sonnet-5-5`  | Pre-merge, complex skills               |
+| `opus`   | `claude-opus-5-5`    | Maximum fidelity, final sign-off        |
 
 ## Exit Codes
 

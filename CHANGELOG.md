@@ -1,6 +1,18 @@
 # Changelog
 <!-- version: 2.8.0 -->
 
+## [Unreleased]
+
+### Changed
+- **Claude subscription is the default for the completeness oracle**: `skill-completeness-check.py` (v2.1.0),
+  `brief --check-completeness`, the preamble oracle and `harness-doctor.sh` run Claude through the Claude Code CLI
+  (`claude -p`) with your subscription login or `CLAUDE_CODE_OAUTH_TOKEN`. `ANTHROPIC_API_KEY` is now an optional
+  fallback (`--claude-backend api` / `AGENTFACTORY_CLAUDE_BACKEND=api`) and is stripped from the CLI's environment
+  so subscription runs are never billed to the API. New `--check-access` flag.
+- Oracle models are aliases (`haiku` default, `sonnet`, `opus`) that resolve to the Claude 5 family on the API.
+- `settings.local.json.example` no longer puts `ANTHROPIC_API_KEY` in Claude Code's `env`: that setting switches
+  Claude Code from the subscription to API billing.
+
 ## [v2.8.0] - 2026-04-22
 
 ### Added

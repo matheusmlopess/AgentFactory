@@ -868,7 +868,7 @@ def adapter_group():
     "--check-completeness",
     is_flag=True,
     default=False,
-    help="After compiling, run skill-completeness-check.py on over-budget skills (requires ANTHROPIC_API_KEY).",
+    help="After compiling, run skill-completeness-check.py on over-budget skills (uses your Claude subscription via Claude Code; ANTHROPIC_API_KEY is an optional fallback).",
 )
 @click.option(
     "--strict",
@@ -1001,7 +1001,7 @@ def _adapter_completeness_gate(
     """Warn when skill files exceed the adapter's character budget.
 
     With check_completeness=True, also runs skill-completeness-check.py on
-    each over-budget skill (requires ANTHROPIC_API_KEY).  With strict=True,
+    each over-budget skill (Claude subscription first, ANTHROPIC_API_KEY optional).  With strict=True,
     exits non-zero if any skill scores below the adapter threshold.
     """
     import subprocess
@@ -1048,9 +1048,20 @@ def _adapter_completeness_gate(
         _echo(f"\n  ⚠  completeness script not found: {check_script}")
         return
 
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        _echo("\n  ⚠  --check-completeness requires ANTHROPIC_API_KEY to be set.")
-        return
+    access = subprocess.run(
+        [sys.executable, str(check_script), "--check-access"],
+        cwd=str(project_path), capture_output=True, text=True,
+    )
+    if access.returncode != 0:
+        if "--check-access" in access.stderr:  # project has a pre-2.1 oracle script
+            if not os.environ.get("ANTHROPIC_API_KEY"):
+                _echo("\n  ⚠  --check-completeness: this project's oracle script needs ANTHROPIC_API_KEY.")
+                _echo("     Update .ai/scripts/skill-completeness-check.py to v2.1+ to use your Claude subscription.")
+                return
+        else:
+            _echo("\n  ⚠  --check-completeness: no Claude access.")
+            _echo("     Run `claude auth login` (subscription), or export ANTHROPIC_API_KEY (optional fallback).")
+            return
 
     _echo("\n  Running completeness checks …")
     any_failed = False

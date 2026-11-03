@@ -77,7 +77,7 @@ Claude, Codex, and Gemini share the same `.ai/` directory for shared context wit
 
 <!-- @commands-start -->
 ## Commands
-- `/completeness-check` — <!-- version: 1.0.0 -->
+- `/completeness-check` — <!-- version: 1.1.0 -->
 - `/git-workflow` — <!-- version: 1.0.0 -->
 <!-- @commands-end -->
 

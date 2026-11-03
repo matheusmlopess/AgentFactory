@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # skill-completeness-check.py — Semantic completeness checker for SKILL.md files
-# <!-- version: 2.0.0 -->
+# <!-- version: 2.1.0 -->
 #
 # Usage:
 #   python3 .ai/scripts/skill-completeness-check.py [options]
@@ -15,12 +15,20 @@
 #   --mode diff            Force diff mode — exit 2 if no git baseline
 #
 # Model:
-#   --oracle-model <id>    (default: claude-haiku-4-5-20251001)
+#   --oracle-model <id>    (default: haiku)
 #
-#   Model options:
-#     claude-haiku-4-5-20251001   ~1x cost   Routine checks, CI, pre-commit (default)
-#     claude-sonnet-4-6           ~6x cost   Higher-accuracy trim + atom extraction
-#     claude-opus-4-6             ~20x cost  Maximum fidelity, complex skills, final review
+#   Model options (an alias or a full model id):
+#     haiku    claude-haiku-5-5    Routine checks, CI, pre-commit (default)
+#     sonnet   claude-sonnet-5-5   Higher-accuracy trim + atom extraction
+#     opus     claude-opus-5-5     Maximum fidelity, complex skills, final review
+#
+# Claude access (--claude-backend, or AGENTFACTORY_CLAUDE_BACKEND):
+#   auto          (default) subscription if available, else API key
+#   subscription  Claude Code CLI (`claude -p`) with your Claude subscription:
+#                 `claude auth login`, or `claude setup-token` → CLAUDE_CODE_OAUTH_TOKEN.
+#                 ANTHROPIC_API_KEY is removed from the child env so usage stays on the plan.
+#   api           Anthropic API with ANTHROPIC_API_KEY (optional; needs `pip install anthropic`)
+#   --check-access         Print which backend would be used and exit (0 = ok, 2 = none)
 #
 # Other (unchanged from v1):
 #   --old <git-ref>        Git ref for baseline (default: HEAD)
@@ -44,19 +52,20 @@
 #   3 = pro plan required
 #
 # Requires:
-#   - ANTHROPIC_API_KEY environment variable
-#   - anthropic Python sdk: pip install anthropic
+#   - Claude Code CLI logged in to a Claude subscription (default), OR
+#     ANTHROPIC_API_KEY + the anthropic Python sdk (optional fallback)
 #   - git accessible in PATH
 
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-
-import anthropic
+from typing import Protocol
 
 
 # ---------------------------------------------------------------------------
@@ -72,7 +81,210 @@ _DEFAULT_CHAR_LIMIT = 18_000
 _USER_CONFIG = Path(".ai/config/user.json")
 _LICENSE_VALIDATE_URL = "https://api.agentfactory.dev/v1/validate"
 
-_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+_DEFAULT_MODEL = "haiku"
+
+
+# ---------------------------------------------------------------------------
+# Claude access — subscription first (Claude Code CLI), API key optional
+# ---------------------------------------------------------------------------
+
+BACKEND_ENV = "AGENTFACTORY_CLAUDE_BACKEND"
+BACKENDS = ("auto", "subscription", "api")
+_CLAUDE_BIN_ENV = "AGENTFACTORY_CLAUDE_BIN"
+_SUBSCRIPTION_TIMEOUT_S = 900
+
+# Aliases resolve to the current generation for the API backend; the Claude Code
+# CLI resolves the same aliases itself, so they are passed through unchanged.
+MODEL_ALIASES: dict[str, str] = {
+    "haiku": "claude-haiku-5-5",
+    "sonnet": "claude-sonnet-5-5",
+    "opus": "claude-opus-5-5",
+}
+
+# Env vars that would switch the Claude Code CLI from the subscription to API billing.
+_API_AUTH_VARS = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
+
+ACCESS_HELP = (
+    "No Claude access found. Either:\n"
+    "  • use your Claude subscription (recommended): install Claude Code and run `claude auth login`,\n"
+    "    or on a headless machine `claude setup-token` and export CLAUDE_CODE_OAUTH_TOKEN; or\n"
+    "  • use an API key (optional): export ANTHROPIC_API_KEY and `pip install anthropic`."
+)
+
+
+class ClaudeAccessError(RuntimeError):
+    """Claude could not be reached or refused the request. The message is user-facing."""
+
+
+class ClaudeClient(Protocol):
+    backend: str
+
+    def complete(self, *, system: str, content: str | list[dict], model: str, max_tokens: int) -> str:
+        """Send one system + user turn and return the text reply."""
+        ...
+
+
+def _content_text(content: str | list[dict]) -> str:
+    if isinstance(content, str):
+        return content
+    return "".join(block.get("text", "") for block in content)
+
+
+def _claude_bin() -> str:
+    return os.environ.get(_CLAUDE_BIN_ENV) or "claude"
+
+
+def _subscription_env() -> dict[str, str]:
+    return {k: v for k, v in os.environ.items() if k not in _API_AUTH_VARS}
+
+
+class SubscriptionClient:
+    """Runs `claude -p` with the Claude subscription login (or CLAUDE_CODE_OAUTH_TOKEN).
+
+    No tools, no MCP servers, no session saved, run from an empty temp dir so the
+    project's CLAUDE.md is not pulled into the prompt. Never uses --bare: bare mode
+    ignores OAuth and would require an API key.
+    """
+
+    backend = "subscription"
+
+    def __init__(self, claude_bin: str | None = None, timeout: int = _SUBSCRIPTION_TIMEOUT_S):
+        self.claude_bin = claude_bin or _claude_bin()
+        self.timeout = timeout
+
+    def complete(self, *, system: str, content: str | list[dict], model: str, max_tokens: int) -> str:
+        cmd = [
+            self.claude_bin, "-p",
+            "--output-format", "json",
+            "--model", model,
+            "--system-prompt", system,
+            "--tools", "",
+            "--strict-mcp-config",
+            "--no-session-persistence",
+        ]
+        try:
+            with tempfile.TemporaryDirectory(prefix="af-oracle-") as cwd:
+                proc = subprocess.run(
+                    cmd, input=_content_text(content), capture_output=True, text=True,
+                    cwd=cwd, env=_subscription_env(), timeout=self.timeout,
+                )
+        except FileNotFoundError as e:
+            raise ClaudeAccessError(f"Claude Code CLI not found ({self.claude_bin}).") from e
+        except subprocess.TimeoutExpired as e:
+            raise ClaudeAccessError(f"Claude Code did not answer within {self.timeout}s.") from e
+        try:
+            data = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            detail = (proc.stderr or proc.stdout).strip().splitlines()
+            raise ClaudeAccessError(
+                "Claude Code failed: " + (detail[-1] if detail else f"exit {proc.returncode}")
+            ) from None
+        if data.get("is_error") or proc.returncode != 0:
+            raise ClaudeAccessError(f"Claude Code error: {data.get('result') or data.get('subtype') or proc.returncode}")
+        return str(data.get("result", ""))
+
+
+class ApiClient:
+    """Anthropic API with ANTHROPIC_API_KEY (the optional fallback)."""
+
+    backend = "api"
+
+    def __init__(self, api_key: str):
+        import anthropic  # imported lazily: only the API backend needs the SDK
+
+        self._anthropic = anthropic
+        self._client = anthropic.Anthropic(api_key=api_key)
+
+    def complete(self, *, system: str, content: str | list[dict], model: str, max_tokens: int) -> str:
+        anthropic = self._anthropic
+        try:
+            response = self._client.messages.create(
+                model=MODEL_ALIASES.get(model, model),
+                max_tokens=max_tokens,
+                system=system,
+                messages=[{"role": "user", "content": content}],
+            )
+        except anthropic.AuthenticationError as e:
+            raise ClaudeAccessError("Invalid ANTHROPIC_API_KEY.") from e
+        except anthropic.BadRequestError as e:
+            msg = str(e)
+            if "credit balance" in msg or "too low" in msg:
+                raise ClaudeAccessError(
+                    "Anthropic API account has no credits (console.anthropic.com → Plans & Billing), "
+                    "or switch to your subscription: AGENTFACTORY_CLAUDE_BACKEND=subscription."
+                ) from e
+            raise ClaudeAccessError(f"API error: {e}") from e
+        except anthropic.APIConnectionError as e:
+            raise ClaudeAccessError("Could not connect to the Anthropic API.") from e
+        except anthropic.APIStatusError as e:
+            raise ClaudeAccessError(f"API error: {e}") from e
+        return "".join(b.text for b in response.content if getattr(b, "type", "") == "text").strip()
+
+
+def subscription_available(claude_bin: str | None = None) -> bool:
+    """True when the Claude Code CLI exists and is signed in to a subscription."""
+    claude_bin = claude_bin or _claude_bin()
+    if not shutil.which(claude_bin):
+        return False
+    if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
+        return True
+    try:
+        proc = subprocess.run(
+            [claude_bin, "auth", "status", "--json"], capture_output=True, text=True,
+            env=_subscription_env(), timeout=20,
+        )
+        status = json.loads(proc.stdout)
+    except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        return False
+    # A Console (API-billed) login also reports loggedIn; only count a claude.ai subscription.
+    return bool(status.get("loggedIn")) and bool(status.get("subscriptionType") or status.get("authMethod") == "claude.ai")
+
+
+def api_available() -> bool:
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        return False
+    try:
+        import anthropic  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def resolve_backend(preferred: str | None = None) -> str | None:
+    """Return "subscription", "api", or None. auto = subscription first, then API key."""
+    choice = (preferred or os.environ.get(BACKEND_ENV) or "auto").strip().lower()
+    if choice not in BACKENDS:
+        raise ClaudeAccessError(f"Unknown Claude backend {choice!r} (use one of: {', '.join(BACKENDS)}).")
+    if choice in ("auto", "subscription") and subscription_available():
+        return "subscription"
+    if choice in ("auto", "api") and api_available():
+        return "api"
+    return None
+
+
+def make_client(preferred: str | None = None) -> ClaudeClient:
+    """Build the client for the resolved backend, or raise ClaudeAccessError with setup help."""
+    backend = resolve_backend(preferred)
+    if backend == "subscription":
+        return SubscriptionClient()
+    if backend == "api":
+        return ApiClient(os.environ["ANTHROPIC_API_KEY"])
+    choice = (preferred or os.environ.get(BACKEND_ENV) or "auto").strip().lower()
+    if choice == "subscription":
+        raise ClaudeAccessError("Claude subscription not available: run `claude auth login` "
+                                "(or export CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`).")
+    if choice == "api":
+        raise ClaudeAccessError("API backend requested but ANTHROPIC_API_KEY is unset or the anthropic SDK is missing.")
+    raise ClaudeAccessError(ACCESS_HELP)
+
+
+def _strip_fences(raw: str) -> str:
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = "\n".join(raw.splitlines()[1:])
+    if raw.endswith("```"):
+        raw = "\n".join(raw.splitlines()[:-1])
+    return raw
 
 
 def _read_local_key() -> str | None:
@@ -280,85 +492,59 @@ Output ONLY valid JSON in this exact schema — no commentary:
 
 
 def phase0_auto_trim(
-    client: anthropic.Anthropic, original: str, char_limit: int, model: str
+    client: ClaudeClient, original: str, char_limit: int, model: str
 ) -> str:
     """Auto-trim a SKILL.md to char_limit. Returns trimmed string — never written to disk."""
     system = PHASE0_SYSTEM.replace("{char_limit}", str(char_limit))
-    response = client.messages.create(
-        model=model,
-        max_tokens=8192,
+    return client.complete(
         system=system,
-        messages=[
-            {
-                "role": "user",
-                "content": f"Trim this SKILL.md to fit within {char_limit} characters:\n\n{original}",
-            }
-        ],
-    )
-    return response.content[0].text.strip()
+        content=f"Trim this SKILL.md to fit within {char_limit} characters:\n\n{original}",
+        model=model,
+        max_tokens=16_000,
+    ).strip()
 
 
 def phase1_extract_atoms(
-    client: anthropic.Anthropic, original: str, model: str
+    client: ClaudeClient, original: str, model: str
 ) -> list[dict]:
-    """Extract functional atoms from the original SKILL.md (uses ephemeral cache)."""
-    response = client.messages.create(
-        model=model,
-        max_tokens=4096,
+    """Extract functional atoms from the original SKILL.md (uses ephemeral cache on the API)."""
+    raw = client.complete(
         system=PHASE1_SYSTEM,
-        messages=[
+        content=[
             {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "Extract all functional atoms from this SKILL.md:\n\n" + original,
-                        "cache_control": {"type": "ephemeral"},
-                    }
-                ],
+                "type": "text",
+                "text": "Extract all functional atoms from this SKILL.md:\n\n" + original,
+                "cache_control": {"type": "ephemeral"},
             }
         ],
+        model=model,
+        max_tokens=16_000,
     )
-    raw = response.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = "\n".join(raw.splitlines()[1:])
-    if raw.endswith("```"):
-        raw = "\n".join(raw.splitlines()[:-1])
-    return json.loads(raw)["atoms"]
+    return json.loads(_strip_fences(raw))["atoms"]
 
 
 def phase2_verify_atoms(
-    client: anthropic.Anthropic, atoms: list[dict], trimmed: str, model: str
+    client: ClaudeClient, atoms: list[dict], trimmed: str, model: str
 ) -> list[dict]:
-    """Verify each atom against the trimmed SKILL.md (uses ephemeral cache)."""
+    """Verify each atom against the trimmed SKILL.md (uses ephemeral cache on the API)."""
     atoms_json = json.dumps({"atoms": atoms}, indent=2)
-    response = client.messages.create(
-        model=model,
-        max_tokens=8192,
+    raw = client.complete(
         system=PHASE2_SYSTEM,
-        messages=[
+        content=[
             {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "FUNCTIONAL ATOMS FROM ORIGINAL:\n\n" + atoms_json,
-                        "cache_control": {"type": "ephemeral"},
-                    },
-                    {
-                        "type": "text",
-                        "text": "\n\nTRIMMED SKILL.md TO VERIFY:\n\n" + trimmed,
-                    },
-                ],
-            }
+                "type": "text",
+                "text": "FUNCTIONAL ATOMS FROM ORIGINAL:\n\n" + atoms_json,
+                "cache_control": {"type": "ephemeral"},
+            },
+            {
+                "type": "text",
+                "text": "\n\nTRIMMED SKILL.md TO VERIFY:\n\n" + trimmed,
+            },
         ],
+        model=model,
+        max_tokens=16_000,
     )
-    raw = response.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = "\n".join(raw.splitlines()[1:])
-    if raw.endswith("```"):
-        raw = "\n".join(raw.splitlines()[:-1])
-    return json.loads(raw)["results"]
+    return json.loads(_strip_fences(raw))["results"]
 
 
 # ---------------------------------------------------------------------------
@@ -416,7 +602,7 @@ def print_atoms(atoms: list[dict], results: list[dict]) -> None:
 # ---------------------------------------------------------------------------
 
 def run_single_check(
-    client: anthropic.Anthropic,
+    client: ClaudeClient,
     skill_name: str,
     git_path: str,
     wt_path: str,
@@ -504,19 +690,8 @@ def run_single_check(
     _head("Phase 1 — Extracting functional atoms" + (" from original..." if not new_skill else "..."))
     try:
         atoms = phase1_extract_atoms(client, original, model)
-    except anthropic.BadRequestError as e:
-        msg = str(e)
-        if "credit balance" in msg or "too low" in msg:
-            print(f"{RED}Error: Anthropic account has no credits.{RESET}", file=sys.stderr)
-            print("  → Add credits at console.anthropic.com → Plans & Billing", file=sys.stderr)
-        else:
-            print(f"{RED}API error: {e}{RESET}", file=sys.stderr)
-        return -1, {}
-    except anthropic.AuthenticationError:
-        print(f"{RED}Error: Invalid ANTHROPIC_API_KEY.{RESET}", file=sys.stderr)
-        return -1, {}
-    except anthropic.APIConnectionError:
-        print(f"{RED}Error: Could not connect to Anthropic API.{RESET}", file=sys.stderr)
+    except ClaudeAccessError as e:
+        print(f"{RED}Error: {e}{RESET}", file=sys.stderr)
         return -1, {}
     except (json.JSONDecodeError, KeyError) as e:
         print(f"{RED}Error parsing Phase 1 response: {e}{RESET}", file=sys.stderr)
@@ -532,12 +707,8 @@ def run_single_check(
     _head("Phase 2 — Checking completeness against trimmed version...")
     try:
         results = phase2_verify_atoms(client, atoms, trimmed_for_check, model)
-    except (
-        anthropic.BadRequestError,
-        anthropic.AuthenticationError,
-        anthropic.APIConnectionError,
-    ) as e:
-        print(f"{RED}API error in Phase 2: {e}{RESET}", file=sys.stderr)
+    except ClaudeAccessError as e:
+        print(f"{RED}Error: Phase 2: {e}{RESET}", file=sys.stderr)
         return -1, {}
     except (json.JSONDecodeError, KeyError) as e:
         print(f"{RED}Error parsing Phase 2 response: {e}{RESET}", file=sys.stderr)
@@ -642,8 +813,8 @@ def main() -> int:
         description="Semantic completeness checker for SKILL.md files"
     )
 
-    # Target — mutually exclusive, one required
-    target = parser.add_mutually_exclusive_group(required=True)
+    # Target — mutually exclusive, one required (unless --check-access)
+    target = parser.add_mutually_exclusive_group()
     target.add_argument(
         "--skill",
         help="Skill folder name under .ai/skills/ (e.g. git-versioning)",
@@ -667,6 +838,21 @@ def main() -> int:
         default=_DEFAULT_MODEL,
         dest="oracle_model",
         help=f"Claude model for all phases (default: {_DEFAULT_MODEL})",
+    )
+
+    # Claude access
+    parser.add_argument(
+        "--claude-backend",
+        choices=list(BACKENDS),
+        default=None,
+        dest="claude_backend",
+        help=f"auto (default: subscription, then API key), subscription, or api. Env: {BACKEND_ENV}",
+    )
+    parser.add_argument(
+        "--check-access",
+        action="store_true",
+        dest="check_access",
+        help="Print which Claude backend would be used and exit (0 = available, 2 = none)",
     )
 
     # Legacy / unchanged options
@@ -697,13 +883,18 @@ def main() -> int:
     global _QUIET
     _QUIET = args.quiet
 
-    # --- API key check
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        print(f"{RED}Error: ANTHROPIC_API_KEY environment variable not set.{RESET}", file=sys.stderr)
+    # --- Claude access: subscription first, API key optional
+    try:
+        client = make_client(args.claude_backend)
+    except ClaudeAccessError as e:
+        print(f"{RED}Error: {e}{RESET}", file=sys.stderr)
         return 2
-
-    client = anthropic.Anthropic(api_key=api_key)
+    if args.check_access:
+        print(f"claude backend: {client.backend}")
+        return 0
+    if not (args.skill or args.agent):
+        parser.error("one of --skill or --agent is required")
+    _info(f"Claude backend: {client.backend}  model: {model}")
 
     # ── Agent mode ────────────────────────────────────────────────────────────
     if args.agent:

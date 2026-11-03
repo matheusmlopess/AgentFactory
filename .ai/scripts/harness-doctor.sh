@@ -157,14 +157,13 @@ check_skills_completeness() {
     warn "Skill completeness: python3 not found — skipping"
     return
   fi
-  if ! python3 -c "import anthropic" 2>/dev/null; then
-    warn "Skill completeness: anthropic SDK not installed — skipping"
+  # Claude subscription (Claude Code CLI) first; ANTHROPIC_API_KEY + anthropic SDK is the optional fallback.
+  local backend
+  if ! backend=$(python3 "${AI_ROOT}/scripts/skill-completeness-check.py" --check-access 2>/dev/null); then
+    warn "Skill completeness: no Claude access (run \`claude auth login\`, or set ANTHROPIC_API_KEY) — skipping"
     return
   fi
-  if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
-    warn "Skill completeness: ANTHROPIC_API_KEY not set — skipping"
-    return
-  fi
+  ok "Skill completeness access: ${backend}"
   local skills_dir="${AI_ROOT}/skills"
   if [[ ! -d "${skills_dir}" ]]; then return; fi
   while IFS= read -r -d '' skill_dir; do
