@@ -78,9 +78,9 @@ class TestResolveBackend:
 
     def test_falls_back_to_api_key_without_login(self, oracle, tmp_path):
         fake = _fake_claude(tmp_path, logged_in=False, sub="None")
-        with patch.dict(os.environ, _env(AGENTFACTORY_CLAUDE_BIN=str(fake), ANTHROPIC_API_KEY="sk-test"), clear=True):
-            with patch.object(oracle, "api_available", return_value=True):
-                assert oracle.resolve_backend() == "api"
+        env = _env(AGENTFACTORY_CLAUDE_BIN=str(fake), ANTHROPIC_API_KEY="sk-test")
+        with patch.dict(os.environ, env, clear=True), patch.object(oracle, "api_available", return_value=True):
+            assert oracle.resolve_backend() == "api"
 
     def test_console_login_is_not_a_subscription(self, oracle, tmp_path):
         fake = _fake_claude(tmp_path, auth_method="console", sub="None")
