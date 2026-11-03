@@ -1,6 +1,6 @@
 """
 GitHub OAuth endpoints + /auth/me + /auth/logout.
-Implements the contract from docs/FEATURE-AUTH.md §6.
+Session contract: GitHub OAuth -> httpOnly JWT cookie (see docs/MULTI-REPO-WORKFLOW.md).
 """
 import os
 import secrets

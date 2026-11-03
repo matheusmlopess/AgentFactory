@@ -693,7 +693,7 @@ class Librarian:
         if not self.manifest_path.exists():
             raise FileNotFoundError(
                 f"No manifest found at {self.manifest_path}. "
-                "Run `agent-gen deploy <name>` first."
+                "Run `agentfactory-gen deploy <name>` first."
             )
         with open(self.manifest_path) as f:
             return json.load(f)

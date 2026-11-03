@@ -1,10 +1,10 @@
 # Multi-Repo Development Workflow
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 
 Issue: #114 context · Architecture decision after webapp separation (2026-04-21)
 
 Reference document for developing AgentFactory across two repositories.
-Read alongside `docs/FEATURE-AUTH.md` and `docs/FEATURE-WORKFLOW.md`.
+Read alongside `docs/FEATURE-WORKFLOW.md`. The auth contract is the committed `api/openapi.json`.
 
 ---
 
@@ -22,14 +22,14 @@ Read alongside `docs/FEATURE-AUTH.md` and `docs/FEATURE-WORKFLOW.md`.
   │  src/tests/             ← pytest suite (CLI + API)                   │
   │  .ai/                   ← AgentFactory harness (skills, briefs)      │
   │  docs/                  ← Architecture specs, feature docs, workflow  │
-  │  api/openapi.yaml        ← API contract (source of truth for webapp) │
+  │  api/openapi.json        ← API contract (source of truth for webapp) │
   │  docker-compose.yml      ← Full-stack local dev (api + db)           │
   └─────────────────────────────────────────────────────────────────────┘
 
   github.com/matheusmlopess/agentfactory-webapp   ← PRIVATE
   ┌─────────────────────────────────────────────────────────────────────┐
   │  src/                   ← React + TypeScript webapp                  │
-  │  src/lib/api-types.ts   ← Generated from api/openapi.yaml (CLI repo) │
+  │  src/lib/api-types.ts   ← Generated from api/openapi.json (CLI repo) │
   │  src/lib/apiClient.ts   ← Typed fetch wrapper                       │
   │  .ai/                   ← AgentFactory harness (webapp dev context)  │
   │  docs/                  ← Webapp-specific feature docs               │
@@ -47,7 +47,7 @@ Read alongside `docs/FEATURE-AUTH.md` and `docs/FEATURE-WORKFLOW.md`.
   └────────────────────┘                 └──────────────────────────────┘
 ```
 
-The API contract lives in `api/openapi.yaml` in this repo. The webapp generates
+The API contract lives in `api/openapi.json` in this repo. The webapp generates
 TypeScript types from it. Neither side hard-codes request/response shapes by hand.
 
 ---
@@ -92,7 +92,7 @@ work never requires the CLI repo to be running.
 ### Pure CLI/backend work (harness commands, API routes)
 
 ```
-  cd ~/repo/AgentFactory.old
+  cd ~/repo/agentfactory/AgentFactory
   git checkout -b feature/<issue>-<slug>
 
   # harness commands:
@@ -116,7 +116,7 @@ work never requires the CLI repo to be running.
   │  2. Open linked issue in webapp repo for the frontend                │
   │     body: "Depends on: CLI#<n>"                                      │
   │                                                                       │
-  │  3. CLI repo: update api/openapi.yaml with the new endpoint schema   │
+  │  3. CLI repo: update api/openapi.json with the new endpoint schema   │
   │  4. CLI repo: implement FastAPI route + tests                        │
   │  5. CLI repo: merge + regenerate types:                              │
   │       cd ~/repo/agentfactory-webapp                                  │
@@ -142,7 +142,7 @@ work never requires the CLI repo to be running.
   │  ─────────────────                                                    │
   │  · agentfactory-gen command changes                                  │
   │  · FastAPI backend routes, auth, billing, RBAC                       │
-  │  · Platform epic coordination (#77 and descendants)                  │
+  │  · Platform epic coordination                                         │
   │  · CLI-side of cross-cutting features (backend half)                 │
   │                                                                       │
   │  Webapp repo (private)                                                │
@@ -171,7 +171,7 @@ After any backend change, regenerate the webapp's type bindings:
 ```bash
 # From the webapp repo root:
 npx openapi-ts \
-  --input https://raw.githubusercontent.com/matheusmlopess/AgentFactory/dev/api/openapi.yaml \
+  --input https://raw.githubusercontent.com/matheusmlopess/AgentFactory/main/api/openapi.json \
   --output src/lib/api-types.ts \
   --client fetch
 
@@ -228,14 +228,14 @@ The `docker-compose.yml` in this repo starts:
   │                                                                       │
   │  CLI / backend                  Webapp                                │
   │  ──────────────────             ──────────────────                    │
-  │  git tag v3.0.0                 merge to main                        │
+  │  git tag v0.4.0                 merge to main                        │
   │  → PyPI release (agentfactory-gen)   → GitHub Pages deploy           │
   │  → Docker image pushed               (or VPS deploy hook)            │
   │                                                                       │
   │  No hard version coupling between repos. The API contract             │
-  │  (openapi.yaml) is the compatibility boundary.                        │
+  │  (openapi.json) is the compatibility boundary.                        │
   │                                                                       │
-  │  Breaking API change → bump major version in openapi.yaml +          │
+  │  Breaking API change → bump major version in openapi.json +          │
   │  regenerate webapp types before deploying backend.                   │
   └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -296,4 +296,4 @@ The `docker-compose.yml` in this repo starts:
 
 ---
 
-_See also: `docs/FEATURE-AUTH.md` (OAuth contract) · `docs/FEATURE-WORKFLOW.md` (8-step lifecycle)_
+_See also: `api/openapi.json` (OAuth + license contract) · `docs/FEATURE-WORKFLOW.md` (8-step lifecycle)_

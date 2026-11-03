@@ -1,10 +1,14 @@
 # Milestones
-<!-- version: 1.10.0 -->
+<!-- version: 1.11.0 -->
 
 Living traceability matrix for all AgentFactory GitHub issues.
 Update this file on every PR merge and release (see git-versioning SKILL.md Step 8.5).
 
 Status values: `done` · `in-progress` · `pending` · `deferred`
+
+> **2026-11-03:** GitHub milestones now carry the plan (`0.4.0`, `0.5.0 orchestrate`, `hardening`)
+> with `p0`–`p3` and `size:*` labels; this file keeps the history. Tags are package versions from
+> 0.4.0 on (`v2.x` were milestone tags; "v2.9.0" below was never tagged — #126 ships in 0.4.0).
 
 ---
 
@@ -66,6 +70,9 @@ Status values: `done` · `in-progress` · `pending` · `deferred`
 ---
 
 ## Roadmap — Production Platform (epic #77)
+
+> **2026-11-03:** issues #77 and #84–#92 no longer resolve in this repo (moved with the webapp or
+> deleted). The rows below are kept as the original plan only.
 
 Business model: freemium SaaS + public agent registry + marketplace.
 The CLI stays open-source. The platform is the paid surface.
@@ -152,13 +159,12 @@ Issues below are tracked in the private webapp repo as of 2026-04-21.
 | #102 | integrate completeness gate into adapter-add command | feature | done | feature/102-adapter-add-completeness-gate | #109 | 36c790d | — |
 | #103 | per-adapter completeness thresholds in harness config | feature | done | feature/103-per-adapter-completeness-thresholds | #110 | 8e37e66 | — |
 | #104 | webapp completeness report viewer (static, no API key) | feature | done | feature/104-webapp-completeness-viewer | #108 | 4f2822b | — |
-| #105 | BYOK live completeness checker in webapp [pro] | feature | pending | — | — | — | — |
-| #114 | auth backend — FastAPI OAuth server (GitHub + Google), JWT sessions | platform | pending | — | — | — | — |
+| #105 | BYOK live completeness checker in webapp [pro] | feature | moved→webapp-repo | — | — | — | — |
 | #120 | bug: init creates root MD symlinks for primary adapter only | bug | done | fix/120-121-harness-init-gaps | #123 | 47f8e46 | — |
 | #121 | bug: update_harness_files skips @skills-registry injection in README when marker absent | bug | done | fix/120-121-harness-init-gaps | #123 | 47f8e46 | — |
 | #114 | feat[P2]: auth backend — FastAPI OAuth server + JWT sessions + license validation | platform | done | feature/114-auth-backend | #124 | 39d0e8c | — |
 | #125 | feat: AgentFactory.md master brief + preamble injection into all adapter briefs | feature | done | feature/agentfactory-md-master-brief | #125 | c4cd5a2 | v2.8.0 |
-| #126 | feat: extend completeness oracle to project-context preamble truncation | feature | done | feature/126-preamble-completeness-oracle | #127 | 70f4fc0 | v2.9.0 |
+| #126 | feat: extend completeness oracle to project-context preamble truncation | feature | done | feature/126-preamble-completeness-oracle | #127 | 70f4fc0 | v0.4.0 |
 
 ## Pending (legacy / non-platform)
 
@@ -177,20 +183,20 @@ Absorption notes: #152+#153→#160 · #165+#166+#169→#170 · #140+#141→#146 
 
 | # | Title | Type | Status |
 |---|-------|------|--------|
-| #133 | --version flag not defined on root CLI group | bug | pending |
-| #132 | audit exits 1 on untracked files without auto-syncing first | bug | pending |
-| #135 | --project-root resolves conflict check against CWD, not target root | bug | pending |
-| #134 | SKILL.md frontmatter not parsed by import-skill | bug | pending |
-| #136 | wrap --out flag undiscoverable; ZIP lands in CWD silently | enhancement | pending |
+| #133 | --version flag not defined on root CLI group | bug | done (#175, f954a0f) |
+| #132 | audit exits 1 on untracked files without auto-syncing first | bug | done (#175, f954a0f) |
+| #135 | --project-root resolves conflict check against CWD, not target root | bug | done (#175, f954a0f) |
+| #134 | SKILL.md frontmatter not parsed by import-skill | bug | done (#175, f954a0f) |
+| #136 | wrap --out flag undiscoverable; ZIP lands in CWD silently | enhancement | done (#175, f954a0f) |
 
 ### Wave 2 — Security
 
 | # | Title | Type | Status |
 |---|-------|------|--------|
-| #146 | import atomicity + safety overhaul — dry-run, pre-unpack audit, atomic write, rollback | security | pending |
-| #143 | --project-root accepts path traversal sequences without validation | security | pending |
-| #142 | scripts/ in imported agents execute without sandbox or review gate | security | pending |
-| #144 | no checksum or signature verification on imported ZIPs | security | pending |
+| #146 | import atomicity + safety overhaul — dry-run, pre-unpack audit, atomic write, rollback | security | in-progress (#177, #185; rollback + pre-unpack audit open) |
+| #143 | --project-root accepts path traversal sequences without validation | security | done (#177) |
+| #142 | scripts/ in imported agents execute without sandbox or review gate | security | done (#177; workflows gated by #185) |
+| #144 | no checksum or signature verification on imported ZIPs | security | in-progress (registry SHA-256 in #177; signatures open) |
 
 ### Wave 3 — CLI enhancements
 
@@ -240,9 +246,9 @@ Both are kept as separate adapters — they are distinct tools with different la
 
 | Item | Title | Type | Status | Branch |
 |------|-------|------|--------|--------|
-| AGY-1 | Add `antigravity` adapter: `.agents/` folder symlink, `.agents/skills` + `.agents/rules` wiring, `mcp_config.json`, AGENTS.md root file | feature | in-progress | feature/antigravity-cli-adapter |
-| AGY-2 | Antigravity retrofit profile (`.agents/skills`, `.agents/rules`, `.agents/workflows`) | feature | in-progress | feature/antigravity-cli-adapter |
-| AGY-3 | Live probe via `agy -p`; provider-error skips (quota/retirement) for all live agent tests | test | in-progress | feature/antigravity-cli-adapter |
+| AGY-1 | Add `antigravity` adapter: `.agents/` folder symlink, `.agents/skills` + `.agents/rules` wiring, `mcp_config.json`, AGENTS.md root file | feature | done (#181) | feature/antigravity-cli-adapter |
+| AGY-2 | Antigravity retrofit profile (`.agents/skills`, `.agents/rules`, `.agents/workflows`) | feature | done (#181) | feature/antigravity-cli-adapter |
+| AGY-3 | Live probe via `agy -p`; provider-error skips (quota/retirement) for all live agent tests | test | done (#181) | feature/antigravity-cli-adapter |
 
 Note: `AGENTS.md` is a shared cross-tool root file — codex owns it at `init`
 (registry order), and an explicit `adapter add antigravity` re-points it.
@@ -259,3 +265,24 @@ Tracked against the Agent Skills open standard (agentskills.io, 2026).
 | W5-D2 | Enforce `name` must match parent directory name in `_validate_and_reconcile_skill_manifest` (open standard §name constraint) | Wave 1 + Wave 5 merged |
 | W5-D3 | Parse and surface optional fields: `license`, `compatibility`, `allowed-tools` from SKILL.md frontmatter into skill-manifest.json | Wave 5 merged |
 | W5-D4 | Full YAML-aware `metadata.version` parsing — replace flat-line parser with a proper nested YAML reader so `metadata:\n  version:` resolves correctly even when other `metadata` sub-keys are present | Wave 5 merged |
+
+---
+
+## Orchestration (docs/DECISIONS-ORCHESTRATION.md)
+
+| Item | Title | Status | PR |
+|------|-------|--------|----|
+| ORCH-1 | Core models, contract, runners, sequential executor, `orchestrate run/validate/list/init` | done | #183, follow-up #187 |
+| ORCH-2 | DAG + checkpoint execution modes | pending (milestone 0.5.0) | — |
+| ORCH-3 | Delegate steps + nested harness | pending (milestone 0.5.0) | — |
+| ORCH-4 | Portable Units carry workflows + live tests + docs | pending (milestone 0.5.0) | — |
+
+## Hardening — 2026-11-03 review
+
+| PR | What | Status |
+|----|------|--------|
+| #182 | Claude subscription first for the completeness oracle (API key optional) | done |
+| #184 | Stop tracking `.venv/` | done |
+| #185 | Agent/skill name validation, https-only registry URLs, workflow shell steps gated, atomic migrate | done |
+| #186 | Hashed license keys, required JWT secret, bounded OAuth state | done |
+| #187 | Orchestrate runs in project root, contract policies applied, retry count fixed | done |

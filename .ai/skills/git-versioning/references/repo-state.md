@@ -1,5 +1,5 @@
 # Repo State Reference
-<!-- version: 1.0.1 -->
+<!-- version: 1.1.0 -->
 
 Keep this file updated whenever skills are upgraded or tags are created.
 The git-versioning skill reads this to give accurate, repo-specific commands.
@@ -9,7 +9,7 @@ The git-versioning skill reads this to give accurate, repo-specific commands.
 ## Remote
 
 - URL: github.com/matheusmlopess/AgentFactory
-- Default branch: dev
+- Default branch: main (there is no `dev` branch; CI runs on PRs to `main`)
 - Releases: github.com/matheusmlopess/AgentFactory/releases
 
 ---
@@ -30,8 +30,17 @@ The git-versioning skill reads this to give accurate, repo-specific commands.
 | v2.4.2 | c8d45e2 | Fix test-agent description, drop stale egg-info, CHANGELOG updates |
 | v2.5.0 | f5ab939 | CI/CD pipeline, traceability matrix, security fixes, 14 new tests, harness-doctor |
 | v2.5.1 | f5b50b4 | Rename PyPI package to agentfactory-gen |
+| v0.3.1 | cbe7036 | PyPI release 0.3.1 (agentfactory-gen) |
+| v2.8.0 | c7483ec | Milestone tag (AgentFactory.md master brief, #125); no GitHub release, not on PyPI |
 
-Latest tag: v2.5.1
+Latest tag: v2.8.0 (milestone). Latest PyPI release: v0.3.1.
+
+### Version scheme (from 0.4.0)
+
+- Tags are **package versions** only: `v` + `[project].version` in `pyproject.toml`
+  (`release.yml` refuses any other tag). Next: `v0.4.0`.
+- The `v2.x` tags above were milestone tags from April 2026 and are kept for history.
+- `<!-- version: -->` markers in Markdown files are document versions, not package versions.
 
 ---
 
@@ -39,9 +48,10 @@ Latest tag: v2.5.1
 
 | Artifact | Version | Path |
 |----------|---------|------|
-| agentfactory-gen CLI | v0.3.2 | pyproject.toml |
-| git-versioning | v1.3.0 | .ai/skills/git-versioning/SKILL.md |
-| diff-visualizer | v1.1.1 | .ai/skills/diff-visualizer/SKILL.md |
+| agentfactory-gen CLI | v0.4.0 | pyproject.toml |
+| git-versioning | v1.3.1 | .ai/skills/git-versioning/SKILL.md |
+| diff-visualizer | v1.1.2 | .ai/skills/diff-visualizer/SKILL.md |
+| issue-tracker | v1.0.0 | .ai/skills/issue-tracker/SKILL.md |
 
 ---
 

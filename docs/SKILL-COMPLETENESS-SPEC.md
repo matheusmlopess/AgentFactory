@@ -1,5 +1,5 @@
 # Skill Completeness — System Reference
-<!-- version: 2.0.0 -->
+<!-- version: 2.0.1 -->
 
 Complete reference for the AgentFactory skill completeness system: motivation,
 internal mechanics, all integration points, configuration, and implementation status.
@@ -55,7 +55,7 @@ judge of semantic equivalence**. That is the foundation of this system.
   ╔═══════════════════════════════════╗             │
   ║  PHASE 1 — Atom Extraction        ║             │
   ║                                   ║             │
-  ║  Model : claude-haiku-4-5         ║             │
+  ║  Model : haiku (alias)            ║             │
   ║  Tokens: up to 4,096 output       ║             │
   ║  Cache : ephemeral on original    ║  ← cache    │
   ║                                   ║    hit on   │
@@ -72,7 +72,7 @@ judge of semantic equivalence**. That is the foundation of this system.
   ╔══════════════════════════════════════════════════╗
   ║  PHASE 2 — Completeness Verification              ║
   ║                                                    ║
-  ║  Model : claude-haiku-4-5                          ║
+  ║  Model : haiku (alias)                             ║
   ║  Tokens: up to 8,192 output                        ║
   ║  Input 1: atoms[] JSON    ← cached (ephemeral)     ║
   ║  Input 2: trimmed SKILL.md  (not cached)           ║
