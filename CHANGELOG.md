@@ -3,6 +3,12 @@
 
 ## [Unreleased]
 
+### Changed
+- One API base-URL setting (#202): the CLI and the completeness oracle read `AGENTFACTORY_API_URL`
+  (default `https://api.agentfactory.dev`, which also serves the registry). `AGENTFACTORY_REGISTRY_URL`
+  still works for one release and prints a deprecation warning. The old default host
+  `https://agentfactory.dev` is no longer used.
+
 ### Added
 - **Registry API** (#193): `POST /registry/publish` (multipart `manifest` + `file`, Bearer token or session),
   `GET /registry` (list/search), `GET /registry/{name}`, `GET /registry/{name}/{version}` and

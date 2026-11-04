@@ -1,5 +1,5 @@
 # Registry CLI — publish & import --from-registry
-<!-- version: 1.0.0 -->
+<!-- version: 1.1.0 -->
 
 Issue: #82 · Phase 1 Foundation of the AgentFactory production platform (#77)
 
@@ -110,7 +110,7 @@ Dependency chain:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `AGENTFACTORY_REGISTRY_URL` | No | `https://agentfactory.dev` | Override for self-hosted registry |
+| `AGENTFACTORY_API_URL` | No | `https://api.agentfactory.dev` | API base URL (auth, license, registry); override for a self-hosted or local API. `AGENTFACTORY_REGISTRY_URL` is the deprecated old name. |
 
 ### 3.2 Auth token
 
@@ -263,7 +263,7 @@ agentfactory-gen wrap my-agent
 
 # 3. Publish to the registry
 agentfactory-gen publish my-agent
-# Published: https://agentfactory.dev/registry/my-agent@1.0.0
+# Published: https://api.agentfactory.dev/registry/my-agent@1.0.0
 ```
 
 ### 5.2 Publish with version override and tags
@@ -271,7 +271,7 @@ agentfactory-gen publish my-agent
 ```bash
 agentfactory-gen publish my-agent --version 1.2.0 --tag nlp --tag retrieval
 # Looks for: my-agent-v1.2.0.zip in cwd
-# Published: https://agentfactory.dev/registry/my-agent@1.2.0
+# Published: https://api.agentfactory.dev/registry/my-agent@1.2.0
 ```
 
 ### 5.3 Import latest version of an agent
@@ -298,7 +298,7 @@ agentfactory-gen --quiet import --from-registry my-agent
 ### 5.6 Self-hosted registry
 
 ```bash
-export AGENTFACTORY_REGISTRY_URL=https://registry.internal.example.com
+export AGENTFACTORY_API_URL=https://registry.internal.example.com
 agentfactory-gen publish my-agent
 agentfactory-gen import --from-registry my-agent
 ```
@@ -546,13 +546,13 @@ agentfactory-gen import --from-registry my-agent --project-root /path/to/project
   │                                           │    --desc "What this agent does"       │
   ├──────────────────────────────────────────┼───────────────────────────────────────┤
   │  "Registry unreachable"                  │  Check network connection              │
-  │                                           │  Verify AGENTFACTORY_REGISTRY_URL      │
+  │                                           │  Verify AGENTFACTORY_API_URL           │
   ├──────────────────────────────────────────┼───────────────────────────────────────┤
   │  "Registry error 401: Unauthorized"      │  agentfactory-gen login   (#86)        │
   │                                           │  Or set ~/.agentfactory/token manually │
   ├──────────────────────────────────────────┼───────────────────────────────────────┤
   │  "Registry error 404" on publish         │  Registry endpoint config mismatch;   │
-  │                                           │  check AGENTFACTORY_REGISTRY_URL       │
+  │                                           │  check AGENTFACTORY_API_URL            │
   ├──────────────────────────────────────────┼───────────────────────────────────────┤
   │  "Agent '<name>' not found in registry"  │  Check slug spelling; browse           │
   │                                           │  agentfactory.dev/registry             │

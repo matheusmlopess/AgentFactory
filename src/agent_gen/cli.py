@@ -18,7 +18,25 @@ from .librarian import (
     Librarian, _FORMAT_REGISTRY, _inspect_zip, validate_name,
 )
 
-REGISTRY_URL = os.environ.get("AGENTFACTORY_REGISTRY_URL", "https://agentfactory.dev")
+DEFAULT_API_URL = "https://api.agentfactory.dev"
+
+
+def _resolve_api_url(env=os.environ) -> str:
+    """One base URL for the whole API (auth, license, registry): AGENTFACTORY_API_URL.
+
+    AGENTFACTORY_REGISTRY_URL is the pre-0.5 name; it still works for one release, with a warning.
+    """
+    url = env.get("AGENTFACTORY_API_URL", "").strip()
+    if url:
+        return url.rstrip("/")
+    legacy = env.get("AGENTFACTORY_REGISTRY_URL", "").strip()
+    if legacy:
+        sys.stderr.write("[librarian] AGENTFACTORY_REGISTRY_URL is deprecated; use AGENTFACTORY_API_URL.\n")
+        return legacy.rstrip("/")
+    return DEFAULT_API_URL
+
+
+REGISTRY_URL = _resolve_api_url()  # name kept for callers/tests; it is the API base URL
 
 
 # ---------------------------------------------------------------------------
