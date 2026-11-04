@@ -1,5 +1,5 @@
 # AgentFactory
-<!-- version: 2.10.0 -->
+<!-- version: 2.11.0 -->
 
 A Python CLI (`agentfactory-gen`) for building, packaging, and deploying AI agents
 as portable, framework-agnostic units. The web platform lives at
@@ -59,19 +59,28 @@ Each agent under `.ai/agents/<name>/` follows the **5-Directory Standard**:
 
 ## Installation
 
+Requires Python 3.11+. Install the CLI as an isolated tool. This works on systems whose Python is
+"externally managed" (PEP 668: current Debian/Ubuntu, Homebrew), where a plain `pip install` is refused.
+
 ```bash
-pip install agentfactory-gen
+uv tool install agentfactory-gen            # recommended (https://docs.astral.sh/uv/)
+uv tool install 'agentfactory-gen[api]'     # + the FastAPI backend (agentfactory-api)
+uv tool upgrade agentfactory-gen
+
+pipx install agentfactory-gen               # alternative
+pipx upgrade agentfactory-gen
 ```
 
-Or install from source (editable):
+Inside a virtual environment, `pip install agentfactory-gen` works as usual.
+
+From source, for contributors:
 
 ```bash
 git clone https://github.com/matheusmlopess/AgentFactory.git
 cd AgentFactory
-pip install -e ".[dev]"
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev,api]"   # project venv for tests
+uv tool install --editable .     # or: pipx install --editable .  → global agentfactory-gen runs this checkout
 ```
-
-Requires Python 3.11+.
 
 ---
 

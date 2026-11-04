@@ -3,7 +3,7 @@
 
 ## [Unreleased]
 
-## [v0.4.0] - 2026-11-03
+## [v0.4.0] - 2026-11-04
 
 First PyPI release since 0.3.1. From now on the package version lives only in `pyproject.toml`;
 the `v2.x` sections below were internal milestone tags (never published to PyPI) and their changes
@@ -31,6 +31,8 @@ ship in 0.4.0 as well.
 - `oracle` extra (`pip install agentfactory-gen[oracle]`) for the oracle's API backend.
 
 ### Changed
+- README: install the CLI with `uv tool install` or `pipx` (works with PEP 668 "externally managed" Pythons);
+  CI smoke-tests `pipx install .` and checks `--version` against `pyproject.toml` (#199).
 - **Claude subscription is the default for the completeness oracle**: `skill-completeness-check.py` (v2.1.0),
   `brief --check-completeness`, the preamble oracle and `harness-doctor.sh` run Claude through the Claude Code CLI
   (`claude -p`) with your subscription login or `CLAUDE_CODE_OAUTH_TOKEN`. `ANTHROPIC_API_KEY` is now an optional
