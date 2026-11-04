@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-11-04 11:16 UTC -->
-<!-- open-issues: 50 -->
+<!-- generated: 2026-11-04 11:31 UTC -->
+<!-- open-issues: 49 -->
 
 Living priority matrix — regenerated automatically on every push to `main`.
 Priority and effort come from the `p0`–`p3` and `size:S|M|L` labels.
@@ -15,7 +15,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ├──────────────────┼───────────────────────────────────────────┤
   │  Harness / CLI   │  #137  #138  #139  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #179  #189  #190  #191  #194  #195  #196  #197  #198  #201  #202  #204│
   │  Webapp / UI     │                                             │
-  │  Platform Core   │  #192  #193  #203                           │
+  │  Platform Core   │  #192  #203                                 │
   │  Platform Upper  │  #200                                       │
   └──────────────────┴───────────────────────────────────────────┘
 ```
@@ -64,7 +64,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #190    #189                      —                         refactor(cli): split cli.py per command group
   #191    —                         #189                      ci: type checking, formatting, dependency and
   #192    —                         —                         api: production readiness (database, containe
-  #193    —                         #203                      feat(api): registry router for publish / fetc
   #194    —                         #200                      feat(orchestrate): load and write the canonic
   #195    —                         #196                      feat(orchestrate): DAG and checkpoint executi
   #196    #195                      #197                      feat(orchestrate): delegate steps and nested 
@@ -73,7 +72,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #200    #189 #194                 —                         spike: shared Rust contracts core (validation
   #201    —                         #203                      feat(auth): CLI device login — /auth/cli/devi
   #202    —                         —                         refactor: one API base-URL setting `AGENTFACT
-  #203    #193 #201                 #204                      ops: deploy the API (api.agentfactory.dev)
+  #203    #201                      #204                      ops: deploy the API (api.agentfactory.dev)
   #204    #179 #203                 —                         test(e2e): MVP walkthrough — publish → webapp
 ```
 
@@ -89,7 +88,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #179    p1   large     Harness / CLI     #204                  Umbrella(cli): agent import fidelity & ergono
   #191    p1   medium    Harness / CLI     #189                  ci: type checking, formatting, dependency and
   #192    p1   medium    Platform Core     —                     api: production readiness (database, containe
-  #193    p1   large     Platform Core     #203                  feat(api): registry router for publish / fetc
   #201    p1   large     Harness / CLI     #203                  feat(auth): CLI device login — /auth/cli/devi
   #202    p1   small     Harness / CLI     —                     refactor: one API base-URL setting `AGENTFACT
   #137    p2   medium    Harness / CLI     —                     enhancement(cli): add agentfactory-gen status
@@ -171,5 +169,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-11-04 11:16 UTC by `generate-priority-report.py`._
+_Generated 2026-11-04 11:31 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
