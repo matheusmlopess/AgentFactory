@@ -194,3 +194,27 @@ class TestImportFromRegistry(unittest.TestCase):
 
             self.assertEqual(result.exit_code, 0, result.output)
             self.assertEqual(result.output.strip(), "")
+
+
+class TestApiUrlSetting(unittest.TestCase):
+    """#202: one API base-URL setting, AGENTFACTORY_API_URL; the old name still works with a warning."""
+
+    def test_default(self):
+        from agent_gen.cli import DEFAULT_API_URL, _resolve_api_url
+        self.assertEqual(_resolve_api_url({}), DEFAULT_API_URL)
+        self.assertEqual(DEFAULT_API_URL, "https://api.agentfactory.dev")
+
+    def test_new_name_wins_and_trailing_slash_dropped(self):
+        from agent_gen.cli import _resolve_api_url
+        env = {"AGENTFACTORY_API_URL": "http://localhost:8000/", "AGENTFACTORY_REGISTRY_URL": "https://old"}
+        self.assertEqual(_resolve_api_url(env), "http://localhost:8000")
+
+    def test_legacy_name_warns(self):
+        import contextlib
+        import io as _io
+        from agent_gen.cli import _resolve_api_url
+        err = _io.StringIO()
+        with contextlib.redirect_stderr(err):
+            self.assertEqual(_resolve_api_url({"AGENTFACTORY_REGISTRY_URL": "https://old.example"}),
+                             "https://old.example")
+        self.assertIn("deprecated", err.getvalue())

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # skill-completeness-check.py — Semantic completeness checker for SKILL.md files
-# <!-- version: 2.1.1 -->
+# <!-- version: 2.1.2 -->
 #
 # Usage:
 #   python3 .ai/scripts/skill-completeness-check.py [options]
@@ -79,7 +79,7 @@ _ADAPTER_CHAR_LIMITS: dict[str, int] = {"claude": 18_000, "codex": 10_000, "gemi
 _DEFAULT_CHAR_LIMIT = 18_000
 
 _USER_CONFIG = Path(".ai/config/user.json")
-_LICENSE_VALIDATE_URL = "https://api.agentfactory.dev/v1/validate"
+_LICENSE_VALIDATE_URL = os.environ.get("AGENTFACTORY_API_URL", "https://api.agentfactory.dev").rstrip("/") + "/v1/validate"
 
 _DEFAULT_MODEL = "haiku"
 
