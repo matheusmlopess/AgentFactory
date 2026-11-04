@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-11-04 11:31 UTC -->
-<!-- open-issues: 49 -->
+<!-- generated: 2026-11-04 11:34 UTC -->
+<!-- open-issues: 48 -->
 
 Living priority matrix — regenerated automatically on every push to `main`.
 Priority and effort come from the `p0`–`p3` and `size:S|M|L` labels.
@@ -13,7 +13,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ┌──────────────────┬───────────────────────────────────────────┐
   │  Track           │  Issues                                    │
   ├──────────────────┼───────────────────────────────────────────┤
-  │  Harness / CLI   │  #137  #138  #139  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #179  #189  #190  #191  #194  #195  #196  #197  #198  #201  #202  #204│
+  │  Harness / CLI   │  #137  #138  #139  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #179  #189  #190  #191  #194  #195  #196  #197  #198  #202  #204│
   │  Webapp / UI     │                                             │
   │  Platform Core   │  #192  #203                                 │
   │  Platform Upper  │  #200                                       │
@@ -70,9 +70,8 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #197    #196                      —                         feat(orchestrate): workflows in Portable Unit
   #198    —                         —                         fix(brief): agent registry links point to doc
   #200    #189 #194                 —                         spike: shared Rust contracts core (validation
-  #201    —                         #203                      feat(auth): CLI device login — /auth/cli/devi
   #202    —                         —                         refactor: one API base-URL setting `AGENTFACT
-  #203    #201                      #204                      ops: deploy the API (api.agentfactory.dev)
+  #203    —                         #204                      ops: deploy the API (api.agentfactory.dev)
   #204    #179 #203                 —                         test(e2e): MVP walkthrough — publish → webapp
 ```
 
@@ -88,8 +87,8 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #179    p1   large     Harness / CLI     #204                  Umbrella(cli): agent import fidelity & ergono
   #191    p1   medium    Harness / CLI     #189                  ci: type checking, formatting, dependency and
   #192    p1   medium    Platform Core     —                     api: production readiness (database, containe
-  #201    p1   large     Harness / CLI     #203                  feat(auth): CLI device login — /auth/cli/devi
   #202    p1   small     Harness / CLI     —                     refactor: one API base-URL setting `AGENTFACT
+  #203    p1   medium    Platform Core     #204                  ops: deploy the API (api.agentfactory.dev)
   #137    p2   medium    Harness / CLI     —                     enhancement(cli): add agentfactory-gen status
   #138    p2   large     Harness / CLI     —                     enhancement(cli): add agentfactory-gen upgrad
   #139    p2   medium    Harness / CLI     #178                  enhancement(cli): promote skill-completeness-
@@ -131,7 +130,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Pri  Effort    Track             Unblocks              Title
   ──────  ───  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #203    p1   medium    Platform Core     #204                  ops: deploy the API (api.agentfactory.dev)
+  #204    p1   medium    Harness / CLI     —                     test(e2e): MVP walkthrough — publish → webapp
   #178    p2   large     Harness / CLI     —                     Umbrella(cli): SKILL.md frontmatter parsing +
   #189    p2   large     Harness / CLI     #190 #200             refactor(librarian): split librarian.py and s
   #196    p2   large     Harness / CLI     #197                  feat(orchestrate): delegate steps and nested 
@@ -142,7 +141,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Pri  Effort    Track             Unblocks              Title
   ──────  ───  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #204    p1   medium    Harness / CLI     —                     test(e2e): MVP walkthrough — publish → webapp
   #190    p2   large     Harness / CLI     —                     refactor(cli): split cli.py per command group
   #197    p2   medium    Harness / CLI     —                     feat(orchestrate): workflows in Portable Unit
   #200    p3   large     Platform Upper    —                     spike: shared Rust contracts core (validation
@@ -169,5 +167,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-11-04 11:31 UTC by `generate-priority-report.py`._
+_Generated 2026-11-04 11:34 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
