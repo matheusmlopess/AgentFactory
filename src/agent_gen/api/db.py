@@ -77,6 +77,15 @@ CREATE TABLE IF NOT EXISTS registry_units (
     created_at      TEXT NOT NULL,
     updated_at      TEXT NOT NULL
 );
+-- Device-code login for the CLI/harness (RFC 8628 style). The device code is stored hashed.
+CREATE TABLE IF NOT EXISTS device_codes (
+    device_hash     TEXT PRIMARY KEY,
+    user_code       TEXT UNIQUE NOT NULL,
+    created_at      TEXT NOT NULL,
+    expires_at      TEXT NOT NULL,
+    approved_by     TEXT REFERENCES users(id),
+    consumed_at     TEXT
+);
 CREATE TABLE IF NOT EXISTS registry_versions (
     name            TEXT NOT NULL REFERENCES registry_units(name),
     version         TEXT NOT NULL,
@@ -176,3 +185,79 @@ def revoke_api_token(token: str) -> bool:
             (_now(), hash_key(token)),
         )
         return cur.rowcount > 0
+
+
+# ---------------------------------------------------------------- device login
+
+_USER_CODE_ALPHABET = "BCDFGHJKLMNPQRSTVWXZ"  # no vowels (no accidental words), no 0/O/1/I confusion
+MAX_PENDING_DEVICE_CODES = 1000
+
+
+def _user_code() -> str:
+    raw = "".join(secrets.choice(_USER_CODE_ALPHABET) for _ in range(8))
+    return f"{raw[:4]}-{raw[4:]}"
+
+
+def normalize_user_code(code: str) -> str:
+    raw = "".join(ch for ch in code.upper() if ch.isalnum())
+    return f"{raw[:4]}-{raw[4:]}" if len(raw) == 8 else code.strip().upper()
+
+
+def create_device_code(ttl_seconds: int = 600) -> tuple[str, str]:
+    """Start a login: returns (device_code, user_code). Expired codes are purged; pending codes are capped."""
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    device_code = secrets.token_urlsafe(32)
+    with get_conn() as conn:
+        conn.execute("DELETE FROM device_codes WHERE expires_at <= ?", (now.isoformat(),))
+        pending = conn.execute("SELECT COUNT(*) FROM device_codes WHERE consumed_at IS NULL").fetchone()[0]
+        if pending >= MAX_PENDING_DEVICE_CODES:
+            raise OverflowError("too many pending logins; try again in a few minutes")
+        for _ in range(5):
+            user_code = _user_code()
+            try:
+                conn.execute(
+                    "INSERT INTO device_codes (device_hash, user_code, created_at, expires_at) VALUES (?, ?, ?, ?)",
+                    (hash_key(device_code), user_code, now.isoformat(),
+                     (now + timedelta(seconds=ttl_seconds)).isoformat()),
+                )
+                return device_code, user_code
+            except sqlite3.IntegrityError:
+                continue
+    raise RuntimeError("could not allocate a user code")
+
+
+def approve_device_code(user_code: str, user_id: str) -> bool:
+    """Signed-in user confirms the code shown by the CLI. False when unknown, expired or already used."""
+    with get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE device_codes SET approved_by = ? WHERE user_code = ? AND approved_by IS NULL "
+            "AND consumed_at IS NULL AND expires_at > ?",
+            (user_id, normalize_user_code(user_code), _now()),
+        )
+        return cur.rowcount > 0
+
+
+def poll_device_code(device_code: str, label: str = "device login") -> tuple[str, str | None, str | None]:
+    """Returns (status, token, user_id). status: pending | authorized | expired.
+
+    The token is issued exactly once: the first poll after approval consumes the code.
+    """
+    now = _now()
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT approved_by, expires_at, consumed_at FROM device_codes WHERE device_hash = ?",
+            (hash_key(device_code),),
+        ).fetchone()
+        if row is None or row["consumed_at"] or row["expires_at"] <= now:
+            return "expired", None, None
+        if not row["approved_by"]:
+            return "pending", None, None
+        cur = conn.execute(
+            "UPDATE device_codes SET consumed_at = ? WHERE device_hash = ? AND consumed_at IS NULL",
+            (now, hash_key(device_code)),
+        )
+        if cur.rowcount == 0:
+            return "expired", None, None
+        user_id = row["approved_by"]
+    return "authorized", issue_api_token(user_id, label), user_id

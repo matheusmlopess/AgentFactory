@@ -262,10 +262,51 @@ def _registry_fetch(slug: str) -> tuple[dict, bytes]:
     return entry, zip_bytes
 
 
+def _token_path() -> Path:
+    return Path.home() / ".agentfactory" / "token"
+
+
 def _attach_auth_header(req) -> None:
-    token_path = Path.home() / ".agentfactory" / "token"
+    token_path = _token_path()
     if token_path.exists():
         req.add_header("Authorization", f"Bearer {token_path.read_text().strip()}")
+
+
+def _api_json(method: str, path: str, payload: dict | None = None, auth: bool = False) -> dict:
+    """Small JSON client for the AgentFactory API (same URL policy as the registry helpers)."""
+    import urllib.error
+    import urllib.request
+
+    _require_safe_url(REGISTRY_URL, "API URL")
+    data = json.dumps(payload).encode() if payload is not None else None
+    req = urllib.request.Request(f"{REGISTRY_URL}{path}", data=data, method=method)
+    if data is not None:
+        req.add_header("Content-Type", "application/json")
+    if auth:
+        _attach_auth_header(req)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = resp.read().decode()
+            return json.loads(body) if body else {}
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = json.loads(exc.read().decode()).get("detail", exc.reason)
+        except Exception:
+            detail = exc.reason
+        raise click.ClickException(f"API error {exc.code}: {detail}")
+    except urllib.error.URLError as exc:
+        raise click.ClickException(f"API unreachable ({REGISTRY_URL}): {exc.reason}")
+
+
+def _write_token(token: str) -> Path:
+    path = _token_path()
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as fh:
+        fh.write(token.strip())
+    os.replace(tmp, path)
+    return path
 
 
 # ---------------------------------------------------------------------------
@@ -707,6 +748,64 @@ def publish(name: str, version_override: str, tags: tuple):
     _echo(f"[librarian] Publishing '{agent_name}@{version}' to registry...")
     _registry_publish(publish_manifest, zip_path)
     _echo(f"[librarian] Published: {REGISTRY_URL}/registry/{agent_name}@{version}")
+
+
+# ---------------------------------------------------------------------------
+# login / logout / whoami (#201)
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.option("--no-browser", is_flag=True, help="Print the URL instead of opening a browser.")
+def login(no_browser: bool):
+    """Sign in to the AgentFactory API with a one-time code (device login)."""
+    import time
+    import webbrowser
+
+    start = _api_json("POST", "/auth/cli/device", {})
+    url = start.get("verification_uri_complete") or start["verification_uri"]
+    click.echo(f"[librarian] Open {start['verification_uri']} and enter the code: {start['user_code']}")
+    if not no_browser:
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+    interval = float(start.get("interval", 5))
+    deadline = time.monotonic() + int(start.get("expires_in", 600))
+    while time.monotonic() < deadline:
+        time.sleep(interval)
+        poll = _api_json("POST", "/auth/cli/poll", {"device_code": start["device_code"]})
+        if poll.get("status") == "authorized" and poll.get("token"):
+            path = _write_token(poll["token"])
+            handle = (poll.get("user") or {}).get("github_handle", "?")
+            click.echo(f"[librarian] Signed in as {handle}. Token saved to {path} (mode 600).")
+            return
+        if poll.get("status") == "expired":
+            raise click.ClickException("Login code expired or already used. Run 'agentfactory-gen login' again.")
+    raise click.ClickException("Login timed out. Run 'agentfactory-gen login' again.")
+
+
+@cli.command()
+def logout():
+    """Revoke this machine's API token and delete it."""
+    path = _token_path()
+    if not path.exists():
+        click.echo("[librarian] Not signed in.")
+        return
+    try:
+        _api_json("POST", "/auth/cli/logout", {}, auth=True)
+    except click.ClickException as exc:
+        _echo(f"[librarian] Could not revoke the token on the server ({exc.message}); deleting it locally.", err=True)
+    path.unlink()
+    click.echo("[librarian] Signed out.")
+
+
+@cli.command()
+def whoami():
+    """Show the account the saved API token belongs to."""
+    if not _token_path().exists():
+        raise click.ClickException("Not signed in. Run 'agentfactory-gen login'.")
+    me = _api_json("GET", "/auth/me", auth=True)
+    click.echo(f"{me.get('github_handle')} ({me.get('plan')}) · {REGISTRY_URL}")
 
 
 # ---------------------------------------------------------------------------

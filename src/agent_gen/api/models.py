@@ -42,3 +42,26 @@ class RegistryEntry(BaseModel):
     size_bytes: int
     published_at: str
     zip_url: str
+
+
+class DeviceCodeResponse(BaseModel):
+    device_code: str
+    user_code: str
+    verification_uri: str
+    verification_uri_complete: str
+    expires_in: int
+    interval: float
+
+
+class DevicePollRequest(BaseModel):
+    device_code: str
+
+
+class DevicePollResponse(BaseModel):
+    status: str  # pending | authorized | expired
+    token: str | None = None
+    user: User | None = None
+
+
+class DeviceApproveRequest(BaseModel):
+    user_code: str
