@@ -7,7 +7,7 @@ is ``dev``/``development``/``test``) the API refuses to run without a real secre
 import os
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
+import jwt
 
 _ALGORITHM = "HS256"
 _EXPIRE_DAYS = 30
@@ -55,7 +55,7 @@ def create_token(user_id: str) -> str:
 def decode_token(token: str) -> str | None:
     """Return user_id if token valid, else None."""
     try:
-        payload = jwt.decode(token, _secret(), algorithms=[_ALGORITHM])
+        payload = jwt.decode(token, _secret(), algorithms=[_ALGORITHM], options={"require": ["exp", "sub"]})
         return payload.get("sub")
-    except JWTError:
+    except jwt.PyJWTError:
         return None

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 pytest.importorskip("fastapi", reason="API tests need the [api] extra")
-pytest.importorskip("jose", reason="API tests need the [api] extra")
+pytest.importorskip("jwt", reason="API tests need the [api] extra")
 
 # Set required env vars before importing the app
 os.environ.setdefault("JWT_SECRET", "test-secret-for-tests-only-0123456789abcdef")
