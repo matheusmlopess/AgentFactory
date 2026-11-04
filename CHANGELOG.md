@@ -3,6 +3,16 @@
 
 ## [Unreleased]
 
+### Added
+- **Registry API** (#193): `POST /registry/publish` (multipart `manifest` + `file`, Bearer token or session),
+  `GET /registry` (list/search), `GET /registry/{name}`, `GET /registry/{name}/{version}` and
+  `GET /registry/{name}/{version}/download`. Units belong to their first publisher, versions are immutable
+  (409 on re-publish), the server stores each ZIP's sha256 and checks that the archive's
+  `agent-manifest.json` names the unit. Storage: `REGISTRY_STORAGE_DIR`; download links use `API_PUBLIC_URL`.
+- API tokens for the CLI (`api_tokens`, hashed, 90-day default TTL): `agentfactory-api tokens add|revoke`
+  until device login (#201) issues them; write the token to `~/.agentfactory/token`.
+- `python-multipart` joins the `[api]` extra.
+
 ## [v0.4.0] - 2026-11-04
 
 First PyPI release since 0.3.1. From now on the package version lives only in `pyproject.toml`;
