@@ -1,5 +1,5 @@
 """
-SQLite database layer: users and hashed license keys.
+SQLite database layer: users, hashed license keys, API tokens and the agent registry.
 DATABASE_URL=sqlite:///./data/agentfactory.db  (default)
 Swap for postgresql:// via env var when scaling.
 """
@@ -56,6 +56,36 @@ CREATE TABLE IF NOT EXISTS license_keys (
     created_at      TEXT NOT NULL,
     revoked_at      TEXT
 );
+
+-- API tokens for the CLI/harness (Bearer). Only the sha256 hash is stored.
+CREATE TABLE IF NOT EXISTS api_tokens (
+    token_hash      TEXT PRIMARY KEY,
+    user_id         TEXT NOT NULL REFERENCES users(id),
+    label           TEXT NOT NULL DEFAULT '',
+    created_at      TEXT NOT NULL,
+    expires_at      TEXT,
+    last_used_at    TEXT,
+    revoked_at      TEXT
+);
+
+-- Registry: one row per unit (owned by its first publisher) and one per immutable version.
+CREATE TABLE IF NOT EXISTS registry_units (
+    name            TEXT PRIMARY KEY,
+    owner_id        TEXT NOT NULL REFERENCES users(id),
+    description     TEXT NOT NULL DEFAULT '',
+    tags            TEXT NOT NULL DEFAULT '[]',
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS registry_versions (
+    name            TEXT NOT NULL REFERENCES registry_units(name),
+    version         TEXT NOT NULL,
+    sha256          TEXT NOT NULL,
+    size_bytes      INTEGER NOT NULL,
+    published_by    TEXT NOT NULL REFERENCES users(id),
+    published_at    TEXT NOT NULL,
+    PRIMARY KEY (name, version)
+);
 """
 
 PLAN_RANK = {"free": 0, "pro": 1, "team": 2, "enterprise": 3}
@@ -102,3 +132,47 @@ def license_plan(key: str) -> str | None:
 def init_db() -> None:
     with get_conn() as conn:
         conn.executescript(DDL)
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def issue_api_token(user_id: str, label: str = "", ttl_days: int | None = 90) -> str:
+    """Create a Bearer token for *user_id*; only its hash is stored. Returns the plaintext once."""
+    token = f"aft_{secrets.token_urlsafe(32)}"
+    expires = None
+    if ttl_days:
+        from datetime import timedelta
+        expires = (datetime.now(timezone.utc) + timedelta(days=ttl_days)).isoformat()
+    with get_conn() as conn:
+        if conn.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone() is None:
+            raise ValueError(f"unknown user id {user_id!r}")
+        conn.execute(
+            "INSERT INTO api_tokens (token_hash, user_id, label, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+            (hash_key(token), user_id, label, _now(), expires),
+        )
+    return token
+
+
+def api_token_user(token: str) -> str | None:
+    """users.id for an active, unexpired token (and record its use), else None."""
+    now = _now()
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT user_id, expires_at FROM api_tokens WHERE token_hash = ? AND revoked_at IS NULL",
+            (hash_key(token),),
+        ).fetchone()
+        if row is None or (row["expires_at"] and row["expires_at"] <= now):
+            return None
+        conn.execute("UPDATE api_tokens SET last_used_at = ? WHERE token_hash = ?", (now, hash_key(token)))
+        return row["user_id"]
+
+
+def revoke_api_token(token: str) -> bool:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE api_tokens SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL",
+            (_now(), hash_key(token)),
+        )
+        return cur.rowcount > 0

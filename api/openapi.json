@@ -3,7 +3,7 @@
   "info": {
     "title": "AgentFactory API",
     "description": "Backend for the AgentFactory platform: auth, registry, and license validation.",
-    "version": "1.0.0"
+    "version": "0.4.0"
   },
   "paths": {
     "/auth/github": {
@@ -192,6 +192,282 @@
         }
       }
     },
+    "/registry": {
+      "get": {
+        "tags": [
+          "registry"
+        ],
+        "summary": "List Units",
+        "description": "Browse or search published units (name, description or tag contains *q*).",
+        "operationId": "list_units_registry_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "default": "",
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RegistrySummary"
+                  },
+                  "title": "Response List Units Registry Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/registry/publish": {
+      "post": {
+        "tags": [
+          "registry"
+        ],
+        "summary": "Publish",
+        "operationId": "publish_registry_publish_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_publish_registry_publish_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryEntry"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/registry/{name}": {
+      "get": {
+        "tags": [
+          "registry"
+        ],
+        "summary": "Get Latest",
+        "description": "Metadata of the newest version, including `zip_url` and `sha256`.",
+        "operationId": "get_latest_registry__name__get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryEntry"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/registry/{name}/{version}": {
+      "get": {
+        "tags": [
+          "registry"
+        ],
+        "summary": "Get Version",
+        "description": "Metadata of one version, including `zip_url` and `sha256`.",
+        "operationId": "get_version_registry__name___version__get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistryEntry"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/registry/{name}/{version}/download": {
+      "get": {
+        "tags": [
+          "registry"
+        ],
+        "summary": "Download",
+        "description": "The stored ZIP. Clients verify it against the entry's `sha256`.",
+        "operationId": "download_registry__name___version__download_get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -218,6 +494,27 @@
   },
   "components": {
     "schemas": {
+      "Body_publish_registry_publish_post": {
+        "properties": {
+          "manifest": {
+            "type": "string",
+            "title": "Manifest",
+            "description": "JSON: {\"name\", \"version\", \"description\", \"tags\"}"
+          },
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "description": "ZIP built by `agentfactory-gen wrap`"
+          }
+        },
+        "type": "object",
+        "required": [
+          "manifest",
+          "file"
+        ],
+        "title": "Body_publish_registry_publish_post"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -230,6 +527,112 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "RegistryEntry": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
+          "owner": {
+            "type": "string",
+            "title": "Owner"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "versions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Versions"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          },
+          "published_at": {
+            "type": "string",
+            "title": "Published At"
+          },
+          "zip_url": {
+            "type": "string",
+            "title": "Zip Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "owner",
+          "version",
+          "versions",
+          "sha256",
+          "size_bytes",
+          "published_at",
+          "zip_url"
+        ],
+        "title": "RegistryEntry"
+      },
+      "RegistrySummary": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "default": []
+          },
+          "latest_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Version"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "updated_at"
+        ],
+        "title": "RegistrySummary"
       },
       "User": {
         "properties": {

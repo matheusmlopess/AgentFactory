@@ -21,3 +21,24 @@ class ValidateRequest(BaseModel):
 class ValidateResponse(BaseModel):
     valid: bool
     tier: str | None = None
+
+
+class RegistrySummary(BaseModel):
+    name: str
+    description: str
+    tags: list[str] = []
+    latest_version: str | None = None
+    updated_at: str
+
+
+class RegistryEntry(BaseModel):
+    name: str
+    description: str
+    tags: list[str] = []
+    owner: str
+    version: str
+    versions: list[str]
+    sha256: str
+    size_bytes: int
+    published_at: str
+    zip_url: str
