@@ -141,6 +141,8 @@ agentfactory-gen import --from-git <url>     # clone repo, auto-retrofit, and im
 agentfactory-gen import --from-registry <slug>  # download and install from public registry
 agentfactory-gen export <name>               # patch a locally-edited agent back to its source repo (branch + PR)
 agentfactory-gen export <name> --git <url>   # … to an explicit source; --no-push writes a .patch
+agentfactory-gen login                       # sign in with a one-time code (saves ~/.agentfactory/token)
+agentfactory-gen whoami / logout             # show the account / revoke the token
 agentfactory-gen publish <name>              # upload wrapped agent to public registry
 agentfactory-gen publish <name> --version <v> --tag <t>  # override version and add tags
 agentfactory-gen uninstall <name>            # remove agent cleanly

@@ -82,9 +82,25 @@
           "auth"
         ],
         "summary": "Get Me",
-        "description": "Return the current authenticated user. 401 if no valid session.",
+        "description": "Return the current user (session cookie or `Authorization: Bearer <api token>`). 401 otherwise.",
         "operationId": "get_me_auth_me_get",
         "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
           {
             "name": "session",
             "in": "cookie",
@@ -109,6 +125,227 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/cli/device": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Cli Device",
+        "description": "Start a CLI login. Show `user_code`, send the user to `verification_uri`, then poll.",
+        "operationId": "cli_device_auth_cli_device_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceCodeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/cli/poll": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Cli Poll Get",
+        "description": "Poll a login (harness form). `authorized` carries the API token exactly once.",
+        "operationId": "cli_poll_get_auth_cli_poll_get",
+        "parameters": [
+          {
+            "name": "device_code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 10,
+              "maxLength": 128,
+              "title": "Device Code"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePollResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Cli Poll Post",
+        "description": "Poll a login (CLI form: the device code stays out of URLs and access logs).",
+        "operationId": "cli_poll_post_auth_cli_poll_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevicePollRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevicePollResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/cli/approve": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Cli Approve",
+        "description": "The webapp's /device page calls this for the signed-in user (session cookie only).",
+        "operationId": "cli_approve_auth_cli_approve_post",
+        "parameters": [
+          {
+            "name": "session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceApproveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Cli Approve Auth Cli Approve Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/cli/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Cli Logout",
+        "description": "Revoke the Bearer token the CLI is using. Idempotent.",
+        "operationId": "cli_logout_auth_cli_logout_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Cli Logout Auth Cli Logout Post"
                 }
               }
             }
@@ -514,6 +751,104 @@
           "file"
         ],
         "title": "Body_publish_registry_publish_post"
+      },
+      "DeviceApproveRequest": {
+        "properties": {
+          "user_code": {
+            "type": "string",
+            "title": "User Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_code"
+        ],
+        "title": "DeviceApproveRequest"
+      },
+      "DeviceCodeResponse": {
+        "properties": {
+          "device_code": {
+            "type": "string",
+            "title": "Device Code"
+          },
+          "user_code": {
+            "type": "string",
+            "title": "User Code"
+          },
+          "verification_uri": {
+            "type": "string",
+            "title": "Verification Uri"
+          },
+          "verification_uri_complete": {
+            "type": "string",
+            "title": "Verification Uri Complete"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          },
+          "interval": {
+            "type": "number",
+            "title": "Interval"
+          }
+        },
+        "type": "object",
+        "required": [
+          "device_code",
+          "user_code",
+          "verification_uri",
+          "verification_uri_complete",
+          "expires_in",
+          "interval"
+        ],
+        "title": "DeviceCodeResponse"
+      },
+      "DevicePollRequest": {
+        "properties": {
+          "device_code": {
+            "type": "string",
+            "title": "Device Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "device_code"
+        ],
+        "title": "DevicePollRequest"
+      },
+      "DevicePollResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/User"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "DevicePollResponse"
       },
       "HTTPValidationError": {
         "properties": {

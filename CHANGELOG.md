@@ -12,6 +12,12 @@
 - API tokens for the CLI (`api_tokens`, hashed, 90-day default TTL): `agentfactory-api tokens add|revoke`
   until device login (#201) issues them; write the token to `~/.agentfactory/token`.
 - `python-multipart` joins the `[api]` extra.
+- **Device login** (#201): `agentfactory-gen login` shows a one-time code; the user approves it on the
+  webapp's `/device` page (`POST /auth/cli/approve`, session only); `login` polls `/auth/cli/poll` and
+  saves the issued API token to `~/.agentfactory/token` (mode 600). `whoami` shows the account,
+  `logout` revokes the token (`POST /auth/cli/logout`) and deletes it. Codes expire after 10 minutes,
+  are single-use, stored hashed, and capped at 1,000 pending. `GET /auth/me` also accepts a Bearer token.
+  The poll route also answers `GET ?device_code=` (the harness client).
 
 ## [v0.4.0] - 2026-11-04
 

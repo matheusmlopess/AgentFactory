@@ -10,13 +10,20 @@ from urllib.parse import urlencode
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 from fastapi.responses import RedirectResponse
 
+from .. import db as _db
 from ..db import get_conn
-from ..deps import get_current_user
+from ..deps import _load_user, get_current_user, get_publisher
 from ..jwt_utils import COOKIE_NAME, create_token
-from ..models import User
+from ..models import (
+    DeviceApproveRequest,
+    DeviceCodeResponse,
+    DevicePollRequest,
+    DevicePollResponse,
+    User,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -160,9 +167,68 @@ def github_callback(code: str, state: str, response: Response) -> RedirectRespon
 
 
 @router.get("/me", response_model=User)
-def get_me(current_user: User = Depends(get_current_user)) -> User:
-    """Return the current authenticated user. 401 if no valid session."""
+def get_me(current_user: User = Depends(get_publisher)) -> User:
+    """Return the current user (session cookie or `Authorization: Bearer <api token>`). 401 otherwise."""
     return current_user
+
+
+# ---------------------------------------------------------------- CLI device login (#201)
+
+_DEVICE_TTL_SECONDS = 600
+
+
+def _poll_interval() -> float:
+    return float(os.environ.get("DEVICE_POLL_INTERVAL", "5"))
+
+
+@router.post("/cli/device", response_model=DeviceCodeResponse)
+def cli_device() -> DeviceCodeResponse:
+    """Start a CLI login. Show `user_code`, send the user to `verification_uri`, then poll."""
+    try:
+        device_code, user_code = _db.create_device_code(_DEVICE_TTL_SECONDS)
+    except OverflowError as exc:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from None
+    verify = f"{_WEBAPP_URL.rstrip('/')}/device"
+    return DeviceCodeResponse(
+        device_code=device_code, user_code=user_code, verification_uri=verify,
+        verification_uri_complete=f"{verify}?{urlencode({'code': user_code})}",
+        expires_in=_DEVICE_TTL_SECONDS, interval=_poll_interval(),
+    )
+
+
+def _poll(device_code: str) -> DevicePollResponse:
+    state, token, user_id = _db.poll_device_code(device_code)
+    user = _load_user(user_id) if user_id else None
+    return DevicePollResponse(status=state, token=token, user=user)
+
+
+@router.get("/cli/poll", response_model=DevicePollResponse)
+def cli_poll_get(device_code: str = Query(..., min_length=10, max_length=128)) -> DevicePollResponse:
+    """Poll a login (harness form). `authorized` carries the API token exactly once."""
+    return _poll(device_code)
+
+
+@router.post("/cli/poll", response_model=DevicePollResponse)
+def cli_poll_post(body: DevicePollRequest) -> DevicePollResponse:
+    """Poll a login (CLI form: the device code stays out of URLs and access logs)."""
+    return _poll(body.device_code)
+
+
+@router.post("/cli/approve")
+def cli_approve(body: DeviceApproveRequest, current_user: User = Depends(get_current_user)) -> dict:
+    """The webapp's /device page calls this for the signed-in user (session cookie only)."""
+    if not _db.approve_device_code(body.user_code, current_user.id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="code unknown, expired or already used")
+    return {"approved": True}
+
+
+@router.post("/cli/logout")
+def cli_logout(authorization: str | None = Header(default=None)) -> dict:
+    """Revoke the Bearer token the CLI is using. Idempotent."""
+    if authorization and authorization.lower().startswith("bearer "):
+        _db.revoke_api_token(authorization.split(" ", 1)[1].strip())
+    return {}
 
 
 @router.post("/logout")
