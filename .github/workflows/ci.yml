@@ -65,6 +65,26 @@ jobs:
       - name: Run integration stress tests
         run: pytest -m integration -v --no-cov
 
+  install-smoke:
+    name: Install as a tool (pipx)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: pipx install . and check --version against pyproject
+        run: |
+          pipx install .
+          EXPECTED=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          ACTUAL=$(agentfactory-gen --version)
+          echo "$ACTUAL"
+          [ "$ACTUAL" = "agentfactory-gen, version $EXPECTED" ]
+          agentfactory-gen --help > /dev/null
+
   harness-doctor:
     name: Harness Health (harness-doctor)
     runs-on: ubuntu-latest
