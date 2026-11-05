@@ -3,6 +3,13 @@
 
 ## [Unreleased]
 
+### Changed (API deployment, #192 MVP scope)
+- `Dockerfile.api`: two-stage build installing a wheel (no `pip -e`), non-root user (uid 10001),
+  `/data` volume for the SQLite database and registry ZIPs, healthcheck, `--proxy-headers`.
+- `docker-compose.yml`: the unused Postgres service is gone; the dev stack runs the mounted source with
+  reload and `AGENTFACTORY_ENV=dev`. SQLite on a volume is the supported database for now.
+- JWT library: `python-jose` (unmaintained) replaced by `PyJWT`; tokens must carry `exp` and `sub`.
+
 ### Changed
 - One API base-URL setting (#202): the CLI and the completeness oracle read `AGENTFACTORY_API_URL`
   (default `https://api.agentfactory.dev`, which also serves the registry). `AGENTFACTORY_REGISTRY_URL`
