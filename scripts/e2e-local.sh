@@ -24,6 +24,9 @@ export DATABASE_URL="sqlite:///${WORK}/data/agentfactory.db"
 export REGISTRY_STORAGE_DIR="${WORK}/data/registry"
 export API_PUBLIC_URL="$API"
 export AGENTFACTORY_API_URL="$API"
+# With --keep the API listens on all interfaces so a browser outside WSL2/containers can reach it.
+HOST_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+export CORS_ORIGINS="http://localhost:5173,http://127.0.0.1:5173${HOST_IP:+,http://${HOST_IP}:5173}"
 export HOME="${WORK}/home"           # CLI token lands here, not in your real home
 mkdir -p "$HOME" "${WORK}/data"
 
@@ -38,7 +41,8 @@ cleanup() {
 trap cleanup EXIT
 
 step "Start the API on $API"
-"$AFAPI" serve --port "$PORT" >"${WORK}/api.log" 2>&1 &
+BIND=127.0.0.1; [ "$KEEP" = 1 ] && BIND=0.0.0.0
+"$AFAPI" serve --host "$BIND" --port "$PORT" >"${WORK}/api.log" 2>&1 &
 API_PID=$!
 for _ in $(seq 1 50); do curl -sf "$API/health" >/dev/null && break; sleep 0.2; done
 curl -sf "$API/health" >/dev/null || { cat "${WORK}/api.log"; fail "API did not start"; }
@@ -77,6 +81,10 @@ echo "409 as expected"
 
 printf '\n\033[1;32mMVP walkthrough passed.\033[0m\n'
 if [ "$KEEP" = 1 ]; then
-  echo "Browse it: cd ../agentfactory-webapp && VITE_AGENTFACTORY_API_URL=$API npm run dev"
-  echo "           then open http://localhost:5173/AgentFactory/registry"
+  WEBAPP="$(cd "$(dirname "$0")/../.." && pwd)/agentfactory-webapp"
+  echo "Browse it (webapp checkout next to this repo):"
+  echo "  cd $WEBAPP"
+  echo "  VITE_AGENTFACTORY_API_URL=http://localhost:${PORT} npm run dev -- --host"
+  echo "  open http://localhost:5173/AgentFactory/registry"
+  [ -n "$HOST_IP" ] && echo "  (WSL2: if localhost resets, use http://${HOST_IP}:${PORT} and http://${HOST_IP}:5173 instead)"
 fi
