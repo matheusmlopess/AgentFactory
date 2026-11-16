@@ -212,3 +212,70 @@ def test_migrate_still_works(tmp_path):
     assert (agent / "docs" / "prompt.md").exists()
     assert not (tmp_path / ".agent.pre-migrate").exists()
 
+
+
+# ---------------------------------------------------------------- #179 gap 1: honor the repo's own manifest
+
+
+def _git(cwd, *args):
+    import subprocess
+    env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.test",
+           "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.test"}
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, env=env)
+
+
+def _agent_repo(tmp_path: Path, layout: str) -> Path:
+    """A git repo that ships a full Portable Unit (like docs-system) under agent/ or at the root."""
+    repo = tmp_path / "docs-system"
+    unit = repo / "agent" if layout == "agent" else repo
+    files = {
+        "skills/docs-system/SKILL.md": "---\nname: docs-system\ndescription: d\n---\n# Docs\n",
+        "commands/docs-plan.md": "# plan\n",
+        "docs/SKILL-DOCS-SYSTEM.md": "# guide\n",
+        "scripts/docs-plan.sh": "#!/bin/sh\necho plan\n",
+    }
+    for rel, body in files.items():
+        write = unit / rel
+        write.parent.mkdir(parents=True, exist_ok=True)
+        write.write_text(body)
+    manifest = {
+        "name": "docs-system", "version": "1.0.2", "description": "Documentation agent",
+        "resources": {"skills": ["skills/docs-system/SKILL.md"], "commands": ["commands/docs-plan.md"],
+                      "docs": ["docs/SKILL-DOCS-SYSTEM.md"], "scripts": ["scripts/docs-plan.sh"],
+                      "orchestration": []},
+        "dependencies": {},
+    }
+    (unit / MANIFEST_FILE).write_text(json.dumps(manifest))
+    (repo / "README.md").write_text("# docs-system\n")
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "init")
+    return repo
+
+
+@pytest.mark.parametrize("layout", ["agent", "root"])
+def test_from_git_imports_the_declared_unit(tmp_path, layout):
+    repo = _agent_repo(tmp_path, layout)
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path) as cwd:
+        assert runner.invoke(cli, ["init"]).exit_code == 0
+        r = runner.invoke(cli, ["import", "--from-git", str(repo), "--allow-scripts"])
+        assert r.exit_code == 0, r.output
+        assert "importing it as declared" in r.output
+        dest = Path(cwd) / ".ai" / "agents" / "docs-system"
+        for rel in ("skills/docs-system/SKILL.md", "commands/docs-plan.md", "docs/SKILL-DOCS-SYSTEM.md",
+                    "scripts/docs-plan.sh"):
+            assert (dest / rel).is_file(), rel
+        assert json.loads((dest / MANIFEST_FILE).read_text())["version"] == "1.0.2"
+
+
+def test_from_git_incomplete_manifest_is_a_clear_error(tmp_path):
+    repo = _agent_repo(tmp_path, "agent")
+    (repo / "agent" / "commands" / "docs-plan.md").unlink()
+    _git(repo, "commit", "-qam", "drop a file")
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path):
+        runner.invoke(cli, ["init"])
+        r = runner.invoke(cli, ["import", "--from-git", str(repo), "--allow-scripts"])
+        assert r.exit_code != 0
+        assert "incomplete" in r.output and "commands/docs-plan.md" in r.output

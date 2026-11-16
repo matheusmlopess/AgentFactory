@@ -69,6 +69,24 @@ def _agent_root(name: str) -> Path:
     return new
 
 
+def _find_agent_dir(repo: Path) -> Path | None:
+    """Where a repo already ships an AgentFactory Portable Unit: `agent/` or the repo root.
+
+    Only a manifest with `name` and `resources` counts (a project's `.ai/agent-manifest.json` is a registry,
+    not a unit, and lives elsewhere).
+    """
+    for candidate in (repo / "agent", repo):
+        manifest = candidate / MANIFEST_FILE
+        if manifest.is_file():
+            try:
+                data = json.loads(manifest.read_text())
+            except (OSError, ValueError):
+                continue
+            if isinstance(data, dict) and data.get("name") and isinstance(data.get("resources"), dict):
+                return candidate
+    return None
+
+
 def _clone_and_prepare(url: str) -> tuple[str, object]:
     """
     Clone a git URL, retrofit it to AgentFactory standard, and wrap it as a ZIP.
@@ -110,6 +128,21 @@ def _clone_and_prepare(url: str) -> tuple[str, object]:
             raise click.ClickException(
                 f"git clone failed:\n{result.stderr.strip()}"
             )
+
+        # 0. The repo already ships a Portable Unit: wrap it exactly as declared (#179 gap 1).
+        agent_dir = _find_agent_dir(Path(cloned_dir))
+        if agent_dir is not None:
+            rel = agent_dir.relative_to(cloned_dir).as_posix()
+            _echo(f"[librarian] Found agent manifest at {rel if rel != '.' else '<repo root>'}/ — importing it as declared ...")
+            try:
+                zip_path = Librarian(str(agent_dir)).wrap(tmp_dir)
+            except FileNotFoundError as exc:
+                raise click.ClickException(f"The repo's agent manifest is incomplete: {exc}") from exc
+
+            def _cleanup_declared():
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+
+            return str(zip_path), _cleanup_declared
 
         # 1. Extract context from source BEFORE retrofit
         _echo("[librarian] Extracting context from source docs ...")
@@ -1290,14 +1323,14 @@ def export_agent(name, git_url, subpath, branch_name, message, project_root, pus
             raise click.ClickException(f"git clone failed:\n{clone.stderr.strip()}")
         clone_path = Path(clone_dir)
 
-        # Detect where the agent lives in the source repo.
+        # Detect where the agent lives in the source repo (same rule as `import --from-git`).
         if subpath is None:
-            if (clone_path / "agent" / MANIFEST_FILE).exists():
+            found = _find_agent_dir(clone_path)
+            if found is None:
                 subpath = "agent"
-            elif (clone_path / MANIFEST_FILE).exists():
-                subpath = ""
             else:
-                subpath = "agent"
+                rel = found.relative_to(clone_path).as_posix()
+                subpath = "" if rel == "." else rel
         dest = clone_path / subpath if subpath else clone_path
         _assert_within_root(subpath or ".", clone_path)
         dest.mkdir(parents=True, exist_ok=True)

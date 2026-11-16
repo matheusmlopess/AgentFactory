@@ -3,6 +3,12 @@
 
 ## [Unreleased]
 
+### Fixed
+- `import --from-git` imports a repo's own Portable Unit (`agent/agent-manifest.json` or a root
+  `agent-manifest.json` with `resources`) exactly as declared, instead of re-deriving it and keeping only
+  the scripts. docs-system now imports 4 skills, 4 commands, 1 doc and 4 scripts, the same as its ZIP
+  (#179). An incomplete manifest is a clear error. `export` uses the same detection.
+
 ### Changed (API deployment, #192 MVP scope)
 - `Dockerfile.api`: two-stage build installing a wheel (no `pip -e`), non-root user (uid 10001),
   `/data` volume for the SQLite database and registry ZIPs, healthcheck, `--proxy-headers`.
