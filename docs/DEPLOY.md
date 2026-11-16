@@ -26,9 +26,10 @@ python3 -m venv .venv && .venv/bin/pip install -e ".[dev,api]"
 PATH=$PWD/.venv/bin:$PATH scripts/e2e-local.sh --keep    # API on :8765 + the full MVP walkthrough
 ```
 
-`--keep` leaves the API running. Browse the registry with the webapp:
-`cd ../agentfactory-webapp && VITE_AGENTFACTORY_API_URL=http://127.0.0.1:8765 npm run dev`, then
-<http://localhost:5173/AgentFactory/registry>.
+`--keep` leaves the API running on all interfaces and prints the exact webapp command. In short:
+`cd ../agentfactory-webapp && VITE_AGENTFACTORY_API_URL=http://localhost:8765 npm run dev -- --host`, then
+<http://localhost:5173/AgentFactory/registry>. On WSL2 with a Windows browser, `--host` is required; if `localhost`
+still resets the connection, use the WSL IP (`hostname -I`) for both URLs.
 
 GitHub sign-in (and the `/device` approval page) needs a GitHub OAuth App even locally. Without one, create a local
 account and token instead:
