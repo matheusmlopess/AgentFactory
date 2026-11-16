@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-11-05 12:41 UTC -->
-<!-- open-issues: 47 -->
+<!-- generated: 2026-11-16 12:08 UTC -->
+<!-- open-issues: 46 -->
 
 Living priority matrix — regenerated automatically on every push to `main`.
 Priority and effort come from the `p0`–`p3` and `size:S|M|L` labels.
@@ -13,7 +13,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ┌──────────────────┬───────────────────────────────────────────┐
   │  Track           │  Issues                                    │
   ├──────────────────┼───────────────────────────────────────────┤
-  │  Harness / CLI   │  #137  #138  #139  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #179  #189  #190  #191  #194  #195  #196  #197  #198  #204│
+  │  Harness / CLI   │  #137  #138  #139  #144  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #189  #190  #191  #194  #195  #196  #197  #198  #204│
   │  Webapp / UI     │                                             │
   │  Platform Core   │  #192  #203                                 │
   │  Platform Upper  │  #200                                       │
@@ -59,7 +59,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #172    —                         —                         [Codex] Tracking issue for Codex adapter alig
   #173    —                         —                         [Gemini] Tracking issue for Gemini adapter al
   #178    #139                      —                         Umbrella(cli): SKILL.md frontmatter parsing +
-  #179    —                         #204                      Umbrella(cli): agent import fidelity & ergono
   #189    #191                      #190 #200                 refactor(librarian): split librarian.py and s
   #190    #189                      —                         refactor(cli): split cli.py per command group
   #191    —                         #189                      ci: type checking, formatting, dependency and
@@ -71,7 +70,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #198    —                         —                         fix(brief): agent registry links point to doc
   #200    #189 #194                 —                         spike: shared Rust contracts core (validation
   #203    —                         #204                      ops: deploy the API (api.agentfactory.dev)
-  #204    #179 #203                 —                         test(e2e): MVP walkthrough — publish → webapp
+  #204    #203                      —                         test(e2e): MVP walkthrough — publish → webapp
 ```
 
 ## Priority Waves
@@ -83,7 +82,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ──────  ───  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
   #144    p1   medium    Harness / CLI     —                     security(import): no checksum or signature ve
   #146    p1   medium    Harness / CLI     —                     enhancement(cli): import atomicity + safety o
-  #179    p1   large     Harness / CLI     #204                  Umbrella(cli): agent import fidelity & ergono
   #191    p1   medium    Harness / CLI     #189                  ci: type checking, formatting, dependency and
   #192    p1   medium    Platform Core     —                     api: production readiness (database, containe
   #203    p1   medium    Platform Core     #204                  ops: deploy the API (api.agentfactory.dev)
@@ -165,5 +163,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-11-05 12:41 UTC by `generate-priority-report.py`._
+_Generated 2026-11-16 12:08 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
