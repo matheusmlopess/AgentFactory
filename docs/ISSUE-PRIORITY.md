@@ -1,6 +1,6 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-11-16 12:38 UTC -->
+<!-- generated: 2026-11-16 14:06 UTC -->
 <!-- open-issues: 45 -->
 
 Living priority matrix — regenerated automatically on every push to `main`.
@@ -161,5 +161,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-11-16 12:38 UTC by `generate-priority-report.py`._
+_Generated 2026-11-16 14:06 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
