@@ -32,7 +32,8 @@ _GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET", "")
 _GITHUB_REDIRECT_URI  = os.environ.get(
     "GITHUB_REDIRECT_URI", "http://localhost:8000/auth/github/callback"
 )
-_WEBAPP_URL = os.environ.get("WEBAPP_URL", "http://localhost:5173")
+# Where the webapp lives (router basename included): OAuth redirects there and device login links to <it>/device.
+_WEBAPP_URL = os.environ.get("WEBAPP_URL", "http://localhost:5173/AgentFactory")
 
 # In-memory CSRF state store: state -> expiry (epoch seconds). Fine for a single process;
 # replace with Redis when running multiple API replicas. Entries expire and the store is

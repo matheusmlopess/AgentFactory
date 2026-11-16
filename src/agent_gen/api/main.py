@@ -94,6 +94,37 @@ def _build_cli():
         click.echo(issue_license_key(plan, user_id))
 
     @cli.group()
+    def users() -> None:
+        """Manage accounts without GitHub (local stacks, tests, support)."""
+
+    @users.command("add")
+    @click.option("--github-handle", required=True, help="Display handle (must be unique).")
+    @click.option("--email", default="", help="Contact email.")
+    @click.option("--plan", default="free", show_default=True,
+                  type=click.Choice(["free", "pro", "team", "enterprise"]))
+    def users_add(github_handle: str, email: str, plan: str) -> None:
+        """Create a local account and print its id. It never matches a real GitHub login."""
+        import uuid
+        from datetime import datetime, timezone
+
+        from .db import get_conn
+
+        init_db()
+        now = datetime.now(timezone.utc).isoformat()
+        user_id = str(uuid.uuid4())
+        with get_conn() as conn:
+            if conn.execute("SELECT 1 FROM users WHERE github_handle = ?", (github_handle,)).fetchone():
+                raise click.ClickException(f"handle {github_handle!r} already exists")
+            # Negative ids are never issued by GitHub, so a local account can't collide with an OAuth login.
+            local_id = -(conn.execute("SELECT COUNT(*) FROM users").fetchone()[0] + 1)
+            conn.execute(
+                "INSERT INTO users (id, github_id, github_handle, email, avatar_url, plan, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, '', ?, ?, ?)",
+                (user_id, local_id, github_handle, email, plan, now, now),
+            )
+        click.echo(user_id)
+
+    @cli.group()
     def tokens() -> None:
         """Issue and revoke API tokens for the CLI (`~/.agentfactory/token`) until device login lands."""
 
