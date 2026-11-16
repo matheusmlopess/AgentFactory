@@ -85,6 +85,23 @@ jobs:
           [ "$ACTUAL" = "agentfactory-gen, version $EXPECTED" ]
           agentfactory-gen --help > /dev/null
 
+  mvp-walkthrough:
+    name: MVP walkthrough (local API)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e ".[api]"
+
+      - name: scripts/e2e-local.sh
+        run: bash scripts/e2e-local.sh
+
   harness-doctor:
     name: Harness Health (harness-doctor)
     runs-on: ubuntu-latest

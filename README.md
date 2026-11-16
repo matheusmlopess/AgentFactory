@@ -1,5 +1,5 @@
 # AgentFactory
-<!-- version: 2.11.0 -->
+<!-- version: 2.12.0 -->
 
 A Python CLI (`agentfactory-gen`) for building, packaging, and deploying AI agents
 as portable, framework-agnostic units. The web platform lives at
@@ -83,6 +83,16 @@ uv tool install --editable .     # or: pipx install --editable .  → global age
 ```
 
 ---
+
+## MVP in one command
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -e ".[dev,api]"
+PATH=$PWD/.venv/bin:$PATH scripts/e2e-local.sh
+```
+
+It starts a local API, creates an account and token, builds and publishes an agent, checks the registry lists it,
+imports it into a second project with the checksum verified, and audits it. Deploying the API: [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Quick Start
 

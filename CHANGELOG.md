@@ -3,6 +3,18 @@
 
 ## [Unreleased]
 
+### Added
+- `scripts/e2e-local.sh`: the MVP walkthrough against a local API (account + token → publish → registry
+  → `import --from-registry` with checksum → audit → duplicate version refused); runs in CI (#204).
+- `deploy/vps/`: production compose (API + Caddy with automatic HTTPS), `.env.example`, `backup.sh`
+  (online SQLite backup + registry ZIPs); runbook in `docs/DEPLOY.md` (#203).
+- `agentfactory-api users add` creates a local account (never collides with a GitHub login) for local
+  stacks and support.
+
+### Fixed
+- Default `WEBAPP_URL` includes the webapp's `/AgentFactory` base path, so device-login links open the
+  right page.
+
 ### Fixed
 - `import --from-git` imports a repo's own Portable Unit (`agent/agent-manifest.json` or a root
   `agent-manifest.json` with `resources`) exactly as declared, instead of re-deriving it and keeping only

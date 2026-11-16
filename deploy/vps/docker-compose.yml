@@ -1,0 +1,42 @@
+# AgentFactory API on a single VPS: the API container + Caddy (automatic HTTPS via Let's Encrypt).
+# Runbook: docs/DEPLOY.md.  Usage (on the server, from this directory):
+#   cp .env.example .env && $EDITOR .env      # domain, secrets, OAuth app
+#   docker compose up -d --build
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.api
+    env_file: .env
+    environment:
+      DATABASE_URL: "sqlite:////data/agentfactory.db"
+      REGISTRY_STORAGE_DIR: "/data/registry"
+      API_PUBLIC_URL: "https://${API_DOMAIN}"
+      GITHUB_REDIRECT_URI: "https://${API_DOMAIN}/auth/github/callback"
+    volumes:
+      - api_data:/data
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.8.4-alpine
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      API_DOMAIN: "${API_DOMAIN}"
+      ACME_EMAIL: "${ACME_EMAIL}"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  api_data:      # SQLite database + registry ZIPs — back this up (backup.sh)
+  caddy_data:    # TLS certificates
+  caddy_config:

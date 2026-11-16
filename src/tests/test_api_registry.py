@@ -254,3 +254,18 @@ def test_cli_publish_then_import_from_registry(api, tmp_path, monkeypatch):
         server.should_exit = True
         thread.join(timeout=5)
         os.chdir(Path(__file__).parent)
+
+
+def test_users_add_cli(api):
+    _, db, _, _ = api
+    from agent_gen.api.main import _build_cli
+    runner = CliRunner()
+    out = runner.invoke(_build_cli(), ["users", "add", "--github-handle", "dev", "--plan", "pro"])
+    assert out.exit_code == 0, out.output
+    uid = out.output.strip()
+    with db.get_conn() as conn:
+        row = conn.execute("SELECT github_id, plan FROM users WHERE id = ?", (uid,)).fetchone()
+    assert row["github_id"] < 0 and row["plan"] == "pro"
+    assert runner.invoke(_build_cli(), ["users", "add", "--github-handle", "dev"]).exit_code != 0
+    tok = runner.invoke(_build_cli(), ["tokens", "add", "--github-handle", "dev"])
+    assert tok.exit_code == 0 and db.api_token_user(tok.output.strip()) == uid
