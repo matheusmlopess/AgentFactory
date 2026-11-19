@@ -3,6 +3,16 @@
 
 ## [Unreleased]
 
+### Security
+- `filelock` floor raised to `>=4.2.1,<5`: the old `<4` cap kept installs on 3.x versions with 8 published
+  advisories (found by the new pip-audit job).
+
+### Changed (CI, #191)
+- New CI gates: mypy (`orchestrate/`, `api/`, `signing.py`, configured in `[tool.mypy]`), `api/openapi.json`
+  drift check, tests without the `[api]` extra, pip-audit, and weekly + per-PR CodeQL (security-extended).
+- Dependabot for pip and GitHub Actions (grouped weekly PRs). Every `actions/*` step is pinned to a commit SHA
+  and `setup-python` caches pip.
+
 ### Fixed (import safety, #146)
 - `import` is all-or-nothing: the agent's `source` record is written while the bundle is still staged, and
   if registration fails after the move the agent folder is removed again and the import is reported as

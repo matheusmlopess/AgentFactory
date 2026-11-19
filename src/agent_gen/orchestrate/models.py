@@ -107,7 +107,7 @@ class WorkflowStep:
         payload.setdefault("seq", seq)
         step = cls(**payload)
         # Fields the workflow left out may be filled from contract policies at run time.
-        step._explicit_fields = frozenset(payload)
+        setattr(step, "_explicit_fields", frozenset(payload))  # read via getattr in apply_policy_defaults
         step.validate()
         return step
 
