@@ -10,7 +10,11 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
+from collections.abc import Callable
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from datetime import UTC
+from pathlib import Path
 
 from .contract import OrchestrationContract
 from .delegate import DelegateUnavailable, _failure_draft, plan_substeps
@@ -98,6 +102,35 @@ class BaseExecutor:
         self.sink.write_step(ev)
         return ev
 
+    def _run_with_retries(
+        self,
+        step: WorkflowStep,
+        evidence_by_step: dict[str, Evidence],
+        result: RunResult,
+        lock: threading.Lock | None = None,
+    ) -> Evidence:
+        """Run *step*, retrying per its policy (max_retries = retries after the first attempt).
+
+        Every attempt's evidence is appended to *result*; the last one is returned.
+        """
+        attempts = step.max_retries + 1 if step.remediation == "retry" else 1
+        ev = None
+        for attempt in range(1, attempts + 1):
+            ev = self._execute_step(step, evidence_by_step, attempt=attempt)
+            if lock:
+                with lock:
+                    result.evidence.append(ev)
+            else:
+                result.evidence.append(ev)
+            if ev.succeeded:
+                break
+            logger.warning("orchestrate: step=%s attempt=%d FAILED exit=%d stderr=%s",
+                           step.id, attempt, ev.exit_code, ev.stderr[:120])  # fmt: skip
+        assert ev is not None  # attempts >= 1
+        if not lock:
+            evidence_by_step[step.id] = ev
+        return ev
+
     def _refused(self, step: WorkflowStep, reason: str, attempt: int) -> Evidence:
         ev = Evidence(
             step_id=step.id,
@@ -134,24 +167,48 @@ class BaseExecutor:
 class SequentialExecutor(BaseExecutor):
     """Steps run in order; remediation semantics ported from HarnessRunner.run().
 
-    escalate re-plans the failed step through the supervisor agent (PR3);
-    until then it aborts the run with a clear message.
+    escalate re-plans the failed step through the supervisor agent (PR3); until then it fails the step.
+    Subclasses can gate each step (`_gate`) and resume from a saved state (`resume=`).
     """
 
+    mode = "sequential"
+
+    def __init__(self, *args, resume: dict | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._resume = resume
+
+    def _gate(self, step: WorkflowStep, index: int, result: RunResult) -> bool:
+        """Return False to pause before *step* (checkpoint mode). Sequential never pauses."""
+        return True
+
+    def _on_pause(self, workflow: Workflow, index: int, result: RunResult, remediation_round: int) -> None:
+        """Called when `_gate` refused a step; checkpoint mode persists state here."""
+
     def run(self, workflow: Workflow) -> RunResult:
-        result = RunResult(
-            workflow_name=workflow.name,
-            workflow_id=workflow.workflow_id,
-            mode="sequential",
-        )
+        result = RunResult(workflow_name=workflow.name, workflow_id=workflow.workflow_id, mode=self.mode)
         self._apply_policies(workflow)
         evidence_by_step: dict[str, Evidence] = {}
         remediation_round = 0
-        max_rounds = self.contract.policies.get("max_remediation_rounds", 2)
         step_index = 0
+        if self._resume:
+            step_index = self._resume["next_index"]
+            remediation_round = self._resume.get("remediation_round", 0)
+            result.run_id = self._resume["run_id"]
+            result.started_at = self._resume.get("started_at", result.started_at)
+            result.statuses = {k: v for k, v in self._resume["statuses"].items() if v != StepStatus.PENDING.value}
+            result.evidence = [Evidence(**e) for e in self._resume.get("evidence", [])]
+            evidence_by_step = {e.step_id: e for e in result.evidence}
+        max_rounds = self.contract.policies.get("max_remediation_rounds", 2)
+        resumed_at = step_index if self._resume else None
 
         while step_index < len(workflow.steps):
             step = workflow.steps[step_index]
+
+            first_of_this_run = step_index == resumed_at or (resumed_at is None and step_index == 0)
+            if not first_of_this_run and not self._gate(step, step_index, result):
+                result.paused_at = step.id
+                self._on_pause(workflow, step_index, result, remediation_round)
+                break
 
             if step.type == "delegate":
                 try:
@@ -166,39 +223,13 @@ class SequentialExecutor(BaseExecutor):
                     result.statuses[step.id] = StepStatus.FAILED.value
                     break
 
-            ev = self._execute_step(step, evidence_by_step, attempt=1)
-            result.evidence.append(ev)
-            evidence_by_step[step.id] = ev
-
+            ev = self._run_with_retries(step, evidence_by_step, result)
             if ev.succeeded:
                 result.statuses[step.id] = StepStatus.SUCCESS.value
                 step_index += 1
                 continue
 
-            logger.warning(
-                "orchestrate: step=%s FAILED exit=%d stderr=%s",
-                step.id,
-                ev.exit_code,
-                ev.stderr[:120],
-            )
-            policy = step.remediation
-
-            if policy == "retry":
-                recovered = False
-                # max_retries counts retries after the first attempt.
-                for attempt in range(2, step.max_retries + 2):
-                    ev = self._execute_step(step, evidence_by_step, attempt=attempt)
-                    result.evidence.append(ev)
-                    evidence_by_step[step.id] = ev
-                    if ev.succeeded:
-                        recovered = True
-                        break
-                if recovered:
-                    result.statuses[step.id] = StepStatus.SUCCESS.value
-                    step_index += 1
-                    continue
-                policy = "escalate"  # retries exhausted → escalate (ported semantics)
-
+            policy = "escalate" if step.remediation == "retry" else step.remediation  # retries exhausted
             if policy == "skip":
                 result.statuses[step.id] = StepStatus.SKIPPED.value
                 step_index += 1
@@ -233,10 +264,140 @@ class SequentialExecutor(BaseExecutor):
             result.statuses[step.id] = StepStatus.FAILED.value
             break
 
-        # Steps never reached (after abort/escalate-failure) are blocked
+        # Steps never reached: pending while paused, blocked after a failure.
+        leftover = StepStatus.PENDING.value if result.paused_at else StepStatus.BLOCKED.value
         for step in workflow.steps:
-            result.statuses.setdefault(step.id, StepStatus.BLOCKED.value)
+            result.statuses.setdefault(step.id, leftover)
 
+        result.finished_at = _utcnow()
+        result.workflow_snapshot = workflow.to_dict()
+        self.sink.finalize(result)
+        return result
+
+
+ConfirmFn = Callable[[WorkflowStep, RunResult], bool]
+
+
+class CheckpointExecutor(SequentialExecutor):
+    """Sequential with a human gate before every step after the first (PR2).
+
+    `confirm(step, result)` decides; without one (non-interactive) the run pauses at the first gate. A paused run
+    writes `state.json` next to its evidence; `run_workflow(resume_run=RUN_ID)` continues it, and the resumed step
+    runs without asking again (resuming is the approval).
+    """
+
+    mode = "checkpoint"
+
+    def __init__(self, *args, confirm: ConfirmFn | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._confirm = confirm
+
+    def _gate(self, step: WorkflowStep, index: int, result: RunResult) -> bool:
+        if self.dry_run:
+            return True
+        return bool(self._confirm and self._confirm(step, result))
+
+    def _on_pause(self, workflow: Workflow, index: int, result: RunResult, remediation_round: int) -> None:
+        run_dir = getattr(self.sink, "run_dir", None)
+        if run_dir is None:
+            return
+        state = {
+            "run_id": result.run_id,
+            "mode": self.mode,
+            "started_at": result.started_at,
+            "next_index": index,
+            "remediation_round": remediation_round,
+            "workflow": workflow.to_dict(),
+            "statuses": dict(result.statuses),
+            "evidence": [e.to_dict() for e in result.evidence],
+        }
+        write_state(Path(run_dir), state)
+
+
+def write_state(run_dir: Path, state: dict) -> Path:
+    """Persist a paused run's state atomically under a file lock (resume may race a second `run --resume`)."""
+    from filelock import FileLock
+
+    run_dir.mkdir(parents=True, exist_ok=True)
+    path = run_dir / "state.json"
+    with FileLock(str(path) + ".lock", timeout=10):
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        tmp.replace(path)
+    return path
+
+
+class DagExecutor(BaseExecutor):
+    """Run steps as soon as their `depends_on` are done, up to `max_parallel` at a time (PR2).
+
+    A failed (or blocked) dependency blocks its dependents. `skip` lets dependents run, `abort` stops scheduling
+    new steps, and retries/escalation behave as in sequential mode. Delegate steps need sequential or checkpoint
+    mode until delegation lands (PR3).
+    """
+
+    mode = "dag"
+
+    def run(self, workflow: Workflow) -> RunResult:
+        delegates = [s.id for s in workflow.steps if s.type == "delegate"]
+        if delegates:
+            raise ValueError(f"dag mode cannot run delegate steps yet {delegates}: use sequential or checkpoint")
+        workflow.topological_order()  # cycle check
+        self._apply_policies(workflow)
+        result = RunResult(workflow_name=workflow.name, workflow_id=workflow.workflow_id, mode=self.mode)
+        evidence_by_step: dict[str, Evidence] = {}
+        lock = threading.Lock()
+        done_ok: set[str] = set()
+        statuses: dict[str, str] = {}
+        pending = {s.id: s for s in workflow.steps}
+        abort = False
+        workers = max(1, int(self.contract.policies.get("max_parallel", 4)))
+
+        def task(step: WorkflowStep) -> Evidence:
+            with lock:
+                inputs = dict(evidence_by_step)  # dependencies are complete; snapshot for templating
+            return self._run_with_retries(step, inputs, result, lock=lock)
+
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="orch-dag") as pool:
+            running: dict[Future, WorkflowStep] = {}
+            while pending or running:
+                # Block steps whose dependency failed; start steps whose dependencies all succeeded/skipped.
+                progressed = True
+                while progressed:
+                    progressed = False
+                    for sid, step in list(pending.items()):
+                        if any(statuses.get(d) in (StepStatus.FAILED.value, StepStatus.BLOCKED.value)
+                               for d in step.depends_on):  # fmt: skip
+                            statuses[sid] = StepStatus.BLOCKED.value
+                            del pending[sid]
+                            progressed = True
+                        elif not abort and len(running) < workers and all(d in done_ok for d in step.depends_on):
+                            # Never queue more than there are workers, so abort really stops new work.
+                            running[pool.submit(task, step)] = step
+                            del pending[sid]
+                            progressed = True
+                if not running:
+                    break  # aborted, or everything left is blocked
+                finished, _ = wait(running, return_when=FIRST_COMPLETED)
+                for fut in finished:
+                    step = running.pop(fut)
+                    ev = fut.result()
+                    with lock:
+                        evidence_by_step[step.id] = ev
+                    if ev.succeeded:
+                        statuses[step.id] = StepStatus.SUCCESS.value
+                        done_ok.add(step.id)
+                    elif step.remediation == "skip":
+                        statuses[step.id] = StepStatus.SKIPPED.value
+                        done_ok.add(step.id)
+                    else:
+                        if step.remediation in ("retry", "escalate"):
+                            logger.error("orchestrate: step=%s failed; escalation needs delegation (PR3)", step.id)
+                        statuses[step.id] = StepStatus.FAILED.value
+                        abort = abort or step.remediation == "abort"
+
+        for sid in pending:
+            statuses[sid] = StepStatus.BLOCKED.value
+        result.statuses = {s.id: statuses.get(s.id, StepStatus.BLOCKED.value) for s in workflow.steps}
         result.finished_at = _utcnow()
         result.workflow_snapshot = workflow.to_dict()
         self.sink.finalize(result)
@@ -274,6 +435,8 @@ def _utcnow() -> str:
 
 _EXECUTOR_REGISTRY: dict[str, type[BaseExecutor]] = {
     "sequential": SequentialExecutor,
+    "checkpoint": CheckpointExecutor,
+    "dag": DagExecutor,
 }
 
 

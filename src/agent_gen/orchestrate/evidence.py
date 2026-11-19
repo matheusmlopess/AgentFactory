@@ -28,6 +28,14 @@ class EvidenceSink:
         self.run_dir = Path(project_root) / evidence_dir / f"{ts}-{_safe_name(workflow_name)}"
         self.steps_dir = self.run_dir / "steps"
 
+    @classmethod
+    def reopen(cls, run_dir: Path) -> EvidenceSink:
+        """Continue writing into an existing run directory (checkpoint resume)."""
+        sink = cls.__new__(cls)
+        sink.run_dir = Path(run_dir)
+        sink.steps_dir = sink.run_dir / "steps"
+        return sink
+
     def write_step(self, ev: Evidence) -> None:
         self.steps_dir.mkdir(parents=True, exist_ok=True)
         base = self.steps_dir / f"{_safe_name(ev.step_id)}-{ev.attempt}"
@@ -51,3 +59,15 @@ class NullSink:
 
     def finalize(self, result: RunResult) -> None:
         return None
+
+
+def find_paused_run(project_root: str | Path, evidence_dir: str, run_id: str) -> Path:
+    """The run directory whose state.json belongs to *run_id* (a paused checkpoint run)."""
+    root = Path(project_root) / evidence_dir
+    for state in sorted(root.glob("*/state.json")):
+        try:
+            if json.loads(state.read_text(encoding="utf-8")).get("run_id") == run_id:
+                return state.parent
+        except (OSError, ValueError):
+            continue
+    raise FileNotFoundError(f"no paused run '{run_id}' under {root} (already finished, or never paused)")
