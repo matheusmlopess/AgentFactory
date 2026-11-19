@@ -74,6 +74,24 @@ echo "$OUT" | grep -q "checksum auto-verified" || { echo "$OUT"; fail "checksum 
 [ -f .ai/agents/e2e-demo/agent-manifest.json ] || fail "agent not installed"
 "$AF" audit e2e-demo
 
+step "Signed release: wrap --sign → publish → import --require-signature (#144)"
+ssh-keygen -q -t ed25519 -N "" -C e2e-dev -f "${WORK}/signing_key"
+printf 'e2e-dev namespaces="agentfactory-unit" %s\n' "$(cat "${WORK}/signing_key.pub")" > "${WORK}/allowed_signers"
+cd "${WORK}/publisher"
+"$AF" -q deploy e2e-signed >/dev/null
+"$AF" describe e2e-signed --desc "Signed demo agent" >/dev/null
+"$AF" -q wrap e2e-signed --sign "${WORK}/signing_key"
+"$AF" publish e2e-signed
+cd "${WORK}/consumer"
+OUT="$("$AF" import --from-registry e2e-signed --require-signature --allowed-signers "${WORK}/allowed_signers" 2>&1)" \
+  || { echo "$OUT"; fail "signed import failed"; }
+echo "$OUT" | grep -q "Publisher signature verified (e2e-dev)" || { echo "$OUT"; fail "signature was not verified"; }
+echo "signature verified for e2e-dev"
+if "$AF" import --from-registry e2e-demo --require-signature >/dev/null 2>&1; then
+  fail "unsigned unit was accepted with --require-signature"
+fi
+echo "unsigned unit refused with --require-signature"
+
 step "Re-publishing the same version is refused (immutable versions)"
 cd "${WORK}/publisher"
 if "$AF" publish e2e-demo >/dev/null 2>&1; then fail "duplicate version was accepted"; fi

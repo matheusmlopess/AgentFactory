@@ -4,6 +4,13 @@
 ## [Unreleased]
 
 ### Added
+- **Publisher signatures** (#144), using SSH signatures (`ssh-keygen -Y`, namespace `agentfactory-unit`):
+  `wrap --sign <key>` / `sign <zip>` write `<zip>.sig`; `publish` uploads it and the registry returns it with
+  each version. `import` verifies it before unpacking — against `github.com/<signer>.keys` (registry imports
+  default to the unit's publisher) or an OpenSSH `--allowed-signers` file — and `--require-signature` refuses
+  unsigned bundles. A tampered ZIP, the wrong signer or a signature made for another purpose fails.
+
+### Added
 - `scripts/e2e-local.sh`: the MVP walkthrough against a local API (account + token → publish → registry
   → `import --from-registry` with checksum → audit → duplicate version refused); runs in CI (#204).
 - `deploy/vps/`: production compose (API + Caddy with automatic HTTPS), `.env.example`, `backup.sh`

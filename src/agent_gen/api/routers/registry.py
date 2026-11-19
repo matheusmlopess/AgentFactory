@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from fastapi.responses import FileResponse
 
 from ...librarian import MANIFEST_FILE, validate_name
+from ...signing import looks_like_signature
 from ..db import get_conn
 from ..deps import get_publisher
 from ..models import RegistryEntry, RegistrySummary, User
@@ -94,7 +95,8 @@ def _entry(name: str, version: str | None) -> RegistryEntry:
             "SELECT version FROM registry_versions WHERE name = ? ORDER BY published_at", (name,))]
         chosen = version or (versions[-1] if versions else None)
         row = conn.execute(
-            "SELECT version, sha256, size_bytes, published_at FROM registry_versions WHERE name = ? AND version = ?",
+            "SELECT version, sha256, size_bytes, published_at, signature FROM registry_versions "
+            "WHERE name = ? AND version = ?",
             (name, chosen),
         ).fetchone()
     if row is None:
@@ -104,6 +106,7 @@ def _entry(name: str, version: str | None) -> RegistryEntry:
         owner=unit["owner"], version=row["version"], versions=versions, sha256=row["sha256"],
         size_bytes=row["size_bytes"], published_at=row["published_at"],
         zip_url=f"{_public_url()}/registry/{name}/{row['version']}/download",
+        signature=row["signature"],
     )
 
 
@@ -128,6 +131,7 @@ def list_units(q: str = Query(default="", max_length=64), limit: int = Query(def
 async def publish(
     manifest: str = Form(..., description='JSON: {"name", "version", "description", "tags"}'),
     file: UploadFile = File(..., description="ZIP built by `agentfactory-gen wrap`"),
+    signature: str | None = Form(default=None, description="Optional SSH signature of the ZIP (`wrap --sign`)"),
     user: User = Depends(get_publisher),
 ) -> RegistryEntry:
     try:
@@ -150,6 +154,9 @@ async def publish(
     if not isinstance(tags, list) or len(tags) > _MAX_TAGS or not all(
             isinstance(t, str) and _TAG_RE.fullmatch(t) for t in tags):
         raise _bad(f"tags: up to {_MAX_TAGS} lowercase words (a-z, 0-9, '-')")
+
+    if signature is not None and not looks_like_signature(signature):
+        raise _bad("signature must be an SSH signature (-----BEGIN SSH SIGNATURE-----, at most 8 KB)")
 
     limit = _max_zip_bytes()
     data = await file.read(limit + 1)
@@ -177,8 +184,8 @@ async def publish(
             conn.execute("UPDATE registry_units SET description = ?, tags = ?, updated_at = ? WHERE name = ?",
                          (description, json.dumps(tags), now, name))
         conn.execute(
-            "INSERT INTO registry_versions (name, version, sha256, size_bytes, published_by, published_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)", (name, version, digest, len(data), user.id, now))
+            "INSERT INTO registry_versions (name, version, sha256, size_bytes, published_by, published_at, signature) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)", (name, version, digest, len(data), user.id, now, signature))
         # Write the file inside the transaction: if this fails, the rows roll back with it.
         path = _zip_path(name, version)
         path.parent.mkdir(parents=True, exist_ok=True)

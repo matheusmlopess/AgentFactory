@@ -743,6 +743,18 @@
             "contentMediaType": "application/octet-stream",
             "title": "File",
             "description": "ZIP built by `agentfactory-gen wrap`"
+          },
+          "signature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signature",
+            "description": "Optional SSH signature of the ZIP (`wrap --sign`)"
           }
         },
         "type": "object",
@@ -911,6 +923,17 @@
           "zip_url": {
             "type": "string",
             "title": "Zip Url"
+          },
+          "signature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signature"
           }
         },
         "type": "object",

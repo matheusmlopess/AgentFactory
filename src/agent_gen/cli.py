@@ -253,8 +253,14 @@ def _registry_publish(manifest: dict, zip_path: Path) -> dict:
             f"; filename=\"{zip_path.name}\"\r\nContent-Type: application/zip\r\n\r\n".encode()
             + zip_bytes + b"\r\n"
         ),
-        f"--{boundary}--\r\n".encode(),
     ]
+    sig_path = zip_path.with_name(zip_path.name + ".sig")
+    if sig_path.exists():  # publisher signature from `wrap --sign` / `sign` (#144)
+        parts.append(
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"signature\"\r\n\r\n".encode()
+            + sig_path.read_bytes() + b"\r\n"
+        )
+    parts.append(f"--{boundary}--\r\n".encode())
     body = b"".join(parts)
 
     _require_safe_url(REGISTRY_URL, "registry URL")
@@ -347,6 +353,49 @@ def _api_json(method: str, path: str, payload: dict | None = None, auth: bool = 
         raise click.ClickException(f"API error {exc.code}: {detail}")
     except urllib.error.URLError as exc:
         raise click.ClickException(f"API unreachable ({REGISTRY_URL}): {exc.reason}")
+
+
+def _verify_publisher_signature(zip_path, signature_file, signer, allowed_signers, require_signature,
+                                registry_entry, cleanup) -> None:
+    """Check the bundle's SSH signature when one is available or required; exit 1 on failure."""
+    from .signing import SignatureError, github_allowed_signers, verify_file
+
+    def fail(msg: str) -> None:
+        if cleanup:
+            cleanup()
+        _echo(f"[librarian] {msg}", err=True)
+        sys.exit(1)
+
+    signature = None
+    if signature_file:
+        sig_path = Path(signature_file)
+        if not sig_path.is_file():
+            fail(f"Signature file not found: {signature_file}")
+        signature = sig_path.read_text()
+    elif registry_entry and registry_entry.get("signature"):
+        signature = registry_entry["signature"]
+    elif zip_path and Path(f"{zip_path}.sig").is_file() and (signer or allowed_signers or require_signature):
+        signature = Path(f"{zip_path}.sig").read_text()
+
+    if signature is None:
+        if require_signature:
+            fail("No publisher signature for this bundle (--require-signature).")
+        return
+
+    identity = signer or (registry_entry or {}).get("owner")
+    try:
+        if allowed_signers:
+            signers_text = Path(allowed_signers).read_text()
+            identity = identity or "agentfactory"
+        elif identity:
+            signers_text = github_allowed_signers(identity)
+        else:
+            fail("Signature given but no signer: pass --signer <github-handle> or --allowed-signers <file>.")
+            return
+        verify_file(Path(zip_path), signature, identity, signers_text)
+    except (SignatureError, OSError) as exc:
+        fail(f"Publisher signature check failed — do not trust this bundle.\n  {exc}")
+    _echo(f"[librarian] Publisher signature verified ({identity}).")
 
 
 def _write_token(token: str) -> Path:
@@ -718,7 +767,10 @@ def audit(name: str, fix: bool):
     default=False,
     help="Print only the archive path to stdout for scripting (e.g. zip=$(agentfactory-gen wrap my-agent --print-path)).",
 )
-def wrap(name: str, out: str, print_path: bool):
+@click.option("--sign", "sign_key", default=None, metavar="SSH_KEY",
+              help="Also write <zip>.sig, signed with this SSH private key (e.g. ~/.ssh/id_ed25519); "
+                   "`publish` uploads it and importers can verify it against your GitHub keys.")
+def wrap(name: str, out: str, print_path: bool, sign_key: str | None):
     """
     Validate and bundle an agent into a portable .zip package.
     """
@@ -752,6 +804,15 @@ def wrap(name: str, out: str, print_path: bool):
     sidecar = archive.with_suffix(".zip.sha256")
     sidecar.write_text(f"{sha256}  {archive.name}\n", encoding="utf-8")
     _echo(f"[librarian] Checksum → {sidecar}")
+
+    if sign_key:
+        from .signing import SignatureError, sign_file
+        try:
+            sig = sign_file(archive, Path(sign_key).expanduser())
+        except SignatureError as exc:
+            _echo(f"[librarian] {exc}", err=True)
+            sys.exit(1)
+        _echo(f"[librarian] Signature → {sig}")
 
     # --print-path contract (#136): the archive path is the last line on stdout
     if print_path:
@@ -799,6 +860,23 @@ def publish(name: str, version_override: str, tags: tuple):
     _echo(f"[librarian] Publishing '{agent_name}@{version}' to registry...")
     _registry_publish(publish_manifest, zip_path)
     _echo(f"[librarian] Published: {REGISTRY_URL}/registry/{agent_name}@{version}")
+
+
+# ---------------------------------------------------------------------------
+# sign (#144)
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.argument("zip_file", type=click.Path(exists=True, dir_okay=False))
+@click.option("--key", default="~/.ssh/id_ed25519", show_default=True, help="SSH private key to sign with.")
+def sign(zip_file: str, key: str):
+    """Sign a wrapped bundle: writes <zip>.sig (SSH signature, namespace agentfactory-unit)."""
+    from .signing import SignatureError, sign_file
+    try:
+        sig = sign_file(Path(zip_file), Path(key).expanduser())
+    except SignatureError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"[librarian] Signature → {sig}")
 
 
 # ---------------------------------------------------------------------------
@@ -1021,6 +1099,15 @@ def import_skill(path: str, target_agent: str, project_root: str):
     metavar="FILE",
     help="Path to a .sha256 file to verify the ZIP against before importing (#144).",
 )
+@click.option("--signature", "signature_file", default=None, metavar="FILE",
+              help="SSH signature of the ZIP (from `wrap --sign`); verified before unpacking.")
+@click.option("--signer", default=None, metavar="GITHUB_HANDLE",
+              help="Who must have signed it; keys come from github.com/<handle>.keys. "
+                   "Registry imports default to the unit's publisher.")
+@click.option("--allowed-signers", "allowed_signers", default=None, metavar="FILE",
+              help="OpenSSH allowed-signers file to verify against instead of GitHub keys.")
+@click.option("--require-signature", is_flag=True, default=False,
+              help="Refuse to import a bundle that has no valid publisher signature.")
 def import_agent(
     zip_path: str,
     from_git: str,
@@ -1029,6 +1116,10 @@ def import_agent(
     dry_run: bool,
     allow_scripts: bool,
     checksum: str,
+    signature_file: str | None,
+    signer: str | None,
+    allowed_signers: str | None,
+    require_signature: bool,
 ):
     """
     Unpack a portable agent bundle and register it in this project.
@@ -1045,6 +1136,7 @@ def import_agent(
 
     _cleanup = None
 
+    registry_entry: dict | None = None
     sources = [s for s in (zip_path, from_git, from_registry) if s is not None]
     if len(sources) > 1:
         raise click.UsageError("ZIP_PATH, --from-git, and --from-registry are mutually exclusive.")
@@ -1061,6 +1153,7 @@ def import_agent(
     if from_registry:
         _echo(f"[librarian] Fetching '{from_registry}' from registry...")
         _entry, zip_bytes = _registry_fetch(from_registry)
+        registry_entry = _entry
         tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
         tmp.write(zip_bytes)
         tmp.close()
@@ -1112,6 +1205,11 @@ def import_agent(
             )
             sys.exit(1)
         _echo("[librarian] Checksum verified.")
+
+    # --- Publisher signature (#144) ---
+    _verify_publisher_signature(
+        zip_path, signature_file, signer, allowed_signers, require_signature, registry_entry, _cleanup,
+    )
 
     # --- Pre-unpack inspection (#141 / #146) ---
     info = _inspect_zip(zip_path)
