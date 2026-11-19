@@ -8,6 +8,7 @@ so users can override a single agent's invocation without restating the rest.
 Per-agent `invocation` arrays are also the test seam: tests point an agent at
 a stub script instead of monkeypatching subprocess.
 """
+
 from __future__ import annotations
 
 import copy
@@ -100,17 +101,13 @@ class OrchestrationContract:
 
     @property
     def evidence_dir(self) -> str:
-        return self.data.get("evidence", {}).get(
-            "dir", DEFAULT_CONTRACT["evidence"]["dir"]
-        )
+        return self.data.get("evidence", {}).get("dir", DEFAULT_CONTRACT["evidence"]["dir"])
 
     def agent_spec(self, name: str) -> dict:
         """Resolve an agent entry; raises for unknown or disabled agents."""
         spec = self.agents.get(name)
         if spec is None:
-            raise ValueError(
-                f"unknown agent '{name}' — declare it in {CONTRACT_RELPATH}"
-            )
+            raise ValueError(f"unknown agent '{name}' — declare it in {CONTRACT_RELPATH}")
         if not spec.get("enabled", True):
             raise ValueError(f"agent '{name}' is disabled in the contract")
         return spec

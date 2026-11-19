@@ -3,6 +3,7 @@
 Exercises .ai/scripts/skill-completeness-check.py with a fake `claude` executable,
 so no network, no real login and no API key are needed.
 """
+
 # <!-- version: 1.0.0 -->
 import importlib.util
 import json
@@ -17,7 +18,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / ".ai" / "scripts" / "skill-completeness-check.py"
 
-FAKE_CLAUDE = r'''#!{python}
+FAKE_CLAUDE = r"""#!{python}
 import json, os, sys
 log = os.environ.get("FAKE_CLAUDE_LOG")
 args = sys.argv[1:]
@@ -39,7 +40,7 @@ if mode == "garbage":
     sys.exit(1)
 print(json.dumps({{"type": "result", "subtype": "success", "is_error": False,
                   "result": "```json\n{{\"atoms\": [{{\"id\": \"a\", \"type\": \"command\", \"description\": \"d\"}}]}}\n```"}}))
-'''
+"""
 
 
 def _load_oracle():
@@ -56,16 +57,24 @@ def oracle():
 
 def _fake_claude(tmp_path: Path, *, logged_in=True, auth_method="claude.ai", sub='"pro"') -> Path:
     path = tmp_path / "claude"
-    path.write_text(FAKE_CLAUDE.format(python=sys.executable, logged_in=logged_in,
-                                       auth_method=auth_method, sub=sub))
+    path.write_text(FAKE_CLAUDE.format(python=sys.executable, logged_in=logged_in, auth_method=auth_method, sub=sub))
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
     return path
 
 
 def _env(**extra):
-    base = {k: v for k, v in os.environ.items()
-            if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN",
-                         "AGENTFACTORY_CLAUDE_BACKEND", "AGENTFACTORY_CLAUDE_BIN")}
+    base = {
+        k: v
+        for k, v in os.environ.items()
+        if k
+        not in (
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_AUTH_TOKEN",
+            "CLAUDE_CODE_OAUTH_TOKEN",
+            "AGENTFACTORY_CLAUDE_BACKEND",
+            "AGENTFACTORY_CLAUDE_BIN",
+        )
+    }
     base.update(extra)
     return base
 
@@ -89,7 +98,9 @@ class TestResolveBackend:
 
     def test_oauth_token_env_counts_as_subscription(self, oracle, tmp_path):
         fake = _fake_claude(tmp_path, logged_in=False, sub="None")
-        with patch.dict(os.environ, _env(AGENTFACTORY_CLAUDE_BIN=str(fake), CLAUDE_CODE_OAUTH_TOKEN="sk-ant-oat01-x"), clear=True):
+        with patch.dict(
+            os.environ, _env(AGENTFACTORY_CLAUDE_BIN=str(fake), CLAUDE_CODE_OAUTH_TOKEN="sk-ant-oat01-x"), clear=True
+        ):
             assert oracle.resolve_backend() == "subscription"
 
     def test_missing_cli_and_key_gives_setup_help(self, oracle, tmp_path):
@@ -100,7 +111,9 @@ class TestResolveBackend:
 
     def test_forced_api_ignores_subscription(self, oracle, tmp_path):
         fake = _fake_claude(tmp_path)
-        with patch.dict(os.environ, _env(AGENTFACTORY_CLAUDE_BIN=str(fake), AGENTFACTORY_CLAUDE_BACKEND="api"), clear=True):
+        with patch.dict(
+            os.environ, _env(AGENTFACTORY_CLAUDE_BIN=str(fake), AGENTFACTORY_CLAUDE_BACKEND="api"), clear=True
+        ):
             assert oracle.resolve_backend() is None
             with pytest.raises(oracle.ClaudeAccessError, match="ANTHROPIC_API_KEY"):
                 oracle.make_client()
@@ -114,8 +127,7 @@ class TestSubscriptionClient:
     def test_runs_claude_print_without_api_key_and_parses_atoms(self, oracle, tmp_path):
         fake = _fake_claude(tmp_path)
         log = tmp_path / "call.json"
-        env = _env(AGENTFACTORY_CLAUDE_BIN=str(fake), ANTHROPIC_API_KEY="sk-should-not-leak",
-                   FAKE_CLAUDE_LOG=str(log))
+        env = _env(AGENTFACTORY_CLAUDE_BIN=str(fake), ANTHROPIC_API_KEY="sk-should-not-leak", FAKE_CLAUDE_LOG=str(log))
         with patch.dict(os.environ, env, clear=True):
             client = oracle.make_client()
             assert client.backend == "subscription"

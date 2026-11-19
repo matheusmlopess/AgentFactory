@@ -38,7 +38,8 @@ class TestExport(unittest.TestCase):
         self.bare = self.root / "remote.git"
         subprocess.run(
             ["git", "clone", "-q", "--bare", str(self.source), str(self.bare)],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         self.url = self.bare.as_uri()
 
@@ -62,15 +63,14 @@ class TestExport(unittest.TestCase):
         out = self.root / "verify"
         subprocess.run(
             ["git", "clone", "-q", str(self.bare), str(out), "-b", branch],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
         return out
 
     def test_export_pushes_to_recorded_source(self):
         self._write_agent(source=True)
-        res = self.runner.invoke(
-            cli, ["export", "demo", "--project-root", str(self.proj), "--no-pr"]
-        )
+        res = self.runner.invoke(cli, ["export", "demo", "--project-root", str(self.proj), "--no-pr"])
         self.assertEqual(res.exit_code, 0, res.output)
         tree = self._branch_tree("agentfactory/export-demo")
         self.assertEqual((tree / "agent" / "skills" / "do.md").read_text(), "NEW\n")
@@ -81,8 +81,7 @@ class TestExport(unittest.TestCase):
     def test_export_explicit_git_url_overrides(self):
         self._write_agent(source=False)  # no recorded source
         res = self.runner.invoke(
-            cli, ["export", "demo", "--project-root", str(self.proj),
-                  "--git", self.url, "--branch", "x/y", "--no-pr"]
+            cli, ["export", "demo", "--project-root", str(self.proj), "--git", self.url, "--branch", "x/y", "--no-pr"]
         )
         self.assertEqual(res.exit_code, 0, res.output)
         self.assertTrue((self._branch_tree("x/y") / "agent" / "skills" / "extra.md").exists())
@@ -95,9 +94,7 @@ class TestExport(unittest.TestCase):
 
     def test_export_no_push_writes_patch(self):
         self._write_agent(source=True)
-        res = self.runner.invoke(
-            cli, ["export", "demo", "--project-root", str(self.proj), "--no-push"]
-        )
+        res = self.runner.invoke(cli, ["export", "demo", "--project-root", str(self.proj), "--no-push"])
         self.assertEqual(res.exit_code, 0, res.output)
         self.assertTrue((self.proj / "demo-export.patch").exists())
 

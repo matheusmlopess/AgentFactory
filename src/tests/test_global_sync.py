@@ -1,10 +1,11 @@
-import os
 import json
-import unittest
+import os
 import tempfile
+import unittest
 from pathlib import Path
 
-from agent_gen.librarian import Librarian, MANIFEST_FILE, HARNESS_ROOT, CONTEXT_FILE
+from agent_gen.librarian import CONTEXT_FILE, HARNESS_ROOT, MANIFEST_FILE, Librarian
+
 
 class TestGlobalRegistrySync(unittest.TestCase):
     def setUp(self):
@@ -22,13 +23,7 @@ class TestGlobalRegistrySync(unittest.TestCase):
         self.global_manifest_path = self.ai_root / MANIFEST_FILE
         self.global_manifest = {
             "factory": "AgentFactory",
-            "agents": {
-                "test-agent": {
-                    "version": "1.0.0",
-                    "description": "Old description",
-                    "resources": {}
-                }
-            }
+            "agents": {"test-agent": {"version": "1.0.0", "description": "Old description", "resources": {}}},
         }
         with open(self.global_manifest_path, "w") as f:
             json.dump(self.global_manifest, f)
@@ -36,9 +31,7 @@ class TestGlobalRegistrySync(unittest.TestCase):
         # Single source-of-truth context file
         self.context_file = self.ai_root / CONTEXT_FILE
         self.context_file.write_text(
-            "<!-- @agent-registry:start -->\n"
-            "- **test-agent**: Old description (See...)\n"
-            "<!-- @agent-registry:end -->"
+            "<!-- @agent-registry:start -->\n- **test-agent**: Old description (See...)\n<!-- @agent-registry:end -->"
         )
 
         # Root symlink pointing to .ai/AgentFactory.md (all CLIs share the same file)
@@ -53,7 +46,7 @@ class TestGlobalRegistrySync(unittest.TestCase):
             "name": "test-agent",
             "version": "1.0.0",
             "description": "Old description",
-            "resources": {"skills": []}
+            "resources": {"skills": []},
         }
         with open(self.agent_dir / MANIFEST_FILE, "w") as f:
             json.dump(self.agent_manifest, f)
@@ -91,5 +84,6 @@ class TestGlobalRegistrySync(unittest.TestCase):
         count = content.count("<!-- @agent-registry:start -->")
         self.assertEqual(count, 1, "Should only have one registry block")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

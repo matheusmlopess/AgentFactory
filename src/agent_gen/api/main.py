@@ -1,7 +1,9 @@
 """AgentFactory API — FastAPI application entry point."""
+
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from datetime import UTC
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -100,17 +102,16 @@ def _build_cli():
     @users.command("add")
     @click.option("--github-handle", required=True, help="Display handle (must be unique).")
     @click.option("--email", default="", help="Contact email.")
-    @click.option("--plan", default="free", show_default=True,
-                  type=click.Choice(["free", "pro", "team", "enterprise"]))
+    @click.option("--plan", default="free", show_default=True, type=click.Choice(["free", "pro", "team", "enterprise"]))
     def users_add(github_handle: str, email: str, plan: str) -> None:
         """Create a local account and print its id. It never matches a real GitHub login."""
         import uuid
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from .db import get_conn
 
         init_db()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         user_id = str(uuid.uuid4())
         with get_conn() as conn:
             if conn.execute("SELECT 1 FROM users WHERE github_handle = ?", (github_handle,)).fetchone():
@@ -143,7 +144,9 @@ def _build_cli():
                 row = conn.execute("SELECT id FROM users WHERE github_handle = ?", (github_handle,)).fetchone()
             user_id = row["id"] if row else None
         if not user_id:
-            raise click.ClickException("Unknown user: sign in once through the webapp, then pass --user-id or --github-handle.")
+            raise click.ClickException(
+                "Unknown user: sign in once through the webapp, then pass --user-id or --github-handle."
+            )
         try:
             click.echo(issue_api_token(user_id, label, ttl_days or None))
         except ValueError as exc:

@@ -1,4 +1,5 @@
 """FastAPI dependencies: resolve the current user from the session cookie or a Bearer API token."""
+
 from fastapi import Cookie, Header, HTTPException, status
 
 from .db import api_token_user, get_conn

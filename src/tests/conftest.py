@@ -4,6 +4,7 @@ The fake agent is a real subprocess (a tiny python script) wired in through
 the orchestration contract's per-agent `invocation` override — the designed
 test seam. No subprocess monkeypatching anywhere.
 """
+
 import json
 import sys
 from pathlib import Path

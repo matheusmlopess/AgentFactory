@@ -2,54 +2,50 @@ import io
 import json
 import os
 import stat
-import unittest
 import tempfile
+import unittest
 import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
 from agent_gen.librarian import (
-    Librarian, MANIFEST_FILE, HARNESS_ROOT, CONTEXT_FILE, _safe_extract,
+    CONTEXT_FILE,
+    HARNESS_ROOT,
+    MANIFEST_FILE,
+    Librarian,
+    _safe_extract,
 )
+
 
 class TestLibrarianLifecycle(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.TemporaryDirectory()
         self.project_root = Path(self.test_dir.name)
-        
+
         self.agents_dir = self.project_root / "agents"
         self.agents_dir.mkdir()
-        
+
         # Mock global manifest
         self.global_manifest_path = self.project_root / MANIFEST_FILE
         self.global_manifest = {
             "factory": "AgentFactory",
-            "agents": {
-                "mock-agent": {
-                    "version": "1.0.0",
-                    "resources": {}
-                }
-            }
+            "agents": {"mock-agent": {"version": "1.0.0", "resources": {}}},
         }
         with open(self.global_manifest_path, "w") as f:
             json.dump(self.global_manifest, f)
-            
+
         # Mock harness files
         (self.project_root / "CLAUDE.md").write_text("<!-- @agent-registry:start -->\n<!-- @agent-registry:end -->")
-        
+
         # Mock an installed agent
         self.mock_agent_dir = self.agents_dir / "mock-agent"
         self.mock_agent_dir.mkdir()
-        
+
         # Create standard dirs and manifest for the agent
         (self.mock_agent_dir / "skills").mkdir()
         (self.mock_agent_dir / "scripts").mkdir()
-        
-        agent_manifest = {
-            "name": "mock-agent",
-            "version": "1.0.0",
-            "resources": {"skills": [], "scripts": []}
-        }
+
+        agent_manifest = {"name": "mock-agent", "version": "1.0.0", "resources": {"skills": [], "scripts": []}}
         with open(self.mock_agent_dir / MANIFEST_FILE, "w") as f:
             json.dump(agent_manifest, f)
 
@@ -58,13 +54,13 @@ class TestLibrarianLifecycle(unittest.TestCase):
 
     def test_uninstall_removes_agent_and_deregisters(self):
         librarian = Librarian(str(self.mock_agent_dir))
-        
+
         # Call uninstall
         librarian.uninstall(str(self.project_root))
-        
+
         # 1. Directory is gone
         self.assertFalse(self.mock_agent_dir.exists())
-        
+
         # 2. Deregistered from global manifest
         with open(self.global_manifest_path) as f:
             global_manifest = json.load(f)
@@ -73,44 +69,44 @@ class TestLibrarianLifecycle(unittest.TestCase):
     def test_import_unpacks_and_registers(self):
         # Create a valid portable bundle zip
         bundle_path = self.project_root / "new-agent-v1.zip"
-        
+
         # Setup bundle content in a temp structure
         temp_bundle = self.project_root / "temp_bundle"
         temp_bundle.mkdir()
-        
+
         agent_manifest = {
             "name": "new-agent",
             "version": "1.0.0",
             "resources": {"skills": ["skills/test.md"], "scripts": []},
-            "dependencies": {}
+            "dependencies": {},
         }
         with open(temp_bundle / MANIFEST_FILE, "w") as f:
             json.dump(agent_manifest, f)
-            
+
         (temp_bundle / "skills").mkdir()
         (temp_bundle / "skills" / "test.md").write_text("hello")
-        
+
         with zipfile.ZipFile(bundle_path, "w") as zf:
             zf.write(temp_bundle / MANIFEST_FILE, MANIFEST_FILE)
             zf.write(temp_bundle / "skills" / "test.md", "skills/test.md")
-            
+
         # Target path
         target_root = self.agents_dir / "new-agent"
-        
+
         # Perform unpack
         manifest = Librarian.unpack(str(bundle_path), str(target_root))
-        
+
         self.assertTrue(target_root.exists())
         self.assertEqual(manifest["name"], "new-agent")
-        
+
         # Perform Handshake
         Librarian.register_in_project(manifest, str(self.project_root))
-        
+
         with open(self.global_manifest_path) as f:
             global_manifest = json.load(f)
-            
+
         self.assertIn("new-agent", global_manifest["agents"])
-        
+
     # --- #51: _ensure_adapter_wiring ---
 
     def test_ensure_adapter_wiring_creates_symlinks(self):
@@ -124,9 +120,9 @@ class TestLibrarianLifecycle(unittest.TestCase):
         Librarian._ensure_adapter_wiring(str(self.project_root))
 
         claude_commands = ai_root / "adapters" / "claude" / "commands"
-        claude_skills   = ai_root / "adapters" / "claude" / "skills"
-        gemini_skills   = ai_root / "adapters" / "gemini"  / "skills"
-        codex_prompts   = ai_root / "adapters" / "codex"   / "prompts"
+        claude_skills = ai_root / "adapters" / "claude" / "skills"
+        gemini_skills = ai_root / "adapters" / "gemini" / "skills"
+        codex_prompts = ai_root / "adapters" / "codex" / "prompts"
 
         self.assertTrue(claude_commands.is_symlink() or claude_commands.exists())
         self.assertTrue(claude_skills.is_symlink() or claude_skills.exists())
@@ -148,7 +144,6 @@ class TestLibrarianLifecycle(unittest.TestCase):
         except Exception as exc:
             self.fail(f"_ensure_adapter_wiring raised on second call: {exc}")
 
-
     # --- S1: ZIP Slip ---
 
     def test_zip_slip_blocked(self):
@@ -163,9 +158,8 @@ class TestLibrarianLifecycle(unittest.TestCase):
                 zf.writestr("../escape.txt", "malicious content")
             zip_buf.seek(0)
 
-            with zipfile.ZipFile(zip_buf) as zf:
-                with self.assertRaises(ValueError) as ctx:
-                    _safe_extract(zf, target)
+            with zipfile.ZipFile(zip_buf) as zf, self.assertRaises(ValueError) as ctx:
+                _safe_extract(zf, target)
             self.assertIn("zip slip", str(ctx.exception).lower())
 
             # The escape file must NOT have been written
@@ -196,21 +190,25 @@ class TestFormatSwitchLibrarian(unittest.TestCase):
     def _make_harness(self, root: Path) -> None:
         """Scaffold a minimal harness for tests."""
         ai = root / HARNESS_ROOT
-        for d in ["adapters/claude", "adapters/codex", "adapters/gemini",
-                  "skills", "commands", "rules", "agents", "memory"]:
+        for d in [
+            "adapters/claude",
+            "adapters/codex",
+            "adapters/gemini",
+            "skills",
+            "commands",
+            "rules",
+            "agents",
+            "memory",
+        ]:
             (ai / d).mkdir(parents=True, exist_ok=True)
         # agent-manifest.json so collectors don't crash
-        (ai / "agent-manifest.json").write_text(
-            '{"factory":"AgentFactory","agents":{}}', encoding="utf-8"
-        )
+        (ai / "agent-manifest.json").write_text('{"factory":"AgentFactory","agents":{}}', encoding="utf-8")
 
     def _add_skill(self, root: Path, name: str, desc: str = "", triggers: str = "") -> None:
         skill_dir = root / HARNESS_ROOT / "skills" / name
         skill_dir.mkdir(parents=True, exist_ok=True)
         manifest = {"name": name, "description": desc, "triggers": triggers}
-        (skill_dir / "skill-manifest.json").write_text(
-            json.dumps(manifest), encoding="utf-8"
-        )
+        (skill_dir / "skill-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
     # --- compile creates / skips ---
 
@@ -400,7 +398,6 @@ class TestFormatSwitchLibrarian(unittest.TestCase):
             # Symlink should still point to AgentFactory.md
             self.assertIn("AgentFactory.md", os.readlink(str(legacy_link)))
 
-
     def test_update_harness_files_injects_skills_registry_when_marker_absent(self):
         """update_harness_files appends @skills-registry block to README when marker absent (#121)."""
         with tempfile.TemporaryDirectory() as tmp:
@@ -415,9 +412,7 @@ class TestFormatSwitchLibrarian(unittest.TestCase):
                 "<!-- @skills-registry:start -->\n<!-- @skills-registry:end -->\n",
                 encoding="utf-8",
             )
-            (root / HARNESS_ROOT / "agent-manifest.json").write_text(
-                '{"factory":"AF","agents":{}}', encoding="utf-8"
-            )
+            (root / HARNESS_ROOT / "agent-manifest.json").write_text('{"factory":"AF","agents":{}}', encoding="utf-8")
             self._add_skill(root, "my-skill", "A test skill")
             Librarian.update_harness_files(str(root))
             content = readme.read_text(encoding="utf-8")
@@ -431,8 +426,7 @@ class TestFormatSwitchLibrarian(unittest.TestCase):
             self._make_harness(root)
             readme = root / "README.md"
             readme.write_text(
-                "# My Project\n\n"
-                "<!-- @skills-registry:start -->\nold content\n<!-- @skills-registry:end -->\n",
+                "# My Project\n\n<!-- @skills-registry:start -->\nold content\n<!-- @skills-registry:end -->\n",
                 encoding="utf-8",
             )
             (root / HARNESS_ROOT / CONTEXT_FILE).write_text(
@@ -440,9 +434,7 @@ class TestFormatSwitchLibrarian(unittest.TestCase):
                 "<!-- @skills-registry:start -->\n<!-- @skills-registry:end -->\n",
                 encoding="utf-8",
             )
-            (root / HARNESS_ROOT / "agent-manifest.json").write_text(
-                '{"factory":"AF","agents":{}}', encoding="utf-8"
-            )
+            (root / HARNESS_ROOT / "agent-manifest.json").write_text('{"factory":"AF","agents":{}}', encoding="utf-8")
             self._add_skill(root, "updated-skill", "Updated")
             Librarian.update_harness_files(str(root))
             content = readme.read_text(encoding="utf-8")
@@ -455,12 +447,18 @@ class TestProjectContextInjection(unittest.TestCase):
 
     def _make_harness(self, root: Path, af_content: str | None = None) -> None:
         ai = root / HARNESS_ROOT
-        for d in ["adapters/claude", "adapters/codex", "adapters/gemini",
-                  "skills", "commands", "rules", "agents", "memory"]:
+        for d in [
+            "adapters/claude",
+            "adapters/codex",
+            "adapters/gemini",
+            "skills",
+            "commands",
+            "rules",
+            "agents",
+            "memory",
+        ]:
             (ai / d).mkdir(parents=True, exist_ok=True)
-        (ai / "agent-manifest.json").write_text(
-            '{"factory":"AgentFactory","agents":{}}', encoding="utf-8"
-        )
+        (ai / "agent-manifest.json").write_text('{"factory":"AgentFactory","agents":{}}', encoding="utf-8")
         if af_content is not None:
             (ai / CONTEXT_FILE).write_text(af_content, encoding="utf-8")
 
@@ -492,7 +490,7 @@ class TestProjectContextInjection(unittest.TestCase):
             self.assertNotIn("<!-- @agent-registry", brief)
             # H1 title should not appear inside the Project Context section
             ctx_start = brief.find("## Project Context")
-            self.assertNotIn("# AgentFactory", brief[ctx_start:ctx_start + 200])
+            self.assertNotIn("# AgentFactory", brief[ctx_start : ctx_start + 200])
 
     def test_brief_project_context_absent_when_agentfactory_md_missing(self):
         """No AgentFactory.md → brief compiles without error, no ## Project Context."""
@@ -578,9 +576,11 @@ class TestProjectContextInjection(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._make_harness(root, af_content)
-            with patch("agent_gen.librarian._run_preamble_oracle", side_effect=Exception("api down")):
-                with patch.dict(os.environ, {"AGENTFACTORY_LICENSE_KEY": "pro_testkey"}):
-                    Librarian._compile_adapter_briefs(str(root))
+            with (
+                patch("agent_gen.librarian._run_preamble_oracle", side_effect=Exception("api down")),
+                patch.dict(os.environ, {"AGENTFACTORY_LICENSE_KEY": "pro_testkey"}),
+            ):
+                Librarian._compile_adapter_briefs(str(root))
             brief = (root / HARNESS_ROOT / "adapters" / "codex" / "brief.md").read_text(encoding="utf-8")
             self.assertIn("context truncated", brief)
 
@@ -591,9 +591,7 @@ class TestProjectContextInjection(unittest.TestCase):
             root = Path(tmp)
             self._make_harness(root, af_content)
             # Add a rule and command so sections are non-empty
-            (root / HARNESS_ROOT / "rules" / "no-secrets.md").write_text(
-                "- Never commit secrets.", encoding="utf-8"
-            )
+            (root / HARNESS_ROOT / "rules" / "no-secrets.md").write_text("- Never commit secrets.", encoding="utf-8")
             (root / HARNESS_ROOT / "commands" / "git-workflow.md").write_text(
                 "<!-- version: 1.0.0 -->\nGit workflow command.", encoding="utf-8"
             )
@@ -607,6 +605,7 @@ class TestProjectContextInjection(unittest.TestCase):
     def test_harness_identity_references_agentfactory_md(self):
         """_fmt_harness_identity output lists AgentFactory.md in shared context."""
         from agent_gen.librarian import _fmt_harness_identity
+
         identity = _fmt_harness_identity("claude")
         self.assertIn("AgentFactory.md", identity)
         self.assertIn("project overview", identity)
@@ -633,8 +632,7 @@ class TestOpenStandardSkillValidation(unittest.TestCase):
         """name + description only — no version, no triggers."""
         with tempfile.TemporaryDirectory() as tmp:
             skill_dir = self._make_skill_dir(
-                Path(tmp), "lean-skill",
-                "name: lean-skill\ndescription: A minimal open-standard skill"
+                Path(tmp), "lean-skill", "name: lean-skill\ndescription: A minimal open-standard skill"
             )
             # Should not raise
             Librarian._validate_and_reconcile_skill_manifest(skill_dir)
@@ -648,8 +646,9 @@ class TestOpenStandardSkillValidation(unittest.TestCase):
         """name + description + version + triggers — full AgentFactory skill."""
         with tempfile.TemporaryDirectory() as tmp:
             skill_dir = self._make_skill_dir(
-                Path(tmp), "full-skill",
-                "name: full-skill\ndescription: Full skill\nversion: 1.2.0\ntriggers: when needed"
+                Path(tmp),
+                "full-skill",
+                "name: full-skill\ndescription: Full skill\nversion: 1.2.0\ntriggers: when needed",
             )
             Librarian._validate_and_reconcile_skill_manifest(skill_dir)
             manifest = json.loads((skill_dir / "skill-manifest.json").read_text())
@@ -660,8 +659,7 @@ class TestOpenStandardSkillValidation(unittest.TestCase):
         """version field is optional so non-semver strings should not raise."""
         with tempfile.TemporaryDirectory() as tmp:
             skill_dir = self._make_skill_dir(
-                Path(tmp), "dated-skill",
-                "name: dated-skill\ndescription: desc\nversion: 2026-05-18"
+                Path(tmp), "dated-skill", "name: dated-skill\ndescription: desc\nversion: 2026-05-18"
             )
             Librarian._validate_and_reconcile_skill_manifest(skill_dir)
             manifest = json.loads((skill_dir / "skill-manifest.json").read_text())
@@ -670,10 +668,7 @@ class TestOpenStandardSkillValidation(unittest.TestCase):
     def test_missing_name_raises(self):
         """name is still required — raise ValueError if absent."""
         with tempfile.TemporaryDirectory() as tmp:
-            skill_dir = self._make_skill_dir(
-                Path(tmp), "no-name-skill",
-                "description: A skill without a name"
-            )
+            skill_dir = self._make_skill_dir(Path(tmp), "no-name-skill", "description: A skill without a name")
             with self.assertRaises(ValueError) as ctx:
                 Librarian._validate_and_reconcile_skill_manifest(skill_dir)
             self.assertIn("name", str(ctx.exception))
@@ -681,10 +676,7 @@ class TestOpenStandardSkillValidation(unittest.TestCase):
     def test_missing_description_raises(self):
         """description is still required — raise ValueError if absent."""
         with tempfile.TemporaryDirectory() as tmp:
-            skill_dir = self._make_skill_dir(
-                Path(tmp), "no-desc-skill",
-                "name: no-desc-skill"
-            )
+            skill_dir = self._make_skill_dir(Path(tmp), "no-desc-skill", "name: no-desc-skill")
             with self.assertRaises(ValueError) as ctx:
                 Librarian._validate_and_reconcile_skill_manifest(skill_dir)
             self.assertIn("description", str(ctx.exception))
@@ -693,13 +685,10 @@ class TestOpenStandardSkillValidation(unittest.TestCase):
         """Reconcile path: existing manifest is updated without losing fields."""
         with tempfile.TemporaryDirectory() as tmp:
             skill_dir = self._make_skill_dir(
-                Path(tmp), "reconcile-skill",
-                "name: reconcile-skill\ndescription: Updated desc"
+                Path(tmp), "reconcile-skill", "name: reconcile-skill\ndescription: Updated desc"
             )
             existing = {"name": "reconcile-skill", "extra_field": "preserved"}
-            (skill_dir / "skill-manifest.json").write_text(
-                json.dumps(existing), encoding="utf-8"
-            )
+            (skill_dir / "skill-manifest.json").write_text(json.dumps(existing), encoding="utf-8")
             Librarian._validate_and_reconcile_skill_manifest(skill_dir)
             manifest = json.loads((skill_dir / "skill-manifest.json").read_text())
             self.assertEqual(manifest["name"], "reconcile-skill")
@@ -736,5 +725,5 @@ class TestOpenStandardSkillValidation(unittest.TestCase):
             self.assertEqual(manifest["description"], "Leading whitespace skill")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

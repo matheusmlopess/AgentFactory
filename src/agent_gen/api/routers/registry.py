@@ -10,13 +10,14 @@ Contract: CRAFT `contracts/registry-api.md` (ADR 0002). Consumers: `agentfactory
   verifies downloads against the registry, not against the file itself.
 - ZIPs live under REGISTRY_STORAGE_DIR (default ./data/registry/<name>/<version>.zip).
 """
+
 import hashlib
 import io
 import json
 import os
 import re
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
@@ -50,7 +51,7 @@ def _public_url() -> str:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _bad(detail: str) -> HTTPException:
@@ -91,8 +92,10 @@ def _entry(name: str, version: str | None) -> RegistryEntry:
         ).fetchone()
         if unit is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"agent '{name}' not found")
-        versions = [r["version"] for r in conn.execute(
-            "SELECT version FROM registry_versions WHERE name = ? ORDER BY published_at", (name,))]
+        versions = [
+            r["version"]
+            for r in conn.execute("SELECT version FROM registry_versions WHERE name = ? ORDER BY published_at", (name,))
+        ]
         chosen = version or (versions[-1] if versions else None)
         row = conn.execute(
             "SELECT version, sha256, size_bytes, published_at, signature FROM registry_versions "
@@ -102,9 +105,15 @@ def _entry(name: str, version: str | None) -> RegistryEntry:
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"version '{version}' of '{name}' not found")
     return RegistryEntry(
-        name=unit["name"], description=unit["description"], tags=json.loads(unit["tags"]),
-        owner=unit["owner"], version=row["version"], versions=versions, sha256=row["sha256"],
-        size_bytes=row["size_bytes"], published_at=row["published_at"],
+        name=unit["name"],
+        description=unit["description"],
+        tags=json.loads(unit["tags"]),
+        owner=unit["owner"],
+        version=row["version"],
+        versions=versions,
+        sha256=row["sha256"],
+        size_bytes=row["size_bytes"],
+        published_at=row["published_at"],
         zip_url=f"{_public_url()}/registry/{name}/{row['version']}/download",
         signature=row["signature"],
     )
@@ -123,8 +132,16 @@ def list_units(q: str = Query(default="", max_length=64), limit: int = Query(def
             "ORDER BY u.updated_at DESC LIMIT ?",
             (like, like, like, limit),
         ).fetchall()
-    return [RegistrySummary(name=r["name"], description=r["description"], tags=json.loads(r["tags"]),
-                            latest_version=r["latest"], updated_at=r["updated_at"]) for r in rows]
+    return [
+        RegistrySummary(
+            name=r["name"],
+            description=r["description"],
+            tags=json.loads(r["tags"]),
+            latest_version=r["latest"],
+            updated_at=r["updated_at"],
+        )
+        for r in rows
+    ]
 
 
 @router.post("/publish", response_model=RegistryEntry, status_code=status.HTTP_201_CREATED)
@@ -151,8 +168,11 @@ async def publish(
     if not description or len(description) > _MAX_DESCRIPTION:
         raise _bad(f"description is required and at most {_MAX_DESCRIPTION} characters")
     tags = meta.get("tags") or []
-    if not isinstance(tags, list) or len(tags) > _MAX_TAGS or not all(
-            isinstance(t, str) and _TAG_RE.fullmatch(t) for t in tags):
+    if (
+        not isinstance(tags, list)
+        or len(tags) > _MAX_TAGS
+        or not all(isinstance(t, str) and _TAG_RE.fullmatch(t) for t in tags)
+    ):
         raise _bad(f"tags: up to {_MAX_TAGS} lowercase words (a-z, 0-9, '-')")
 
     if signature is not None and not looks_like_signature(signature):
@@ -161,8 +181,9 @@ async def publish(
     limit = _max_zip_bytes()
     data = await file.read(limit + 1)
     if len(data) > limit:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                            detail=f"archive is larger than {limit} bytes")
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=f"archive is larger than {limit} bytes"
+        )
     _validate_bundle(data, name)
     digest = hashlib.sha256(data).hexdigest()
     now = _now()
@@ -170,22 +191,28 @@ async def publish(
     with get_conn() as conn:
         unit = conn.execute("SELECT owner_id FROM registry_units WHERE name = ?", (name,)).fetchone()
         if unit is not None and unit["owner_id"] != user.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                detail=f"'{name}' belongs to another publisher")
-        if conn.execute("SELECT 1 FROM registry_versions WHERE name = ? AND version = ?",
-                        (name, version)).fetchone():
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                                detail=f"{name}@{version} already exists; versions are immutable, bump the version")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"'{name}' belongs to another publisher")
+        if conn.execute("SELECT 1 FROM registry_versions WHERE name = ? AND version = ?", (name, version)).fetchone():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"{name}@{version} already exists; versions are immutable, bump the version",
+            )
         if unit is None:
             conn.execute(
                 "INSERT INTO registry_units (name, owner_id, description, tags, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)", (name, user.id, description, json.dumps(tags), now, now))
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (name, user.id, description, json.dumps(tags), now, now),
+            )
         else:
-            conn.execute("UPDATE registry_units SET description = ?, tags = ?, updated_at = ? WHERE name = ?",
-                         (description, json.dumps(tags), now, name))
+            conn.execute(
+                "UPDATE registry_units SET description = ?, tags = ?, updated_at = ? WHERE name = ?",
+                (description, json.dumps(tags), now, name),
+            )
         conn.execute(
             "INSERT INTO registry_versions (name, version, sha256, size_bytes, published_by, published_at, signature) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)", (name, version, digest, len(data), user.id, now, signature))
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (name, version, digest, len(data), user.id, now, signature),
+        )
         # Write the file inside the transaction: if this fails, the rows roll back with it.
         path = _zip_path(name, version)
         path.parent.mkdir(parents=True, exist_ok=True)

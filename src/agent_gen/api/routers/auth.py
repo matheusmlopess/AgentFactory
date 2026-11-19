@@ -2,12 +2,13 @@
 GitHub OAuth endpoints + /auth/me + /auth/logout.
 Session contract: GitHub OAuth -> httpOnly JWT cookie (see docs/MULTI-REPO-WORKFLOW.md).
 """
+
 import os
 import secrets
 import time
 import uuid
+from datetime import UTC, datetime
 from urllib.parse import urlencode
-from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
@@ -27,11 +28,9 @@ from ..models import (
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-_GITHUB_CLIENT_ID     = os.environ.get("GITHUB_CLIENT_ID", "")
+_GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")
 _GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET", "")
-_GITHUB_REDIRECT_URI  = os.environ.get(
-    "GITHUB_REDIRECT_URI", "http://localhost:8000/auth/github/callback"
-)
+_GITHUB_REDIRECT_URI = os.environ.get("GITHUB_REDIRECT_URI", "http://localhost:8000/auth/github/callback")
 # Where the webapp lives (router basename included): OAuth redirects there and device login links to <it>/device.
 _WEBAPP_URL = os.environ.get("WEBAPP_URL", "http://localhost:5173/AgentFactory")
 
@@ -67,12 +66,14 @@ def github_login() -> RedirectResponse:
         )
     state = secrets.token_urlsafe(32)
     _remember_state(state)
-    query = urlencode({
-        "client_id": _GITHUB_CLIENT_ID,
-        "redirect_uri": _GITHUB_REDIRECT_URI,
-        "scope": "read:user user:email",
-        "state": state,
-    })
+    query = urlencode(
+        {
+            "client_id": _GITHUB_CLIENT_ID,
+            "redirect_uri": _GITHUB_REDIRECT_URI,
+            "scope": "read:user user:email",
+            "state": state,
+        }
+    )
     return RedirectResponse(url=f"https://github.com/login/oauth/authorize?{query}")
 
 
@@ -129,16 +130,14 @@ def github_callback(code: str, state: str, response: Response) -> RedirectRespon
                     email = entry["email"]
                     break
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     github_id: int = gh_user["id"]
     handle: str = gh_user["login"]
     avatar: str = gh_user.get("avatar_url", "")
 
     # Upsert user in DB
     with get_conn() as conn:
-        existing = conn.execute(
-            "SELECT id, plan FROM users WHERE github_id = ?", (github_id,)
-        ).fetchone()
+        existing = conn.execute("SELECT id, plan FROM users WHERE github_id = ?", (github_id,)).fetchone()
         if existing:
             user_id = existing["id"]
             conn.execute(
@@ -191,9 +190,12 @@ def cli_device() -> DeviceCodeResponse:
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from None
     verify = f"{_WEBAPP_URL.rstrip('/')}/device"
     return DeviceCodeResponse(
-        device_code=device_code, user_code=user_code, verification_uri=verify,
+        device_code=device_code,
+        user_code=user_code,
+        verification_uri=verify,
         verification_uri_complete=f"{verify}?{urlencode({'code': user_code})}",
-        expires_in=_DEVICE_TTL_SECONDS, interval=_poll_interval(),
+        expires_in=_DEVICE_TTL_SECONDS,
+        interval=_poll_interval(),
     )
 
 
@@ -219,8 +221,7 @@ def cli_poll_post(body: DevicePollRequest) -> DevicePollResponse:
 def cli_approve(body: DeviceApproveRequest, current_user: User = Depends(get_current_user)) -> dict:
     """The webapp's /device page calls this for the signed-in user (session cookie only)."""
     if not _db.approve_device_code(body.user_code, current_user.id):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="code unknown, expired or already used")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="code unknown, expired or already used")
     return {"approved": True}
 
 

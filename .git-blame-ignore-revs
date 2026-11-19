@@ -1,0 +1,3 @@
+# Mechanical reformat commits (git config blame.ignoreRevsFile .git-blame-ignore-revs)
+# ruff format, #191
+fa41dc61ab68c2523549f43d5c146329a1fd9817

@@ -1,10 +1,11 @@
 """Tests for the AgentFactory API — auth endpoints and license validation."""
+
+import importlib
 import os
 import tempfile
 import unittest
-import importlib
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -25,13 +26,13 @@ class TestDatabaseInit(unittest.TestCase):
             os.environ["DATABASE_URL"] = f"sqlite:///{tmp}/test.db"
             # Re-import db with new env
             import importlib
+
             import agent_gen.api.db as db_module
+
             importlib.reload(db_module)
             db_module.init_db()
             with db_module.get_conn() as conn:
-                rows = conn.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"
-                ).fetchall()
+                rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'").fetchall()
                 self.assertEqual(len(rows), 1)
 
 
@@ -41,6 +42,7 @@ class TestJwtUtils(unittest.TestCase):
 
     def test_create_and_decode_token(self):
         from agent_gen.api.jwt_utils import create_token, decode_token
+
         token = create_token("user-123")
         self.assertIsInstance(token, str)
         user_id = decode_token(token)
@@ -48,10 +50,12 @@ class TestJwtUtils(unittest.TestCase):
 
     def test_decode_invalid_token_returns_none(self):
         from agent_gen.api.jwt_utils import decode_token
+
         self.assertIsNone(decode_token("not.a.valid.token"))
 
     def test_decode_tampered_token_returns_none(self):
         from agent_gen.api.jwt_utils import create_token, decode_token
+
         token = create_token("user-456")
         tampered = token[:-5] + "XXXXX"
         self.assertIsNone(decode_token(tampered))
@@ -64,11 +68,14 @@ class TestLicenseValidation(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         os.environ["DATABASE_URL"] = f"sqlite:///{self._tmp.name}/test.db"
         import agent_gen.api.db as db_module
+
         importlib.reload(db_module)
         db_module.init_db()
         self.db = db_module
         from fastapi.testclient import TestClient
+
         import agent_gen.api.main as main_module
+
         self.client = TestClient(main_module.app, raise_server_exceptions=True)
 
     def tearDown(self):
@@ -112,7 +119,9 @@ class TestLicenseValidation(unittest.TestCase):
 class TestAuthMe(unittest.TestCase):
     def _get_client(self):
         from fastapi.testclient import TestClient
+
         from agent_gen.api.main import app
+
         return TestClient(app, raise_server_exceptions=True)
 
     def test_me_without_cookie_returns_401(self):
@@ -130,13 +139,15 @@ class TestAuthMe(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             os.environ["DATABASE_URL"] = f"sqlite:///{tmp}/test.db"
             import agent_gen.api.db as db_module
+
             importlib.reload(db_module)
             db_module.init_db()
 
             # Insert a test user
             import uuid
-            from datetime import datetime, timezone
-            now = datetime.now(timezone.utc).isoformat()
+            from datetime import datetime
+
+            now = datetime.now(UTC).isoformat()
             user_id = str(uuid.uuid4())
             with db_module.get_conn() as conn:
                 conn.execute(
@@ -146,13 +157,17 @@ class TestAuthMe(unittest.TestCase):
                 )
 
             from agent_gen.api.jwt_utils import create_token
+
             token = create_token(user_id)
 
             import agent_gen.api.deps as deps_module
+
             importlib.reload(deps_module)
 
             from fastapi.testclient import TestClient
+
             import agent_gen.api.main as main_module
+
             importlib.reload(main_module)
             client = TestClient(main_module.app, raise_server_exceptions=True)
             client.cookies.set("session", token)
@@ -166,7 +181,9 @@ class TestAuthMe(unittest.TestCase):
 class TestAuthLogout(unittest.TestCase):
     def test_logout_clears_cookie(self):
         from fastapi.testclient import TestClient
+
         from agent_gen.api.main import app
+
         client = TestClient(app, raise_server_exceptions=True)
         resp = client.post("/auth/logout")
         self.assertEqual(resp.status_code, 200)
@@ -174,7 +191,9 @@ class TestAuthLogout(unittest.TestCase):
 
     def test_health_endpoint(self):
         from fastapi.testclient import TestClient
+
         from agent_gen.api.main import app
+
         client = TestClient(app)
         resp = client.get("/health")
         self.assertEqual(resp.status_code, 200)
@@ -186,11 +205,15 @@ class TestGithubLoginUnconfigured(unittest.TestCase):
         saved = os.environ.pop("GITHUB_CLIENT_ID", None)
         try:
             import importlib
+
             import agent_gen.api.routers.auth as auth_module
+
             importlib.reload(auth_module)
             import agent_gen.api.main as main_module
+
             importlib.reload(main_module)
             from fastapi.testclient import TestClient
+
             client = TestClient(main_module.app, raise_server_exceptions=False)
             resp = client.get("/auth/github", follow_redirects=False)
             self.assertEqual(resp.status_code, 503)
@@ -205,9 +228,11 @@ class TestGithubOAuthCallback(unittest.TestCase):
     def _setup_db(self, tmp: str):
         os.environ["DATABASE_URL"] = f"sqlite:///{tmp}/test.db"
         import agent_gen.api.db as db_module
+
         importlib.reload(db_module)
         db_module.init_db()
         import agent_gen.api.deps as deps_module
+
         importlib.reload(deps_module)
         return db_module
 
@@ -218,10 +243,13 @@ class TestGithubOAuthCallback(unittest.TestCase):
                 os.environ[k] = v
         os.environ.setdefault("GITHUB_CLIENT_ID", "test-client-id")
         import agent_gen.api.routers.auth as auth_module
+
         importlib.reload(auth_module)
         import agent_gen.api.main as main_module
+
         importlib.reload(main_module)
         from fastapi.testclient import TestClient
+
         client = TestClient(main_module.app, raise_server_exceptions=True)
         # Trigger /auth/github to plant a real state token
         redir = client.get("/auth/github", follow_redirects=False)
@@ -248,15 +276,17 @@ class TestGithubOAuthCallback(unittest.TestCase):
         client, auth_module, state = self._get_client_and_state()
         auth_module._remember_state(state)
         with patch("agent_gen.api.routers.auth.httpx.post") as mock_post:
-            mock_post.return_value = MagicMock(status_code=200, json=lambda: {})
+            mock_post.return_value = MagicMock(status_code=200, json=dict)
             resp = client.get(f"/auth/github/callback?code=testcode&state={state}")
             self.assertEqual(resp.status_code, 502)
 
     def test_github_callback_user_fetch_failure_returns_502(self):
         client, auth_module, state = self._get_client_and_state()
         auth_module._remember_state(state)
-        with patch("agent_gen.api.routers.auth.httpx.post") as mock_post, \
-             patch("agent_gen.api.routers.auth.httpx.get") as mock_get:
+        with (
+            patch("agent_gen.api.routers.auth.httpx.post") as mock_post,
+            patch("agent_gen.api.routers.auth.httpx.get") as mock_get,
+        ):
             mock_post.return_value = MagicMock(status_code=200, json=lambda: {"access_token": "tok"})
             mock_get.return_value = MagicMock(status_code=500)
             resp = client.get(f"/auth/github/callback?code=testcode&state={state}")
@@ -267,16 +297,18 @@ class TestGithubOAuthCallback(unittest.TestCase):
             db = self._setup_db(tmp)
             client, auth_module, state = self._get_client_and_state()
             auth_module._remember_state(state)
-            with patch("agent_gen.api.routers.auth.httpx.post") as mock_post, \
-                 patch("agent_gen.api.routers.auth.httpx.get") as mock_get:
+            with (
+                patch("agent_gen.api.routers.auth.httpx.post") as mock_post,
+                patch("agent_gen.api.routers.auth.httpx.get") as mock_get,
+            ):
                 mock_post.return_value = MagicMock(status_code=200, json=lambda: {"access_token": "tok"})
                 user_data = {
-                    "id": 11111, "login": "newuser",
-                    "email": "new@example.com", "avatar_url": "",
+                    "id": 11111,
+                    "login": "newuser",
+                    "email": "new@example.com",
+                    "avatar_url": "",
                 }
-                mock_get.return_value = MagicMock(
-                    status_code=200, json=lambda: user_data
-                )
+                mock_get.return_value = MagicMock(status_code=200, json=lambda: user_data)
                 resp = client.get(
                     f"/auth/github/callback?code=testcode&state={state}",
                     follow_redirects=False,
@@ -284,9 +316,7 @@ class TestGithubOAuthCallback(unittest.TestCase):
             self.assertIn(resp.status_code, [302, 307])
             self.assertIn("session", resp.cookies)
             with db.get_conn() as conn:
-                row = conn.execute(
-                    "SELECT github_handle, plan FROM users WHERE github_id = ?", (11111,)
-                ).fetchone()
+                row = conn.execute("SELECT github_handle, plan FROM users WHERE github_id = ?", (11111,)).fetchone()
             self.assertIsNotNone(row)
             self.assertEqual(row["github_handle"], "newuser")
             self.assertEqual(row["plan"], "free")
@@ -294,7 +324,7 @@ class TestGithubOAuthCallback(unittest.TestCase):
     def test_github_callback_updates_existing_user_preserves_plan(self):
         with tempfile.TemporaryDirectory() as tmp:
             db = self._setup_db(tmp)
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             existing_id = str(uuid.uuid4())
             with db.get_conn() as conn:
                 conn.execute(
@@ -304,8 +334,10 @@ class TestGithubOAuthCallback(unittest.TestCase):
                 )
             client, auth_module, state = self._get_client_and_state()
             auth_module._remember_state(state)
-            with patch("agent_gen.api.routers.auth.httpx.post") as mock_post, \
-                 patch("agent_gen.api.routers.auth.httpx.get") as mock_get:
+            with (
+                patch("agent_gen.api.routers.auth.httpx.post") as mock_post,
+                patch("agent_gen.api.routers.auth.httpx.get") as mock_get,
+            ):
                 mock_post.return_value = MagicMock(status_code=200, json=lambda: {"access_token": "tok"})
                 updated = {"id": 22222, "login": "newhandle", "email": "new@x.com", "avatar_url": ""}
                 mock_get.return_value = MagicMock(status_code=200, json=lambda: updated)
@@ -314,9 +346,7 @@ class TestGithubOAuthCallback(unittest.TestCase):
                     follow_redirects=False,
                 )
             with db.get_conn() as conn:
-                row = conn.execute(
-                    "SELECT id, github_handle, plan FROM users WHERE github_id = ?", (22222,)
-                ).fetchone()
+                row = conn.execute("SELECT id, github_handle, plan FROM users WHERE github_id = ?", (22222,)).fetchone()
             self.assertEqual(row["id"], existing_id)
             self.assertEqual(row["github_handle"], "newhandle")
             self.assertEqual(row["plan"], "pro")  # plan not overwritten on update
@@ -327,8 +357,10 @@ class TestGithubOAuthCallback(unittest.TestCase):
             db = self._setup_db(tmp)
             client, auth_module, state = self._get_client_and_state()
             auth_module._remember_state(state)
-            with patch("agent_gen.api.routers.auth.httpx.post") as mock_post, \
-                 patch("agent_gen.api.routers.auth.httpx.get") as mock_get:
+            with (
+                patch("agent_gen.api.routers.auth.httpx.post") as mock_post,
+                patch("agent_gen.api.routers.auth.httpx.get") as mock_get,
+            ):
                 mock_post.return_value = MagicMock(status_code=200, json=lambda: {"access_token": "tok"})
                 # First call: user has no email
                 user_no_email = {"id": 33333, "login": "noemailer", "email": None, "avatar_url": ""}
@@ -343,9 +375,7 @@ class TestGithubOAuthCallback(unittest.TestCase):
                     follow_redirects=False,
                 )
             with db.get_conn() as conn:
-                row = conn.execute(
-                    "SELECT email FROM users WHERE github_id = ?", (33333,)
-                ).fetchone()
+                row = conn.execute("SELECT email FROM users WHERE github_id = ?", (33333,)).fetchone()
             self.assertEqual(row["email"], "private@x.com")
 
 
@@ -362,6 +392,7 @@ class TestJwtSecretPolicy(unittest.TestCase):
 
     def test_missing_secret_refuses_outside_dev(self):
         from agent_gen.api.jwt_utils import InsecureConfigError, check_config
+
         os.environ.pop("JWT_SECRET", None)
         os.environ.pop("AGENTFACTORY_ENV", None)
         with self.assertRaises(InsecureConfigError):
@@ -369,6 +400,7 @@ class TestJwtSecretPolicy(unittest.TestCase):
 
     def test_placeholder_and_short_secrets_refused(self):
         from agent_gen.api.jwt_utils import InsecureConfigError, check_config
+
         os.environ.pop("AGENTFACTORY_ENV", None)
         for bad in ("change_me_generate_a_real_secret", "dev-secret-change-in-production", "short"):
             os.environ["JWT_SECRET"] = bad
@@ -377,6 +409,7 @@ class TestJwtSecretPolicy(unittest.TestCase):
 
     def test_dev_env_allows_default_secret(self):
         from agent_gen.api.jwt_utils import check_config, create_token, decode_token
+
         os.environ.pop("JWT_SECRET", None)
         os.environ["AGENTFACTORY_ENV"] = "dev"
         check_config()
@@ -384,16 +417,18 @@ class TestJwtSecretPolicy(unittest.TestCase):
 
     def test_app_startup_fails_without_secret(self):
         from fastapi.testclient import TestClient
-        from agent_gen.api.jwt_utils import InsecureConfigError
+
         import agent_gen.api.main as main_module
+        from agent_gen.api.jwt_utils import InsecureConfigError
+
         os.environ.pop("JWT_SECRET", None)
         os.environ.pop("AGENTFACTORY_ENV", None)
-        with self.assertRaises(InsecureConfigError):
-            with TestClient(main_module.app):
-                pass
+        with self.assertRaises(InsecureConfigError), TestClient(main_module.app):
+            pass
 
     def test_secret_is_read_at_call_time(self):
         from agent_gen.api.jwt_utils import create_token, decode_token
+
         os.environ.pop("AGENTFACTORY_ENV", None)
         os.environ["JWT_SECRET"] = "a" * 40
         token = create_token("u2")
@@ -404,6 +439,7 @@ class TestJwtSecretPolicy(unittest.TestCase):
 class TestOAuthStateStore(unittest.TestCase):
     def setUp(self):
         import agent_gen.api.routers.auth as auth_module
+
         self.auth = auth_module
         self.auth._pending_states.clear()
 
@@ -426,7 +462,9 @@ class TestOAuthStateStore(unittest.TestCase):
 
     def test_login_redirect_is_url_encoded(self):
         from fastapi.testclient import TestClient
+
         import agent_gen.api.main as main_module
+
         os.environ["GITHUB_REDIRECT_URI"] = "http://localhost:8000/auth/github/callback?x=1&y=2"
         try:
             importlib.reload(self.auth)
@@ -444,7 +482,9 @@ class TestOAuthStateStore(unittest.TestCase):
 
     def test_token_exchange_http_error_returns_502(self):
         from fastapi.testclient import TestClient
+
         import agent_gen.api.main as main_module
+
         importlib.reload(self.auth)
         importlib.reload(main_module)
         client = TestClient(main_module.app, raise_server_exceptions=True)
@@ -458,8 +498,10 @@ class TestOAuthStateStore(unittest.TestCase):
 class TestKeysCli(unittest.TestCase):
     def test_add_and_revoke(self):
         from click.testing import CliRunner
+
         import agent_gen.api.db as db_module
         from agent_gen.api.main import _build_cli
+
         with tempfile.TemporaryDirectory() as tmp:
             os.environ["DATABASE_URL"] = f"sqlite:///{tmp}/k.db"
             importlib.reload(db_module)

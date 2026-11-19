@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-from agent_gen.cli import cli, REGISTRY_URL
+from agent_gen.cli import REGISTRY_URL, cli
 from agent_gen.librarian import HARNESS_ROOT, MANIFEST_FILE
 
 AGENTS = f"{HARNESS_ROOT}/agents"
@@ -65,7 +65,7 @@ class TestPublishCommand(unittest.TestCase):
 
             self.assertEqual(result.exit_code, 0, result.output)
             mock_pub.assert_called_once()
-            call_manifest, call_zip = mock_pub.call_args.args
+            call_manifest, _call_zip = mock_pub.call_args.args
             self.assertEqual(call_manifest["name"], "good-agent")
             self.assertEqual(call_manifest["description"], "A test agent")
             self.assertIn(REGISTRY_URL, result.output)
@@ -93,9 +93,7 @@ class TestPublishCommand(unittest.TestCase):
             self.runner.invoke(cli, ["wrap", "tagged-agent"])
 
             with patch("agent_gen.cli._registry_publish", return_value={}) as mock_pub:
-                result = self.runner.invoke(
-                    cli, ["publish", "tagged-agent", "--tag", "nlp", "--tag", "retrieval"]
-                )
+                result = self.runner.invoke(cli, ["publish", "tagged-agent", "--tag", "nlp", "--tag", "retrieval"])
 
             self.assertEqual(result.exit_code, 0, result.output)
             call_manifest, _ = mock_pub.call_args.args
@@ -201,20 +199,25 @@ class TestApiUrlSetting(unittest.TestCase):
 
     def test_default(self):
         from agent_gen.cli import DEFAULT_API_URL, _resolve_api_url
+
         self.assertEqual(_resolve_api_url({}), DEFAULT_API_URL)
         self.assertEqual(DEFAULT_API_URL, "https://api.agentfactory.dev")
 
     def test_new_name_wins_and_trailing_slash_dropped(self):
         from agent_gen.cli import _resolve_api_url
+
         env = {"AGENTFACTORY_API_URL": "http://localhost:8000/", "AGENTFACTORY_REGISTRY_URL": "https://old"}
         self.assertEqual(_resolve_api_url(env), "http://localhost:8000")
 
     def test_legacy_name_warns(self):
         import contextlib
         import io as _io
+
         from agent_gen.cli import _resolve_api_url
+
         err = _io.StringIO()
         with contextlib.redirect_stderr(err):
-            self.assertEqual(_resolve_api_url({"AGENTFACTORY_REGISTRY_URL": "https://old.example"}),
-                             "https://old.example")
+            self.assertEqual(
+                _resolve_api_url({"AGENTFACTORY_REGISTRY_URL": "https://old.example"}), "https://old.example"
+            )
         self.assertIn("deprecated", err.getvalue())

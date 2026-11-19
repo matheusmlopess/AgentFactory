@@ -20,10 +20,13 @@ jobs:
           python-version: "3.12"
 
       - name: Install ruff
-        run: pip install "ruff>=0.15,<0.16"  # 0.16 changed default rules; bump deliberately
+        run: pip install "ruff>=0.16,<0.17"
 
       - name: Run ruff
         run: ruff check src/
+
+      - name: Format check
+        run: ruff format --check src/
 
   test:
     name: Tests + Coverage (Python ${{ matrix.python-version }})

@@ -16,6 +16,7 @@ Exit codes:
     1  — FAIL (agent response missing expected keywords)
     2  — ERROR (invocation failed)
 """
+
 import json
 import shutil
 import subprocess
@@ -23,26 +24,22 @@ import sys
 import tempfile
 from pathlib import Path
 
-_PROBE_PROMPT = (
-    "What harness root does this project use? "
-    "What adapter are you running in? "
-    "Name one available skill."
-)
+_PROBE_PROMPT = "What harness root does this project use? What adapter are you running in? Name one available skill."
 
 # CLI invocation per adapter. Flags are best-effort — verify for your version.
 # Gemini CLI was retired 2026-06-18; Antigravity CLI (binary: agy) is its successor.
 _CLI_INVOCATION = {
-    "claude":      ["claude", "--print", _PROBE_PROMPT],
-    "codex":       ["codex",  "exec", "--skip-git-repo-check", _PROBE_PROMPT],
-    "gemini":      ["gemini", "--prompt", _PROBE_PROMPT],
+    "claude": ["claude", "--print", _PROBE_PROMPT],
+    "codex": ["codex", "exec", "--skip-git-repo-check", _PROBE_PROMPT],
+    "gemini": ["gemini", "--prompt", _PROBE_PROMPT],
     "antigravity": ["agy", "-p", _PROBE_PROMPT],
 }
 
 # Keywords a well-briefed agent should mention (lowercase, any substring match).
 _EXPECTED_KEYWORDS = {
-    "claude":      [".ai", "harness"],
-    "codex":       [".ai", "harness"],
-    "gemini":      [".ai", "harness"],
+    "claude": [".ai", "harness"],
+    "codex": [".ai", "harness"],
+    "gemini": [".ai", "harness"],
     "antigravity": [".ai", "harness"],
 }
 
@@ -51,6 +48,7 @@ _SUPPORTED = list(_CLI_INVOCATION.keys())
 
 def _init_project(proj: Path, adapter: str) -> None:
     from click.testing import CliRunner
+
     from agent_gen.cli import cli
     from agent_gen.librarian import HARNESS_ROOT
 
@@ -63,12 +61,14 @@ def _init_project(proj: Path, adapter: str) -> None:
     skill_dir = proj / HARNESS_ROOT / "skills" / "deploy-pipeline"
     skill_dir.mkdir(parents=True, exist_ok=True)
     (skill_dir / "skill-manifest.json").write_text(
-        json.dumps({
-            "name": "deploy-pipeline",
-            "description": "Automates the CI/CD deploy pipeline end-to-end",
-            "triggers": "when deploying to production",
-            "input": "",
-        }),
+        json.dumps(
+            {
+                "name": "deploy-pipeline",
+                "description": "Automates the CI/CD deploy pipeline end-to-end",
+                "triggers": "when deploying to production",
+                "input": "",
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -120,15 +120,19 @@ def check(adapter: str) -> int:
             print(f"SKIP: {adapter} CLI returned an empty response (quota/outage?) — cannot verify")
             return 0
         provider_errors = [
-            "usage limit", "quota", "resource_exhausted", "rate limit",
-            "no longer supported", "unsupported_client",
+            "usage limit",
+            "quota",
+            "resource_exhausted",
+            "rate limit",
+            "no longer supported",
+            "unsupported_client",
         ]
         hit = next((m for m in provider_errors if m in response), None)
         if hit:
             print(f"SKIP: {adapter} CLI unavailable ('{hit}' in response) — cannot verify")
             return 0
         print(f"[response] exit={proc.returncode}, len={len(response)}")
-        print(f"[response excerpt]\n{response[:600]}\n{'─'*60}")
+        print(f"[response excerpt]\n{response[:600]}\n{'─' * 60}")
 
         missing = [kw for kw in _EXPECTED_KEYWORDS[adapter] if kw.lower() not in response]
         if missing:

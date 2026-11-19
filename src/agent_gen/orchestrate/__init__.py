@@ -11,6 +11,7 @@ Public, stable API for programmatic consumers (e.g. agentfactory-harness):
 Nothing in this subpackage imports click or cli.py — dependency arrows only
 point inward, so the engine can be extracted into a standalone package later.
 """
+
 from __future__ import annotations
 
 import os
@@ -43,25 +44,25 @@ from .runners import DEPTH_ENV, PROVIDER_ERROR_MARKERS, CliAgentRunner, ShellRun
 __all__ = [
     "CONTRACT_RELPATH",
     "DEFAULT_CONTRACT",
-    "OrchestrationContract",
-    "load_contract",
+    "PROVIDER_ERROR_MARKERS",
+    "BaseExecutor",
+    "CliAgentRunner",
+    "Evidence",
     "EvidenceSink",
     "NullSink",
-    "BaseExecutor",
-    "SequentialExecutor",
-    "get_executor",
-    "register_executor",
-    "Evidence",
+    "OrchestrationContract",
     "RunResult",
+    "SequentialExecutor",
+    "ShellRunner",
     "StepStatus",
     "Workflow",
     "WorkflowStep",
+    "get_executor",
+    "load_contract",
     "load_workflow",
-    "validate_workflow_data",
-    "PROVIDER_ERROR_MARKERS",
-    "CliAgentRunner",
-    "ShellRunner",
+    "register_executor",
     "run_workflow",
+    "validate_workflow_data",
 ]
 
 # Nested-orchestration guard: each harness-in-harness level increments this.
@@ -81,24 +82,22 @@ def run_workflow(
     depth = int(os.environ.get(_DEPTH_ENV, "0"))
     max_depth = contract.policies.get("max_delegate_depth", 1)
     if depth > max_depth:
-        raise RuntimeError(
-            f"nested orchestration depth {depth} exceeds max_delegate_depth={max_depth}"
-        )
+        raise RuntimeError(f"nested orchestration depth {depth} exceeds max_delegate_depth={max_depth}")
 
     wf = workflow if isinstance(workflow, Workflow) else load_workflow(workflow)
     resolved_mode = mode or wf.mode or contract.default_mode
     executor_cls = get_executor(resolved_mode)
 
     sink = (
-        EvidenceSink(project_root, contract.evidence_dir, wf.name)
-        if persist_evidence and not dry_run
-        else NullSink()
+        EvidenceSink(project_root, contract.evidence_dir, wf.name) if persist_evidence and not dry_run else NullSink()
     )
 
     # Steps run inside the project, and child processes (nested harness runs) see the
     # next depth through their own environment; this process's environment is untouched.
     executor = executor_cls(
-        contract, dry_run=dry_run, sink=sink,
+        contract,
+        dry_run=dry_run,
+        sink=sink,
         cwd=str(Path(project_root).resolve()),
         env_overrides={_DEPTH_ENV: str(depth + 1)},
     )

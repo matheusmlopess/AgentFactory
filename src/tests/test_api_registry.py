@@ -1,4 +1,5 @@
 """Registry API (#193): publish / list / fetch / download, ownership, immutability, and the CLI round trip."""
+
 import hashlib
 import importlib
 import io
@@ -9,7 +10,7 @@ import threading
 import time
 import uuid
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -17,8 +18,8 @@ import pytest
 pytest.importorskip("fastapi", reason="API tests need the [api] extra")
 pytest.importorskip("multipart", reason="registry upload needs python-multipart ([api] extra)")
 
-from click.testing import CliRunner  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
+from click.testing import CliRunner
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture()
@@ -28,24 +29,29 @@ def api(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/reg.db")
     monkeypatch.setenv("REGISTRY_STORAGE_DIR", str(tmp_path / "store"))
     monkeypatch.setenv("API_PUBLIC_URL", "https://api.example.test")
-    import agent_gen.api.db as db
+    from agent_gen.api import db
+
     importlib.reload(db)
     db.init_db()
-    import agent_gen.api.deps as deps
+    from agent_gen.api import deps
+
     importlib.reload(deps)
-    import agent_gen.api.routers.registry as registry
+    from agent_gen.api.routers import registry
+
     importlib.reload(registry)
-    import agent_gen.api.main as main
+    from agent_gen.api import main
+
     importlib.reload(main)
 
     def user(handle: str) -> str:
         uid = str(uuid.uuid4())
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         with db.get_conn() as conn:
             conn.execute(
                 "INSERT INTO users (id, github_id, github_handle, email, avatar_url, plan, created_at, updated_at) "
                 "VALUES (?, ?, ?, ?, '', 'free', ?, ?)",
-                (uid, abs(hash(handle)) % 10**9, handle, f"{handle}@example.test", now, now))
+                (uid, abs(hash(handle)) % 10**9, handle, f"{handle}@example.test", now, now),
+            )
         return db.issue_api_token(uid, "tests")
 
     return TestClient(main.app), db, user, tmp_path
@@ -63,9 +69,12 @@ def bundle(name: str, version: str = "1.0.0", extra: dict | None = None, manifes
 def publish(client, token, name="demo", version="1.0.0", data=None, **meta):
     m = {"name": name, "version": version, "description": "Demo agent", "tags": ["demo"], **meta}
     headers = {"Authorization": f"Bearer {token}"} if token else {}
-    return client.post("/registry/publish", headers=headers,
-                       data={"manifest": json.dumps(m)},
-                       files={"file": ("demo.zip", data if data is not None else bundle(name, version), "application/zip")})
+    return client.post(
+        "/registry/publish",
+        headers=headers,
+        data={"manifest": json.dumps(m)},
+        files={"file": ("demo.zip", data if data is not None else bundle(name, version), "application/zip")},
+    )
 
 
 def test_publish_requires_auth(api):
@@ -75,7 +84,7 @@ def test_publish_requires_auth(api):
 
 
 def test_publish_fetch_download_round_trip(api):
-    client, db, user, tmp = api
+    client, _db, user, _tmp = api
     token = user("alice")
     data = bundle("demo")
     r = publish(client, token, data=data)
@@ -109,13 +118,16 @@ def test_only_owner_can_publish_new_versions(api):
     assert publish(client, bob, version="2.0.0").status_code == 403
 
 
-@pytest.mark.parametrize("meta,status", [
-    ({"name": "../evil"}, 422),
-    ({"name": "/abs"}, 422),
-    ({"version": "latest"}, 422),
-    ({"description": ""}, 422),
-    ({"tags": ["Not Valid"]}, 422),
-])
+@pytest.mark.parametrize(
+    "meta,status",
+    [
+        ({"name": "../evil"}, 422),
+        ({"name": "/abs"}, 422),
+        ({"version": "latest"}, 422),
+        ({"description": ""}, 422),
+        ({"tags": ["Not Valid"]}, 422),
+    ],
+)
 def test_publish_validates_metadata(api, meta, status):
     client, _, user, _ = api
     name = meta.get("name", "demo")
@@ -123,11 +135,14 @@ def test_publish_validates_metadata(api, meta, status):
     assert r.status_code == status, r.text
 
 
-@pytest.mark.parametrize("data,detail", [
-    (b"not a zip", "not a ZIP"),
-    (bundle("demo", manifest_name="other"), "names 'other'"),
-    (bundle("demo", extra={"../escape.txt": "x"}), "unsafe path"),
-])
+@pytest.mark.parametrize(
+    "data,detail",
+    [
+        (b"not a zip", "not a ZIP"),
+        (bundle("demo", manifest_name="other"), "names 'other'"),
+        (bundle("demo", extra={"../escape.txt": "x"}), "unsafe path"),
+    ],
+)
 def test_publish_validates_archive(api, data, detail):
     client, _, user, _ = api
     r = publish(client, user("alice"), data=data)
@@ -153,8 +168,9 @@ def test_list_and_search(api):
     client, _, user, _ = api
     token = user("alice")
     publish(client, token, name="demo", data=bundle("demo"))
-    publish(client, token, name="docs-system", data=bundle("docs-system"), description="Documentation agent",
-            tags=["docs"])
+    publish(
+        client, token, name="docs-system", data=bundle("docs-system"), description="Documentation agent", tags=["docs"]
+    )
     names = [u["name"] for u in client.get("/registry").json()]
     assert set(names) == {"demo", "docs-system"}
     found = client.get("/registry", params={"q": "documentation"}).json()
@@ -184,6 +200,7 @@ def test_tokens_cli(api):
     _, db, user, _ = api
     user("carol")
     from agent_gen.api.main import _build_cli
+
     runner = CliRunner()
     out = runner.invoke(_build_cli(), ["tokens", "add", "--github-handle", "carol", "--label", "laptop"])
     assert out.exit_code == 0, out.output
@@ -207,13 +224,14 @@ def _free_port() -> int:
 def test_cli_publish_then_import_from_registry(api, tmp_path, monkeypatch):
     """The MVP loop on one machine: wrap → publish (CLI, Bearer token) → import --from-registry in another project."""
     uvicorn = pytest.importorskip("uvicorn")
-    _, db, user, _ = api
+    _, _db, user, _ = api
     token = user("alice")
     port = _free_port()
     base = f"http://127.0.0.1:{port}"
     monkeypatch.setenv("API_PUBLIC_URL", base)
 
-    import agent_gen.api.main as main
+    from agent_gen.api import main
+
     server = uvicorn.Server(uvicorn.Config(main.app, host="127.0.0.1", port=port, log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -228,6 +246,7 @@ def test_cli_publish_then_import_from_registry(api, tmp_path, monkeypatch):
     (home / ".agentfactory" / "token").write_text(token)
     monkeypatch.setenv("HOME", str(home))
     import agent_gen.cli as cli_module
+
     monkeypatch.setattr(cli_module, "REGISTRY_URL", base)
     runner = CliRunner()
     try:
@@ -259,6 +278,7 @@ def test_cli_publish_then_import_from_registry(api, tmp_path, monkeypatch):
 def test_users_add_cli(api):
     _, db, _, _ = api
     from agent_gen.api.main import _build_cli
+
     runner = CliRunner()
     out = runner.invoke(_build_cli(), ["users", "add", "--github-handle", "dev", "--plan", "pro"])
     assert out.exit_code == 0, out.output

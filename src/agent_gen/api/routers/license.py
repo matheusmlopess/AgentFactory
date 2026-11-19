@@ -5,6 +5,7 @@ Called by .ai/scripts/skill-completeness-check.py require_plan().
 Keys are random strings issued with `agentfactory-api keys add --plan <plan>`; only their
 sha256 hash is stored (license_keys table). The key text itself carries no plan.
 """
+
 from fastapi import APIRouter
 
 from ..db import PLAN_RANK, license_plan

@@ -1,13 +1,14 @@
 """CLI tests for the `agentfactory-gen orchestrate` command group."""
+
 import json
 import os
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+from conftest import make_contract
 
 from agent_gen.cli import cli
-from conftest import make_contract
 
 
 @pytest.fixture
@@ -77,10 +78,14 @@ class TestOrchestrateValidate:
         with runner.isolated_filesystem():
             _init_project(runner)
             wf = Path(".ai/orchestration/workflows/ghost.workflow.json")
-            wf.write_text(json.dumps({
-                "name": "ghost",
-                "steps": [{"id": "a", "type": "agent", "agent": "ghost", "prompt": "x"}],
-            }))
+            wf.write_text(
+                json.dumps(
+                    {
+                        "name": "ghost",
+                        "steps": [{"id": "a", "type": "agent", "agent": "ghost", "prompt": "x"}],
+                    }
+                )
+            )
             r = runner.invoke(cli, ["orchestrate", "validate", "ghost"])
             assert r.exit_code == 1
             assert "unknown agent 'ghost'" in r.output
@@ -100,9 +105,7 @@ class TestOrchestrateList:
             runner.invoke(cli, ["--quiet", "deploy", "wf-agent"])
             agent_wf = Path(".ai/agents/wf-agent/orchestration/workflows")
             agent_wf.mkdir(parents=True)
-            (agent_wf / "deploy.workflow.json").write_text(
-                json.dumps({"name": "deploy", "steps": []})
-            )
+            (agent_wf / "deploy.workflow.json").write_text(json.dumps({"name": "deploy", "steps": []}))
             r = runner.invoke(cli, ["orchestrate", "list"])
             assert "example" in r.output
             assert "wf-agent/deploy" in r.output
@@ -138,10 +141,14 @@ class TestOrchestrateRun:
         with runner.isolated_filesystem():
             _init_project(runner, fake_agent_script)
             wf = Path(".ai/orchestration/workflows/fail.workflow.json")
-            wf.write_text(json.dumps({
-                "name": "fail",
-                "steps": [{"id": "a", "command": "exit 1", "remediation": "abort"}],
-            }))
+            wf.write_text(
+                json.dumps(
+                    {
+                        "name": "fail",
+                        "steps": [{"id": "a", "command": "exit 1", "remediation": "abort"}],
+                    }
+                )
+            )
             r = runner.invoke(cli, ["orchestrate", "run", "fail"])
             assert r.exit_code == 1
             assert "FAILED" in r.output
@@ -152,10 +159,14 @@ class TestOrchestrateRun:
             runner.invoke(cli, ["--quiet", "deploy", "wf-agent"])
             agent_wf = Path(".ai/agents/wf-agent/orchestration/workflows")
             agent_wf.mkdir(parents=True)
-            (agent_wf / "hello.workflow.json").write_text(json.dumps({
-                "name": "hello",
-                "steps": [{"id": "a", "command": "echo hi"}],
-            }))
+            (agent_wf / "hello.workflow.json").write_text(
+                json.dumps(
+                    {
+                        "name": "hello",
+                        "steps": [{"id": "a", "command": "echo hi"}],
+                    }
+                )
+            )
             r = runner.invoke(cli, ["orchestrate", "run", "wf-agent/hello"])
             assert r.exit_code == 0, r.output
 
@@ -169,9 +180,7 @@ class TestOrchestrateRun:
     def test_mode_override_flag(self, runner, fake_agent_script):
         with runner.isolated_filesystem():
             _init_project(runner, fake_agent_script)
-            r = runner.invoke(
-                cli, ["orchestrate", "run", "example", "--mode", "warp"]
-            )
+            r = runner.invoke(cli, ["orchestrate", "run", "example", "--mode", "warp"])
             assert r.exit_code != 0
             assert "unknown execution mode" in r.output
 

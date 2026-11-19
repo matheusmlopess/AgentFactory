@@ -3,12 +3,12 @@
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import zipfile
-import shutil
-import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 TRACKED_DIRS = ["skills", "commands", "docs", "scripts", "orchestration"]
@@ -23,9 +23,7 @@ def _safe_extract(zf: zipfile.ZipFile, target_dir: Path) -> None:
     for member in zf.infolist():
         dest = (target_dir / member.filename).resolve()
         if dest != target_resolved and not str(dest).startswith(str(target_resolved) + os.sep):
-            raise ValueError(
-                f"Unsafe ZIP entry '{member.filename}' — zip slip attack blocked."
-            )
+            raise ValueError(f"Unsafe ZIP entry '{member.filename}' — zip slip attack blocked.")
         zf.extract(member, target_dir)
 
 
@@ -39,8 +37,7 @@ def validate_name(name: object, kind: str = "agent") -> str:
     """Return *name* if it is a safe single path component, else raise ValueError."""
     if not isinstance(name, str) or not _NAME_RE.fullmatch(name) or ".." in name:
         raise ValueError(
-            f"Invalid {kind} name {name!r}: use 1-64 letters, digits, '.', '_' or '-', "
-            "starting with a letter or digit."
+            f"Invalid {kind} name {name!r}: use 1-64 letters, digits, '.', '_' or '-', starting with a letter or digit."
         )
     return name
 
@@ -64,7 +61,7 @@ def _sanitize_for_markdown(text: object) -> str:
     if not isinstance(text, str):
         text = str(text)
     text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)  # strip HTML comments
-    text = " ".join(text.splitlines())                        # flatten newlines
+    text = " ".join(text.splitlines())  # flatten newlines
     text = re.sub(r"\s+", " ", text).strip()
     return text[:200]
 
@@ -113,11 +110,15 @@ def _extract_first_paragraph(path: Path) -> str:
 
 def _git_ref(path: str) -> str:
     try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=path,
-            stderr=subprocess.DEVNULL,
-        ).decode().strip()
+        return (
+            subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                cwd=path,
+                stderr=subprocess.DEVNULL,
+            )
+            .decode()
+            .strip()
+        )
     except Exception:
         return "untracked"
 
@@ -184,8 +185,7 @@ def _inspect_zip(zip_path: Path) -> dict:
     executable_files = scripts + shebang_files
     has_manifest = "agent-manifest.json" in names
     tracked_dirs_found = any(
-        any(n.startswith(d + "/") for n in names)
-        for d in ["skills", "commands", "docs", "scripts", "orchestration"]
+        any(n.startswith(d + "/") for n in names) for d in ["skills", "commands", "docs", "scripts", "orchestration"]
     )
     return {
         "has_manifest": has_manifest,
@@ -207,14 +207,14 @@ CONVERSION_PROFILES = {
         ".claude/tools": "scripts/tools",
         ".claude/workflows": "orchestration/workflows",
         ".claude/agents": "orchestration/agents",
-        "AGENTS.md": "orchestration/AGENTS.md"
+        "AGENTS.md": "orchestration/AGENTS.md",
     },
     # Legacy Gemini CLI layout (retired 2026-06-18) — kept so old projects still retrofit
     "gemini": {
         ".gemini/skills": "skills",
         ".gemini/extensions": "skills/extensions",
         "GEMINI.md": "docs/GEMINI.md",
-        "AGENTS.md": "orchestration/AGENTS.md"
+        "AGENTS.md": "orchestration/AGENTS.md",
     },
     # Antigravity CLI (agy) — successor to Gemini CLI, open-standard .agents/ layout
     "antigravity": {
@@ -222,15 +222,15 @@ CONVERSION_PROFILES = {
         ".agents/rules": "docs/rules",
         ".agents/workflows": "orchestration/workflows",
         "GEMINI.md": "docs/GEMINI.md",
-        "AGENTS.md": "orchestration/AGENTS.md"
+        "AGENTS.md": "orchestration/AGENTS.md",
     },
     "codex": {
         ".codex/prompts": "skills/prompts",
         "codex.md": "docs/codex.md",
         ".codex/templates": "docs/templates",
         ".codex/workflows": "orchestration/workflows",
-        "AGENTS.md": "orchestration/AGENTS.md"
-    }
+        "AGENTS.md": "orchestration/AGENTS.md",
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -260,7 +260,7 @@ _FORMAT_REGISTRY: dict[str, dict] = {
         "section_order": ["skills", "commands", "agents", "rules"],
         # Per-skill character budget (bytes). Warn if SKILL.md exceeds this.
         "skill_char_limit": 18_000,
-        # Completeness score threshold (0–100) for --check-completeness.
+        # Completeness score threshold (0-100) for --check-completeness.
         "completeness_threshold": 90,
         # Max chars of AgentFactory.md preamble to inject into this brief.
         "context_char_limit": 4_000,
@@ -384,7 +384,7 @@ def _fmt_skills_tools(skills: list, config: dict) -> str:
     blocks = ["## Available Skills"]
     for s in skills:
         path = template.replace("{name}", s["name"])
-        trigger_val = s.get('triggers') or s.get('input_hint') or 'see skill documentation'
+        trigger_val = s.get("triggers") or s.get("input_hint") or "see skill documentation"
         block = (
             f"### {s['name']}\n"
             f"- Description: {s.get('description', 'No description')}\n"
@@ -457,9 +457,7 @@ def _fmt_harness_identity(adapter_name: str) -> str:
         root_files = cfg.get("root_files", [])
         root_display = " / ".join(root_files) if root_files else cfg["output"]
         marker = " ← YOU ARE HERE" if name == adapter_name else ""
-        lines.append(
-            f"  {name:<8} {root_display:<20} → {HARNESS_ROOT}/adapters/{name}/{cfg['output']}{marker}"
-        )
+        lines.append(f"  {name:<8} {root_display:<20} → {HARNESS_ROOT}/adapters/{name}/{cfg['output']}{marker}")
     lines += [
         "",
         "If switching CLI: run `agentfactory-gen brief` to recompile all active adapter briefs.",
@@ -496,6 +494,7 @@ def _run_preamble_oracle(original: str, truncated: str, project_root: str) -> in
         if not script_path.exists():
             return None
         import importlib.util
+
         spec = importlib.util.spec_from_file_location("_oracle", script_path)
         oracle = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(oracle)  # type: ignore[union-attr]
@@ -516,9 +515,7 @@ def _run_preamble_oracle(original: str, truncated: str, project_root: str) -> in
         return None
 
 
-def _fit_context_to_budget(
-    context: str, adapter_config: dict, project_root: str | None = None
-) -> str:
+def _fit_context_to_budget(context: str, adapter_config: dict, project_root: str | None = None) -> str:
     """Truncate preamble to adapter's context_char_limit.
 
     Truncates at the last paragraph break before the limit. Appends an HTML
@@ -541,10 +538,7 @@ def _fit_context_to_budget(
             _run_preamble_oracle(context, truncated, project_root)
         except Exception:
             pass
-    completeness_hint = (
-        " Run: python3 .ai/scripts/skill-completeness-check.py --context to verify."
-        if has_key else ""
-    )
+    completeness_hint = " Run: python3 .ai/scripts/skill-completeness-check.py --context to verify." if has_key else ""
     warning = (
         f"\n\n<!-- ⚠ context truncated: {original_len} → {limit} chars "
         f"for {adapter_config.get('completeness_threshold', 90)}% budget.{completeness_hint} -->"
@@ -553,12 +547,12 @@ def _fit_context_to_budget(
 
 
 _FORMATTER_DISPATCH: dict = {
-    "_fmt_skills_table":  _fmt_skills_table,
+    "_fmt_skills_table": _fmt_skills_table,
     "_fmt_skills_blocks": _fmt_skills_blocks,
-    "_fmt_skills_tools":  _fmt_skills_tools,
+    "_fmt_skills_tools": _fmt_skills_tools,
     "_fmt_commands_list": _fmt_commands_list,
-    "_fmt_agents_list":   _fmt_agents_list,
-    "_fmt_rules_list":    _fmt_rules_list,
+    "_fmt_agents_list": _fmt_agents_list,
+    "_fmt_rules_list": _fmt_rules_list,
 }
 
 
@@ -603,7 +597,7 @@ class Librarian:
             "docs": "docs",
             "scripts": "scripts",
             "src": "scripts",
-            "orchestration": "orchestration"
+            "orchestration": "orchestration",
         }
         for src, dest in auto_rules.items():
             if src not in mapping and (source_path / src).exists():
@@ -615,13 +609,13 @@ class Librarian:
         """
         Execute the migration based on a mapping with a safe rollback mechanism.
         """
-        import tempfile
         import shutil
+        import tempfile
 
         # Use a temporary staging area to prevent corrupting the original directory on failure
         with tempfile.TemporaryDirectory() as staging_dir:
             staging_path = Path(staging_dir) / self.agent_root.name
-            
+
             # Copy source to staging
             shutil.copytree(self.agent_root, staging_path)
 
@@ -636,9 +630,9 @@ class Librarian:
                     src_path = staging_path / src_rel
                     if not src_path.exists():
                         continue
-                        
+
                     dest_path = staging_path / dest_rel
-                    
+
                     if src_path.is_dir():
                         # If destination is also a directory, merge contents
                         for item in src_path.iterdir():
@@ -656,7 +650,7 @@ class Librarian:
                         try:
                             src_path.rmdir()
                         except OSError:
-                            pass # Directory not empty or already moved
+                            pass  # Directory not empty or already moved
                     else:
                         # If destination is a directory, move file into it
                         if dest_rel in TRACKED_DIRS:
@@ -668,7 +662,7 @@ class Librarian:
 
             except Exception as exc:
                 # Nothing outside the staging copy has been touched yet.
-                raise RuntimeError(f"Migration failed and was safely rolled back. Reason: {exc}")
+                raise RuntimeError(f"Migration failed and was safely rolled back. Reason: {exc}") from exc
 
             # 3. Swap: move the original aside, move staging in, then drop the original.
             # If the move-in fails, the original is put back, so the agent is never lost.
@@ -682,7 +676,7 @@ class Librarian:
                 if self.agent_root.exists():
                     shutil.rmtree(self.agent_root, ignore_errors=True)
                 os.replace(backup, self.agent_root)
-                raise RuntimeError(f"Migration failed and was safely rolled back. Reason: {exc}")
+                raise RuntimeError(f"Migration failed and was safely rolled back. Reason: {exc}") from exc
             shutil.rmtree(backup, ignore_errors=True)
 
     # ------------------------------------------------------------------
@@ -692,8 +686,7 @@ class Librarian:
     def _load_manifest(self) -> dict:
         if not self.manifest_path.exists():
             raise FileNotFoundError(
-                f"No manifest found at {self.manifest_path}. "
-                "Run `agentfactory-gen deploy <name>` first."
+                f"No manifest found at {self.manifest_path}. Run `agentfactory-gen deploy <name>` first."
             )
         with open(self.manifest_path) as f:
             return json.load(f)
@@ -711,9 +704,7 @@ class Librarian:
                         # Skip hidden files
                         if file.name.startswith("."):
                             continue
-                        resources[category].append(
-                            str(file.relative_to(self.agent_root))
-                        )
+                        resources[category].append(str(file.relative_to(self.agent_root)))
         return resources
 
     def _analyze_dependencies(self, resources: dict[str, list[str]]) -> dict[str, list[str]]:
@@ -725,30 +716,30 @@ class Librarian:
 
         # Regex for <!-- @depends-on: path/to/resource -->
         MD_DEP_REGEX = re.compile(r"<!--\s*@depends-on:\s*([^\s-]+)\s*-->")
-        
+
         dependencies: dict[str, list[str]] = {}
-        
+
         # Mapping of script stems to their relative paths for import detection
         script_map = {Path(p).stem: p for p in resources.get("scripts", [])}
-        
+
         for category, paths in resources.items():
             for rel_path in paths:
                 full_path = self.agent_root / rel_path
                 if not full_path.exists() or not full_path.is_file():
                     continue
-                
+
                 # Only scan text files
                 if full_path.suffix not in [".md", ".py", ".js", ".json", ".txt"]:
                     continue
-                
+
                 deps = set()
                 try:
                     content = full_path.read_text(encoding="utf-8")
-                    
+
                     # 1. Look for explicit annotations
                     for match in MD_DEP_REGEX.finditer(content):
                         deps.add(match.group(1).strip())
-                    
+
                     # 2. Look for Python-style imports
                     if full_path.suffix == ".py":
                         try:
@@ -769,10 +760,10 @@ class Librarian:
 
                 except Exception:
                     continue
-                
+
                 if deps:
                     dependencies[rel_path] = sorted(list(deps))
-                    
+
         return dependencies
 
     def _parse_skill_manifests(self) -> dict[str, dict]:
@@ -781,7 +772,7 @@ class Librarian:
         """
         skills_metadata = {}
         skills_dir = self.agent_root / "skills"
-        
+
         if not skills_dir.exists():
             return {}
 
@@ -793,7 +784,7 @@ class Librarian:
                     skills_metadata[rel_path] = data
             except Exception:
                 continue
-                
+
         return skills_metadata
 
     # ------------------------------------------------------------------
@@ -807,7 +798,7 @@ class Librarian:
             "version": "1.0.0",
             "description": f"AgentFactory-powered agent: {name}",
             "orchestration_plan": None,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "git_ref": _git_ref(str(self.agent_root)),
             "resources": {d: [] for d in TRACKED_DIRS},
             "dependencies": {},
@@ -822,7 +813,7 @@ class Librarian:
         what is actually on disk. Preserves manually set metadata.
         """
         manifest = self._load_manifest()
-        
+
         # Preserve manually set fields if they exist
         manifest.setdefault("description", f"AgentFactory-powered agent: {manifest.get('name')}")
         manifest.setdefault("orchestration_plan", None)
@@ -831,8 +822,8 @@ class Librarian:
 
         manifest["resources"] = self._crawl_resources()
         manifest["git_ref"] = _git_ref(str(self.agent_root))
-        manifest["synced_at"] = datetime.now(timezone.utc).isoformat()
-        
+        manifest["synced_at"] = datetime.now(UTC).isoformat()
+
         # Auto-detect orchestration plan
         if not manifest.get("orchestration_plan") and manifest["resources"].get("orchestration"):
             manifest["orchestration_plan"] = manifest["resources"]["orchestration"][0]
@@ -842,10 +833,10 @@ class Librarian:
         manifest["skills_metadata"].update(self._parse_skill_manifests())
 
         self._save_manifest(manifest)
-        
+
         # Propagate changes to the global registry if installed
         Librarian.sync_to_global(manifest, ".")
-        
+
         return manifest
 
     def audit(self) -> dict:
@@ -899,7 +890,9 @@ class Librarian:
                             with open(manifest_file) as f:
                                 data = json.load(f)
                             if not isinstance(data, dict) or "name" not in data or "description" not in data:
-                                report["invalid_skill_manifests"].append(str(manifest_file.relative_to(self.agent_root)))
+                                report["invalid_skill_manifests"].append(
+                                    str(manifest_file.relative_to(self.agent_root))
+                                )
                         except Exception:
                             report["invalid_skill_manifests"].append(str(manifest_file.relative_to(self.agent_root)))
 
@@ -991,9 +984,7 @@ class Librarian:
         required = ("name", "description")
         missing = [f for f in required if not fm.get(f)]
         if missing:
-            raise ValueError(
-                f"SKILL.md frontmatter missing required fields: {', '.join(missing)}"
-            )
+            raise ValueError(f"SKILL.md frontmatter missing required fields: {', '.join(missing)}")
 
         fm_name = fm["name"]
         # version and triggers are optional per open standard
@@ -1019,9 +1010,7 @@ class Librarian:
             except Exception:
                 data = {}
             if data.get("name") and data["name"] != fm_name:
-                raise ValueError(
-                    f"skill-manifest.json name '{data['name']}' conflicts with SKILL.md name '{fm_name}'"
-                )
+                raise ValueError(f"skill-manifest.json name '{data['name']}' conflicts with SKILL.md name '{fm_name}'")
             data["name"] = fm_name
             data["description"] = fm["description"]
             if fm_version:
@@ -1038,11 +1027,15 @@ class Librarian:
 
         # Gap 2: latest git tag not in repo-state.md
         try:
-            latest_tag = subprocess.check_output(
-                ["git", "describe", "--tags", "--abbrev=0"],
-                stderr=subprocess.DEVNULL,
-                cwd=str(repo_state_path.parent),
-            ).decode().strip()
+            latest_tag = (
+                subprocess.check_output(
+                    ["git", "describe", "--tags", "--abbrev=0"],
+                    stderr=subprocess.DEVNULL,
+                    cwd=str(repo_state_path.parent),
+                )
+                .decode()
+                .strip()
+            )
             if latest_tag and latest_tag not in content:
                 warnings.append(f"repo-state.md missing latest git tag: {latest_tag}")
         except subprocess.CalledProcessError:
@@ -1050,11 +1043,15 @@ class Librarian:
 
         # Gap 3: remote URL mismatch
         try:
-            actual_url = subprocess.check_output(
-                ["git", "remote", "get-url", "origin"],
-                stderr=subprocess.DEVNULL,
-                cwd=str(repo_state_path.parent),
-            ).decode().strip()
+            actual_url = (
+                subprocess.check_output(
+                    ["git", "remote", "get-url", "origin"],
+                    stderr=subprocess.DEVNULL,
+                    cwd=str(repo_state_path.parent),
+                )
+                .decode()
+                .strip()
+            )
             if actual_url:
                 # Normalize: strip protocol (https://, git@, etc.) and .git suffix
                 normalized = actual_url.removesuffix(".git")
@@ -1062,9 +1059,7 @@ class Librarian:
                     normalized = normalized.removeprefix(prefix)
                 normalized = normalized.replace(":", "/")  # git@host:org/repo → host/org/repo
                 if normalized not in content and actual_url not in content:
-                    warnings.append(
-                        f"repo-state.md remote URL mismatch: git remote={actual_url}"
-                    )
+                    warnings.append(f"repo-state.md remote URL mismatch: git remote={actual_url}")
         except subprocess.CalledProcessError:
             pass
 
@@ -1122,9 +1117,9 @@ class Librarian:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            
+
             if zipfile.is_zipfile(source_path):
-                with zipfile.ZipFile(source_path, 'r') as zf:
+                with zipfile.ZipFile(source_path, "r") as zf:
                     _safe_extract(zf, temp_path)
             elif source_path.is_dir():
                 # Copy content to temp area to normalize
@@ -1151,7 +1146,7 @@ class Librarian:
                 try:
                     skill_data = json.load(f)
                 except json.JSONDecodeError:
-                    raise ValueError(f"Invalid JSON in {manifest_file}")
+                    raise ValueError(f"Invalid JSON in {manifest_file}") from None
 
             if "name" not in skill_data:
                 raise ValueError("skill-manifest.json must contain a 'name' field.")
@@ -1213,7 +1208,7 @@ class Librarian:
                 try:
                     skill_data = json.load(f)
                 except json.JSONDecodeError:
-                    raise ValueError(f"Invalid JSON in {manifest_file}")
+                    raise ValueError(f"Invalid JSON in {manifest_file}") from None
 
             if "name" not in skill_data:
                 raise ValueError("skill-manifest.json must contain a 'name' field.")
@@ -1261,7 +1256,8 @@ class Librarian:
     @classmethod
     def _get_lock(cls, project_root: str):
         from filelock import FileLock
-        lock_path = cls._global_manifest_path(project_root).with_suffix('.json.lock')
+
+        lock_path = cls._global_manifest_path(project_root).with_suffix(".json.lock")
         return FileLock(str(lock_path), timeout=10)
 
     @classmethod
@@ -1304,12 +1300,14 @@ class Librarian:
             if name in global_manifest.get("agents", {}):
                 # Update fields that might have drifted locally
                 global_manifest["agents"][name]["version"] = agent_manifest.get("version", "1.0.0")
-                global_manifest["agents"][name]["description"] = agent_manifest.get("description", "No description provided.")
+                global_manifest["agents"][name]["description"] = agent_manifest.get(
+                    "description", "No description provided."
+                )
                 global_manifest["agents"][name]["git_ref"] = agent_manifest.get("git_ref", "unknown")
                 global_manifest["agents"][name]["resources"] = agent_manifest.get("resources", {})
                 _atomic_write_json(global_path, global_manifest)
                 updated = True
-                
+
         if updated:
             cls.update_harness_files(project_root)
 
@@ -1335,7 +1333,7 @@ class Librarian:
         """
         global_path = cls._global_manifest_path(project_root)
         project_path = Path(project_root).resolve()
-        
+
         with cls._get_lock(project_root):
             if not global_path.exists():
                 return
@@ -1344,7 +1342,7 @@ class Librarian:
                 global_manifest = json.load(f)
 
             agents = global_manifest.get("agents", {})
-            
+
             # Build the agent registry text
             agent_registry_lines = ["<!-- @agent-registry:start -->"]
             if not agents:
@@ -1353,7 +1351,9 @@ class Librarian:
                 for name, data in sorted(agents.items()):
                     desc = _sanitize_for_markdown(data.get("description", "No description provided."))
                     safe_name = re.sub(r"[^\w\-]", "-", str(name)).strip("-")
-                    agent_registry_lines.append(f"- **{safe_name}**: {desc} (See: `{HARNESS_ROOT}/agents/{safe_name}/docs/CLAUDE.md`)")
+                    agent_registry_lines.append(
+                        f"- **{safe_name}**: {desc} (See: `{HARNESS_ROOT}/agents/{safe_name}/docs/CLAUDE.md`)"
+                    )
             agent_registry_lines.append("<!-- @agent-registry:end -->")
             agent_registry_text = "\n".join(agent_registry_lines)
 
@@ -1377,7 +1377,7 @@ class Librarian:
                         root_skills.append((s_name, s_desc, doc_ref))
                     except Exception:
                         continue
-            
+
             if not root_skills:
                 skill_registry_lines.append("_No global skills currently imported._")
             else:
@@ -1519,16 +1519,17 @@ class Librarian:
                 # Create skill-manifest.json stub if missing
                 sm_path = skill_dir / "skill-manifest.json"
                 if not sm_path.exists():
-                    desc = (
-                        context["agents"].get(stem, "")
-                        or _extract_first_paragraph(dest_md)
-                        or f"{stem} sub-agent"
+                    desc = context["agents"].get(stem, "") or _extract_first_paragraph(dest_md) or f"{stem} sub-agent"
+                    sm_path.write_text(
+                        json.dumps(
+                            {
+                                "name": stem,
+                                "version": "1.0.0",
+                                "description": desc[:200],
+                            },
+                            indent=2,
+                        )
                     )
-                    sm_path.write_text(json.dumps({
-                        "name": stem,
-                        "version": "1.0.0",
-                        "description": desc[:200],
-                    }, indent=2))
 
     # ------------------------------------------------------------------
     # FormatSwitch — data collectors
@@ -1549,12 +1550,14 @@ class Librarian:
                     data = json.loads(manifest.read_text(encoding="utf-8"))
                 except Exception:
                     data = {}
-                skills.append({
-                    "name": skill_dir.name,
-                    "description": data.get("description", ""),
-                    "triggers": data.get("triggers", data.get("when_to_use", "")),
-                    "input_hint": data.get("input", ""),
-                })
+                skills.append(
+                    {
+                        "name": skill_dir.name,
+                        "description": data.get("description", ""),
+                        "triggers": data.get("triggers", data.get("when_to_use", "")),
+                        "input_hint": data.get("input", ""),
+                    }
+                )
             else:
                 skills.append({"name": skill_dir.name, "description": "", "triggers": "", "input_hint": ""})
         return skills
@@ -1581,10 +1584,12 @@ class Librarian:
         commands = []
         for cmd_file in sorted(commands_dir.glob("*.md")):
             content = cmd_file.read_text(encoding="utf-8").strip()
-            commands.append({
-                "name": cmd_file.stem,
-                "description": cls._extract_first_description(content),
-            })
+            commands.append(
+                {
+                    "name": cmd_file.stem,
+                    "description": cls._extract_first_description(content),
+                }
+            )
         return commands
 
     @classmethod
@@ -1636,9 +1641,7 @@ class Librarian:
     # ------------------------------------------------------------------
 
     @classmethod
-    def _render_brief(
-        cls, adapter_name: str, config: dict, data: dict, project_root: str | None = None
-    ) -> str:
+    def _render_brief(cls, adapter_name: str, config: dict, data: dict, project_root: str | None = None) -> str:
         sections = []
         header = (
             f"{config['header']}\n"
@@ -1669,15 +1672,16 @@ class Librarian:
     def _compile_adapter_briefs(cls, project_root: str) -> None:
         """Compile brief.md for every activated adapter using FormatSwitch."""
         import click as _click
+
         adapters_root = Path(project_root) / HARNESS_ROOT / "adapters"
         if not adapters_root.exists():
             return
 
         data = {
-            "skills":          cls._collect_skills_data(project_root),
-            "agents":          cls._collect_agents_data(project_root),
-            "commands":        cls._collect_commands_data(project_root),
-            "rules":           cls._collect_rules_data(project_root),
+            "skills": cls._collect_skills_data(project_root),
+            "agents": cls._collect_agents_data(project_root),
+            "commands": cls._collect_commands_data(project_root),
+            "rules": cls._collect_rules_data(project_root),
             "project_context": _collect_project_context(project_root),
         }
 
@@ -1786,7 +1790,7 @@ class Librarian:
             else:
                 global_manifest = {
                     "factory": "AgentFactory",
-                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "created_at": datetime.now(UTC).isoformat(),
                     "agents": {},
                 }
 
@@ -1797,7 +1801,7 @@ class Librarian:
             global_manifest["agents"][name] = {
                 "version": str(imported_manifest.get("version", "0.0.0")),
                 "description": _sanitize_for_markdown(imported_manifest.get("description", "No description provided.")),
-                "imported_at": datetime.now(timezone.utc).isoformat(),
+                "imported_at": datetime.now(UTC).isoformat(),
                 "git_ref": str(imported_manifest.get("git_ref", "unknown")),
                 "resources": imported_manifest["resources"],
             }

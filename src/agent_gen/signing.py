@@ -4,6 +4,7 @@ Why SSH: no extra dependencies, every developer already has a key, and GitHub pu
 `https://github.com/<handle>.keys`. A registry unit's signature can therefore be checked against its publisher's
 GitHub identity, or against a local allowed-signers file (the OpenSSH format) for private setups.
 """
+
 from __future__ import annotations
 
 import re
@@ -40,8 +41,9 @@ def sign_file(path: Path, key: Path) -> Path:
         raise SignatureError(f"signing key not found: {key}")
     sig = path.with_name(path.name + ".sig")
     sig.unlink(missing_ok=True)
-    result = subprocess.run([_ssh_keygen(), "-Y", "sign", "-f", str(key), "-n", NAMESPACE, str(path)],
-                            capture_output=True, text=True)
+    result = subprocess.run(
+        [_ssh_keygen(), "-Y", "sign", "-f", str(key), "-n", NAMESPACE, str(path)], capture_output=True, text=True
+    )
     if result.returncode != 0 or not sig.is_file():
         raise SignatureError(f"ssh-keygen could not sign {path.name}: {result.stderr.strip()}")
     return sig
@@ -73,9 +75,22 @@ def verify_file(path: Path, signature: str, identity: str, allowed_signers: str)
         signers.write_text(allowed_signers)
         with path.open("rb") as data:
             result = subprocess.run(
-                [_ssh_keygen(), "-Y", "verify", "-f", str(signers), "-I", identity, "-n", NAMESPACE,
-                 "-s", str(sig_file)],
-                stdin=data, capture_output=True, text=True,
+                [
+                    _ssh_keygen(),
+                    "-Y",
+                    "verify",
+                    "-f",
+                    str(signers),
+                    "-I",
+                    identity,
+                    "-n",
+                    NAMESPACE,
+                    "-s",
+                    str(sig_file),
+                ],
+                stdin=data,
+                capture_output=True,
+                text=True,
             )
     if result.returncode != 0:
         detail = (result.stderr or result.stdout).strip().splitlines()

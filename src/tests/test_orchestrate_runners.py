@@ -1,4 +1,5 @@
 """Runner tests — real subprocesses via the fake-agent stub (no monkeypatching)."""
+
 import sys
 
 from agent_gen.orchestrate.models import (
@@ -72,9 +73,7 @@ class TestCliAgentRunner:
         assert ev.exit_code == 3
 
     def test_missing_binary_exit_127(self):
-        runner = CliAgentRunner(
-            "ghost", {"invocation": ["definitely-not-a-binary-xyz", "{prompt}"]}, {}
-        )
+        runner = CliAgentRunner("ghost", {"invocation": ["definitely-not-a-binary-xyz", "{prompt}"]}, {})
         ev = runner.run(_step(), "hi")
         assert ev.exit_code == 127
         assert "not found" in ev.stderr
@@ -95,7 +94,8 @@ class TestCliAgentRunner:
         from agent_gen.orchestrate.contract import DEFAULT_CONTRACT
 
         assert DEFAULT_CONTRACT["agents"]["claude"]["env_unset"] == [
-            "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN",
+            "ANTHROPIC_API_KEY",
+            "ANTHROPIC_AUTH_TOKEN",
         ]
 
     def test_dry_run(self, fake_agent_script):

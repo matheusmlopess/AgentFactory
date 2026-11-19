@@ -1,4 +1,5 @@
 """Pydantic models for the AgentFactory API."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel
