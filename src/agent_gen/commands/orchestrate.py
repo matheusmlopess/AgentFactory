@@ -51,25 +51,55 @@ def orchestrate_group():
     """Orchestrate CLI agents (claude, codex, agy, …) through workflows."""
 
 
+EXIT_PAUSED = 3  # checkpoint run waiting for approval (not a failure)
+
+
 @orchestrate_group.command("run")
-@click.argument("workflow")
-@click.option("--mode", default=None, help="Override execution mode (sequential, …).")
+@click.argument("workflow", required=False)
+@click.option("--mode", default=None, help="Override execution mode (sequential, dag, checkpoint).")
 @click.option("--dry-run", is_flag=True, default=False, help="Print steps without executing.")
 @click.option(
     "--json", "as_json", is_flag=True, default=False, help="Print the RunResult as JSON (machine surface for nesting)."
 )
+@click.option("--resume", "resume_run", default=None, metavar="RUN_ID", help="Continue a paused checkpoint run.")
+@click.option("--yes", "-y", "approve_all", is_flag=True, default=False,
+              help="checkpoint mode: approve every step without asking.")  # fmt: skip
 @click.option(
     "--project-root", default=".", show_default=True, help="Root of the project whose contract governs the run."
 )
-def orchestrate_run(workflow: str, mode: str, dry_run: bool, as_json: bool, project_root: str):
-    """Execute WORKFLOW (path, '<agent>/<name>', or bare name) under the contract."""
+def orchestrate_run(
+    workflow: str | None,
+    mode: str,
+    dry_run: bool,
+    as_json: bool,
+    resume_run: str | None,
+    approve_all: bool,
+    project_root: str,
+):
+    """Execute WORKFLOW (path, '<agent>/<name>', or bare name) under the contract.
+
+    checkpoint mode asks before every step after the first (in a terminal) or pauses; a paused run exits with
+    code 3 and continues with `--resume RUN_ID`.
+    """
     from ..orchestrate import run_workflow
 
+    if bool(workflow) == bool(resume_run):
+        raise click.UsageError("Give either WORKFLOW or --resume RUN_ID.")
     project_path = _assert_valid_project_root(project_root)
-    wf_path = _resolve_workflow_path(workflow, project_path)
+    wf_path = _resolve_workflow_path(workflow, project_path) if workflow else None
+
+    def confirm(step, result) -> bool:
+        if approve_all:
+            return True
+        if as_json or not sys.stdin.isatty():
+            return False  # non-interactive: pause and let a human resume
+        what = step.command if step.type == "shell" else (step.prompt[:80] + ("…" if len(step.prompt) > 80 else ""))
+        return click.confirm(f"[orchestrate] checkpoint: run step '{step.id}' ({step.type}: {what})?", default=True)
 
     try:
-        result = run_workflow(wf_path, project_root=project_path, mode=mode, dry_run=dry_run)
+        result = run_workflow(
+            wf_path, project_root=project_path, mode=mode, dry_run=dry_run, confirm=confirm, resume_run=resume_run
+        )
     except (ValueError, RuntimeError, FileNotFoundError) as exc:
         raise click.ClickException(str(exc)) from exc
 
@@ -79,8 +109,14 @@ def orchestrate_run(workflow: str, mode: str, dry_run: bool, as_json: bool, proj
         _echo(f"[orchestrate] workflow '{result.workflow_name}' mode={result.mode}")
         for step_id, status in result.statuses.items():
             _echo(f"  [{status}] {step_id}")
-        _echo(f"[orchestrate] {'OK' if result.ok else 'FAILED'} (run {result.run_id})")
+        if result.paused_at:
+            _echo(f"[orchestrate] PAUSED before step '{result.paused_at}' (run {result.run_id}).")
+            _echo(f"  Review the evidence, then: agentfactory-gen orchestrate run --resume {result.run_id}")
+        else:
+            _echo(f"[orchestrate] {'OK' if result.ok else 'FAILED'} (run {result.run_id})")
 
+    if result.paused_at:
+        sys.exit(EXIT_PAUSED)
     if not result.ok:
         sys.exit(1)
 

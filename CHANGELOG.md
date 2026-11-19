@@ -3,6 +3,14 @@
 
 ## [Unreleased]
 
+### Added (orchestrate PR2, #195)
+- `dag` mode: steps run as soon as their `depends_on` finish, up to `policies.max_parallel` in parallel. A
+  failed dependency blocks its dependents, `skip` lets them run, `abort` stops new work.
+- `checkpoint` mode: asks before every step after the first (or pauses when nobody can answer), saves
+  `state.json` next to the run's evidence and exits with code 3; `orchestrate run --resume RUN_ID` continues,
+  `--yes` approves every step.
+- Dependency cycles are rejected when a workflow loads (`Workflow.topological_order`).
+
 ### Added (orchestrate, #194)
 - Canonical plans: `orchestrate` reads and writes `craft-plan/0.1` (CRAFT ADR 0002) next to its own
   `.workflow.json`. `.plan.json` files load everywhere a workflow is accepted; `orchestrate convert --to

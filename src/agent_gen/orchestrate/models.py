@@ -199,8 +199,31 @@ class Workflow:
             for dep in s.depends_on:
                 if dep not in known:
                     raise ValueError(f"step '{s.id}': depends_on unknown step '{dep}'")
+        self.topological_order()  # raises on cycles
         for s in self.steps:
             s.validate()
+
+    def topological_order(self) -> list[WorkflowStep]:
+        """Steps ordered so every step comes after its dependencies (Kahn); raises ValueError on a cycle."""
+        by_id = {s.id: s for s in self.steps}
+        indegree = {s.id: len(set(s.depends_on)) for s in self.steps}
+        dependents: dict[str, list[str]] = {s.id: [] for s in self.steps}
+        for s in self.steps:
+            for dep in set(s.depends_on):
+                dependents[dep].append(s.id)
+        ready = [s.id for s in self.steps if indegree[s.id] == 0]  # array order breaks ties
+        order: list[WorkflowStep] = []
+        while ready:
+            sid = ready.pop(0)
+            order.append(by_id[sid])
+            for nxt in dependents[sid]:
+                indegree[nxt] -= 1
+                if indegree[nxt] == 0:
+                    ready.append(nxt)
+        if len(order) != len(self.steps):
+            cycle = sorted(sid for sid, n in indegree.items() if n > 0)
+            raise ValueError(f"depends_on has a cycle among steps {cycle}")
+        return order
 
     def patch(self, replacement_steps: list[WorkflowStep], failed_ids: list[str]) -> Workflow:
         """Return a new Workflow with failed steps replaced by remediated ones.
@@ -249,9 +272,12 @@ class RunResult:
     statuses: dict[str, str] = field(default_factory=dict)  # step_id → StepStatus value
     evidence: list[Evidence] = field(default_factory=list)
     workflow_snapshot: dict | None = None  # final workflow incl. spliced steps
+    paused_at: str | None = None  # checkpoint mode: the step waiting for approval
 
     @property
     def ok(self) -> bool:
+        if self.paused_at:
+            return False
         return bool(self.statuses) and all(
             s in (StepStatus.SUCCESS.value, StepStatus.SKIPPED.value) for s in self.statuses.values()
         )
@@ -268,6 +294,7 @@ class RunResult:
             "statuses": self.statuses,
             "evidence": [e.to_dict() for e in self.evidence],
             "workflow_snapshot": self.workflow_snapshot,
+            "paused_at": self.paused_at,
         }
 
 

@@ -9,7 +9,7 @@ AgentFactory provides a **Unified AI Harness** — a single `.ai/` directory tha
 Claude Code, Codex, Antigravity (`agy`) and Gemini work on the same project simultaneously,
 each reading a compiled brief tailored to their format while sharing the same skills, rules,
 and agent manifest. `agentfactory-gen orchestrate` runs those CLI agents together through
-workflows (sequential today; DAG, checkpoint and delegation are planned).
+workflows (sequential, dag and checkpoint modes; delegation is planned).
 
 ---
 
@@ -170,6 +170,9 @@ agentfactory-gen orchestrate list                        # workflows in the proj
 agentfactory-gen orchestrate validate <workflow>         # check a workflow against the contract
 agentfactory-gen orchestrate run <workflow> --dry-run    # print steps without executing
 agentfactory-gen orchestrate run <workflow> --json       # run; RunResult as JSON (for nesting)
+agentfactory-gen orchestrate run <workflow> --mode dag   # parallel by depends_on (up to policies.max_parallel)
+agentfactory-gen orchestrate run <workflow> --mode checkpoint   # ask before each step; pauses (exit 3) when not approved
+agentfactory-gen orchestrate run --resume <run-id>       # continue a paused checkpoint run (--yes approves the rest)
 agentfactory-gen orchestrate convert <workflow> --to canonical|af   # craft-plan/0.1 (CRAFT ADR 0002) ⇄ .workflow.json
 ```
 

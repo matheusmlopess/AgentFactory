@@ -273,3 +273,13 @@ model; `load_workflow` picks the dialect from `version`.
 
 `agentfactory-gen orchestrate convert <wf> --to canonical|af` converts files; `validate` names the dialect.
 
+## Execution modes as built (#195, PR2)
+
+| Mode | Order | Failure handling | Notes |
+|---|---|---|---|
+| `sequential` | array order | retry → escalate (needs PR3) · skip · abort | default |
+| `dag` | as soon as every `depends_on` is done, ≤ `policies.max_parallel` at once | failed/blocked dependency → dependents `blocked`; `skip` lets them run; `abort` stops scheduling | cycles are rejected when the workflow loads; `delegate` steps need sequential/checkpoint until PR3 |
+| `checkpoint` | array order | as sequential | `confirm(step, result)` before every step after the first; no / no callback → pause: `state.json` (file-locked) next to the evidence, exit code 3, `orchestrate run --resume RUN_ID` continues (the resumed step runs without asking); `--yes` approves all; dry runs never pause |
+
+Retries are shared (`BaseExecutor._run_with_retries`): `max_retries` counts retries after the first attempt.
+
