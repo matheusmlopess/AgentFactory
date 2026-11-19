@@ -51,9 +51,10 @@ fail_under = 80
 show_missing = true
 
 [tool.mypy]
-# Typed so far (#191): orchestrate, api, signing. Widen `files` as #189/#190 split librarian.py and cli.py.
+# Typed so far: orchestrate, api, core (librarian, #189), signing. cli.py joins with its split (#190).
 python_version = "3.11"
-files = ["src/agent_gen/orchestrate", "src/agent_gen/api", "src/agent_gen/signing.py"]
+files = ["src/agent_gen/orchestrate", "src/agent_gen/api", "src/agent_gen/core", "src/agent_gen/librarian.py",
+         "src/agent_gen/signing.py"]
 mypy_path = "src"
 check_untyped_defs = true
 warn_unused_ignores = true
@@ -76,8 +77,6 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # Broad excepts in the library are #189's scope (split librarian.py and narrow its exception handling).
-# Structural/style findings in the two god modules are fixed as part of their split (#189, #190).
-"src/agent_gen/librarian.py" = ["BLE001", "S110", "S112", "SIM102", "SIM105", "SIM118", "PERF102", "PERF401",
-                                "PERF403", "B007", "RUF059", "C414", "PIE810"]
+# Structural/style findings in cli.py are fixed as part of its split (#190).
 "src/agent_gen/cli.py" = ["BLE001", "S110", "S112", "SIM102", "SIM105", "SIM115", "PERF401"]
 "src/tests/**" = ["BLE001", "S110", "S112", "RUF012"]

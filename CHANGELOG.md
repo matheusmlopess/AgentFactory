@@ -3,6 +3,20 @@
 
 ## [Unreleased]
 
+### Changed (library structure, #189)
+- `librarian.py` (1,812 lines) is split into `agent_gen.core`: `constants`, `safety`, `text`, `briefs`, `oracle` and
+  the `Librarian` mixins `manifest`, `skills`, `retrofit`, `registry`, `harness` (largest module: 385 lines).
+  `agent_gen.librarian` remains the public import surface (facade + re-exports).
+- The two skill-import code paths share one implementation (`_install_skill`).
+- The library no longer prints or imports click: it logs through `logging`, and the CLI shows those warnings
+  (`--quiet` hides them). Broad `except Exception` blocks are narrowed to the errors they handle and log what
+  they skip; the few deliberate catch-alls (rollback, optional oracle, per-adapter brief) are documented.
+- `core/` and `librarian.py` are type-checked (mypy).
+
+### Fixed
+- `import`'s pre-unpack inspection silently skipped ZIP members it could not read, so an unreadable file was never
+  flagged as executable. Such members are now gated like scripts.
+
 ### Changed (code style, #191 part 2)
 - ruff 0.16 with an explicit rule set in `[tool.ruff.lint]` (upgrades can no longer change what CI enforces) and
   `ruff format` (line length 120) checked in CI. The reformat commit is listed in `.git-blame-ignore-revs`.

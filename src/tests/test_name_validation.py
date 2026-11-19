@@ -222,7 +222,7 @@ def test_migrate_restores_original_when_swap_fails(tmp_path):
         return real_move(src, dst, *a, **kw)
 
     with (
-        patch("agent_gen.librarian.shutil.move", side_effect=failing_move),
+        patch("agent_gen.core.retrofit.shutil.move", side_effect=failing_move),
         pytest.raises(RuntimeError, match="rolled back"),
     ):
         Librarian(str(agent)).migrate({"prompt.md": "docs"})

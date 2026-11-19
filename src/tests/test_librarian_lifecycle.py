@@ -535,7 +535,7 @@ class TestProjectContextInjection(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._make_harness(root, af_content)
-            with patch("agent_gen.librarian._run_preamble_oracle", return_value=72) as mock_oracle:
+            with patch("agent_gen.core.briefs._run_preamble_oracle", return_value=72) as mock_oracle:
                 with patch.dict(os.environ, {"AGENTFACTORY_LICENSE_KEY": "pro_testkey"}):
                     Librarian._compile_adapter_briefs(str(root))
                 mock_oracle.assert_called()
@@ -552,7 +552,7 @@ class TestProjectContextInjection(unittest.TestCase):
             root = Path(tmp)
             self._make_harness(root, af_content)
             env = {k: v for k, v in os.environ.items() if k != "AGENTFACTORY_LICENSE_KEY"}
-            with patch("agent_gen.librarian._run_preamble_oracle") as mock_oracle:
+            with patch("agent_gen.core.briefs._run_preamble_oracle") as mock_oracle:
                 with patch.dict(os.environ, env, clear=True):
                     Librarian._compile_adapter_briefs(str(root))
                 mock_oracle.assert_not_called()
@@ -564,7 +564,7 @@ class TestProjectContextInjection(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._make_harness(root, af_content)
-            with patch("agent_gen.librarian._run_preamble_oracle") as mock_oracle:
+            with patch("agent_gen.core.briefs._run_preamble_oracle") as mock_oracle:
                 with patch.dict(os.environ, {"AGENTFACTORY_LICENSE_KEY": "pro_testkey"}):
                     Librarian._compile_adapter_briefs(str(root))
                 mock_oracle.assert_not_called()
@@ -577,7 +577,7 @@ class TestProjectContextInjection(unittest.TestCase):
             root = Path(tmp)
             self._make_harness(root, af_content)
             with (
-                patch("agent_gen.librarian._run_preamble_oracle", side_effect=Exception("api down")),
+                patch("agent_gen.core.briefs._run_preamble_oracle", side_effect=Exception("api down")),
                 patch.dict(os.environ, {"AGENTFACTORY_LICENSE_KEY": "pro_testkey"}),
             ):
                 Librarian._compile_adapter_briefs(str(root))
