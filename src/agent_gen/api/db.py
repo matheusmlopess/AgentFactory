@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS registry_versions (
     size_bytes      INTEGER NOT NULL,
     published_by    TEXT NOT NULL REFERENCES users(id),
     published_at    TEXT NOT NULL,
+    signature       TEXT,
     PRIMARY KEY (name, version)
 );
 """
@@ -138,9 +139,19 @@ def license_plan(key: str) -> str | None:
     return row["plan"] if row else None
 
 
+# Columns added after a table first shipped: (table, column, type). init_db() adds any that are missing.
+_MIGRATIONS = [
+    ("registry_versions", "signature", "TEXT"),  # #144 publisher SSH signature
+]
+
+
 def init_db() -> None:
     with get_conn() as conn:
         conn.executescript(DDL)
+        for table, column, coltype in _MIGRATIONS:
+            existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+            if column not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
 
 
 def _now() -> str:

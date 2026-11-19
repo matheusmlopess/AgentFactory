@@ -42,6 +42,7 @@ class RegistryEntry(BaseModel):
     size_bytes: int
     published_at: str
     zip_url: str
+    signature: str | None = None  # publisher's SSH signature (namespace agentfactory-unit), if signed
 
 
 class DeviceCodeResponse(BaseModel):
