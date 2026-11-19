@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-11-19 14:27 UTC -->
-<!-- open-issues: 40 -->
+<!-- generated: 2026-11-19 14:33 UTC -->
+<!-- open-issues: 39 -->
 
 Living priority matrix — regenerated automatically on every push to `main`.
 Priority and effort come from the `p0`–`p3` and `size:S|M|L` labels.
@@ -13,7 +13,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ┌──────────────────┬───────────────────────────────────────────┐
   │  Track           │  Issues                                    │
   ├──────────────────┼───────────────────────────────────────────┤
-  │  Harness / CLI   │  #137  #138  #139  #145  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #194  #195  #196  #197  #198│
+  │  Harness / CLI   │  #137  #138  #139  #145  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #195  #196  #197  #198│
   │  Webapp / UI     │                                             │
   │  Platform Core   │  #192  #203                                 │
   │  Platform Upper  │  #200                                       │
@@ -58,12 +58,11 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #173    —                         —                         [Gemini] Tracking issue for Gemini adapter al
   #178    #139                      —                         Umbrella(cli): SKILL.md frontmatter parsing +
   #192    —                         —                         api: production readiness (database, containe
-  #194    —                         #200                      feat(orchestrate): load and write the canonic
   #195    —                         #196                      feat(orchestrate): DAG and checkpoint executi
   #196    #195                      #197                      feat(orchestrate): delegate steps and nested 
   #197    #196                      —                         feat(orchestrate): workflows in Portable Unit
   #198    —                         —                         fix(brief): agent registry links point to doc
-  #200    #194                      —                         spike: shared Rust contracts core (validation
+  #200    —                         —                         spike: shared Rust contracts core (validation
   #203    —                         —                         ops: deploy the API (api.agentfactory.dev)
 ```
 
@@ -89,7 +88,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #161    p2   medium    Harness / CLI     —                     [Codex] Broaden Codex retrofit profile to mat
   #163    p2   medium    Harness / CLI     —                     [Codex] Add Codex edge-case tests for MCP, .c
   #192    p2   medium    Platform Core     —                     api: production readiness (database, containe
-  #194    p2   medium    Harness / CLI     #200                  feat(orchestrate): load and write the canonic
   #195    p2   large     Harness / CLI     #196                  feat(orchestrate): DAG and checkpoint executi
   #152    p3   small     Harness / CLI     —                     [Codex] Teach harness doctor to validate code
   #153    p3   small     Harness / CLI     —                     [Codex] Add codex skills symlink to harness d
@@ -110,6 +108,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #172    p3   small     Harness / CLI     —                     [Codex] Tracking issue for Codex adapter alig
   #173    p3   medium    Harness / CLI     —                     [Gemini] Tracking issue for Gemini adapter al
   #198    p3   small     Harness / CLI     —                     fix(brief): agent registry links point to doc
+  #200    p3   large     Platform Upper    —                     spike: shared Rust contracts core (validation
 ```
 
 ### Wave 2 — After Wave 1
@@ -119,7 +118,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ──────  ───  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
   #178    p2   large     Harness / CLI     —                     Umbrella(cli): SKILL.md frontmatter parsing +
   #196    p2   large     Harness / CLI     #197                  feat(orchestrate): delegate steps and nested 
-  #200    p3   large     Platform Upper    —                     spike: shared Rust contracts core (validation
 ```
 
 ### Wave 3 — After Wave 2
@@ -151,5 +149,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-11-19 14:27 UTC by `generate-priority-report.py`._
+_Generated 2026-11-19 14:33 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
