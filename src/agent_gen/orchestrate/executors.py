@@ -74,6 +74,10 @@ class BaseExecutor:
             if not policies.get("allow_shell_steps", True):
                 return self._refused(step, "shell steps disabled by contract policy", attempt)
             ev = self._shell.run(step, step.command, attempt=attempt)
+        elif step.type == "agent" and step.provider not in ("", "cli"):
+            return self._refused(
+                step, f"provider '{step.provider}' is not run by the CLI executor (use a CLI agent step)", attempt
+            )
         elif step.type == "agent":
             agent_name = step.agent or self.contract.default_agent
             spec = self.contract.agent_spec(agent_name)

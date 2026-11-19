@@ -121,8 +121,13 @@ class CliAgentRunner:
         self.cwd = cwd
         self.env_overrides = env_overrides or {}
 
-    def _build_command(self, prompt: str) -> list[str]:
-        return [part.replace("{prompt}", prompt).replace("{workflow}", prompt) for part in self.spec["invocation"]]
+    def _build_command(self, prompt: str, model: str = "") -> list[str]:
+        cmd = [part.replace("{prompt}", prompt).replace("{workflow}", prompt) for part in self.spec["invocation"]]
+        # A step's model goes in before the prompt, when the contract says how this CLI takes one.
+        model_args = self.spec.get("model_args") or []
+        if model and model_args:
+            cmd[-1:-1] = [a.replace("{model}", model) for a in model_args]
+        return cmd
 
     def _child_env(self) -> dict | None:
         """Environment for the agent process, or None to inherit unchanged."""
@@ -137,7 +142,7 @@ class CliAgentRunner:
 
     def run(self, step: WorkflowStep, prompt: str, attempt: int = 1) -> Evidence:
         timestamp = _now()
-        cmd = self._build_command(prompt)
+        cmd = self._build_command(prompt, step.model)
         cmd_display = " ".join([*cmd[:-1], cmd[-1][:80]])
 
         if self.dry_run:

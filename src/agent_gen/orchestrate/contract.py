@@ -31,6 +31,7 @@ DEFAULT_CONTRACT: dict = {
     "agents": {
         "claude": {
             "invocation": ["claude", "--print", "{prompt}"],
+            "model_args": ["--model", "{model}"],
             # Subscription first: without these, an exported ANTHROPIC_API_KEY makes
             # Claude Code bill the API instead of the user's Claude plan. Set
             # AGENTFACTORY_CLAUDE_BACKEND=api (or "env_unset": []) to use the key.
@@ -38,6 +39,7 @@ DEFAULT_CONTRACT: dict = {
         },
         "codex": {
             "invocation": ["codex", "exec", "--skip-git-repo-check", "{prompt}"],
+            "model_args": ["-m", "{model}"],
             "stdin": "devnull",  # codex 0.142+ blocks on stdin otherwise
         },
         "gemini": {
