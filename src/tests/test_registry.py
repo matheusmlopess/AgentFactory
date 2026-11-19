@@ -60,7 +60,7 @@ class TestPublishCommand(unittest.TestCase):
             self.runner.invoke(cli, ["wrap", "good-agent"])
 
             mock_response = {"slug": "good-agent", "version": "1.0.0"}
-            with patch("agent_gen.cli._registry_publish", return_value=mock_response) as mock_pub:
+            with patch("agent_gen.commands._remote._registry_publish", return_value=mock_response) as mock_pub:
                 result = self.runner.invoke(cli, ["publish", "good-agent"])
 
             self.assertEqual(result.exit_code, 0, result.output)
@@ -79,7 +79,7 @@ class TestPublishCommand(unittest.TestCase):
             # Rename ZIP to match the overridden version
             os.rename("ver-agent-v1.0.0.zip", "ver-agent-v2.0.0.zip")
 
-            with patch("agent_gen.cli._registry_publish", return_value={}) as mock_pub:
+            with patch("agent_gen.commands._remote._registry_publish", return_value={}) as mock_pub:
                 result = self.runner.invoke(cli, ["publish", "ver-agent", "--version", "2.0.0"])
 
             self.assertEqual(result.exit_code, 0, result.output)
@@ -92,7 +92,7 @@ class TestPublishCommand(unittest.TestCase):
             _setup_agent(self.runner, "tagged-agent")
             self.runner.invoke(cli, ["wrap", "tagged-agent"])
 
-            with patch("agent_gen.cli._registry_publish", return_value={}) as mock_pub:
+            with patch("agent_gen.commands._remote._registry_publish", return_value={}) as mock_pub:
                 result = self.runner.invoke(cli, ["publish", "tagged-agent", "--tag", "nlp", "--tag", "retrieval"])
 
             self.assertEqual(result.exit_code, 0, result.output)
@@ -105,7 +105,7 @@ class TestPublishCommand(unittest.TestCase):
             _setup_agent(self.runner, "quiet-agent")
             self.runner.invoke(cli, ["wrap", "quiet-agent"])
 
-            with patch("agent_gen.cli._registry_publish", return_value={}):
+            with patch("agent_gen.commands._remote._registry_publish", return_value={}):
                 result = self.runner.invoke(cli, ["--quiet", "publish", "quiet-agent"])
 
             self.assertEqual(result.exit_code, 0, result.output)
@@ -139,7 +139,7 @@ class TestImportFromRegistry(unittest.TestCase):
         }
 
         with self.runner.isolated_filesystem():
-            with patch("agent_gen.cli._registry_fetch", return_value=(entry, zip_bytes)) as mock_fetch:
+            with patch("agent_gen.commands._remote._registry_fetch", return_value=(entry, zip_bytes)) as mock_fetch:
                 result = self.runner.invoke(cli, ["import", "--from-registry", "reg-agent"])
 
             self.assertEqual(result.exit_code, 0, result.output)
@@ -156,7 +156,7 @@ class TestImportFromRegistry(unittest.TestCase):
         }
 
         with self.runner.isolated_filesystem():
-            with patch("agent_gen.cli._registry_fetch", return_value=(entry, zip_bytes)) as mock_fetch:
+            with patch("agent_gen.commands._remote._registry_fetch", return_value=(entry, zip_bytes)) as mock_fetch:
                 result = self.runner.invoke(cli, ["import", "--from-registry", "pinned-agent@1.2.0"])
 
             self.assertEqual(result.exit_code, 0, result.output)
@@ -187,7 +187,7 @@ class TestImportFromRegistry(unittest.TestCase):
         }
 
         with self.runner.isolated_filesystem():
-            with patch("agent_gen.cli._registry_fetch", return_value=(entry, zip_bytes)):
+            with patch("agent_gen.commands._remote._registry_fetch", return_value=(entry, zip_bytes)):
                 result = self.runner.invoke(cli, ["--quiet", "import", "--from-registry", "quiet-reg-agent"])
 
             self.assertEqual(result.exit_code, 0, result.output)

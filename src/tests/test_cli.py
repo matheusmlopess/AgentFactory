@@ -319,7 +319,7 @@ class TestCliCommands(unittest.TestCase):
                 r.returncode = 0
                 return r
 
-            with mock.patch("agent_gen.cli.subprocess.run", side_effect=fake_clone):
+            with mock.patch("agent_gen.commands._sources.subprocess.run", side_effect=fake_clone):
                 result = self.runner.invoke(cli, ["import", "--from-git", "https://github.com/user/cloned-agent"])
             # Should not fail with URL validation error
             self.assertNotIn("Invalid git URL", result.output)

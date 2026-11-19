@@ -3,6 +3,21 @@
 
 ## [Unreleased]
 
+### Changed (CLI structure, #190)
+- `cli.py` (2,046 lines) is split into `agent_gen.commands`: `project` (init, adapter, brief), `agents`
+  (deploy, describe, uninstall, audit, wrap, sign, publish, retrofit), `account`, `transfer` (import,
+  import-skill, export) and `orchestrate`, plus shared `_group`, `_paths`, `_remote`, `_sources`.
+  `agent_gen.cli` stays the entry point and re-exports the old names.
+- `deploy`, `describe`, `uninstall`, `audit`, `wrap` and `publish` take `--project-root` like the other commands.
+  `Librarian.sync()` / `uninstall()` update the agent's own project instead of the current directory.
+- `import` is a short driver over named steps (source → verify → inspect → gate → install).
+- The whole `agent_gen` package is type-checked (mypy) and linted without per-file exceptions.
+
+### Fixed
+- `import --from-registry` / `--from-git` left the downloaded or cloned bundle behind when the target already
+  existed, the checksum file was missing, the bundle was invalid or the audit failed.
+- `audit --fix` / `wrap` on an agent outside the current directory synced the wrong project's registry.
+
 ### Changed (library structure, #189)
 - `librarian.py` (1,812 lines) is split into `agent_gen.core`: `constants`, `safety`, `text`, `briefs`, `oracle` and
   the `Librarian` mixins `manifest`, `skills`, `retrofit`, `registry`, `harness` (largest module: 385 lines).

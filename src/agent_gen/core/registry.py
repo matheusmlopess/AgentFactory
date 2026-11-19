@@ -85,10 +85,11 @@ class ProjectRegistryMixin(LibrarianBase):
         if updated:
             cls.update_harness_files(project_root)
 
-    def uninstall(self, project_root: str = ".") -> None:
+    def uninstall(self, project_root: str | None = None) -> None:
         """
-        Remove the agent directory and its registration from the project.
+        Remove the agent directory and its registration from the project (default: the agent's own project).
         """
+        project_root = project_root or self.project_root
         manifest = self._load_manifest()
         name = manifest["name"]
 

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from .base import LibrarianBase
-from .constants import MANIFEST_FILE, TRACKED_DIRS
+from .constants import HARNESS_ROOT, MANIFEST_FILE, TRACKED_DIRS
 from .safety import _atomic_write_json, _safe_extract
 from .text import _git_ref
 
@@ -156,6 +156,19 @@ class ManifestMixin(LibrarianBase):
         self._save_manifest(manifest)
         return manifest
 
+    @property
+    def project_root(self) -> str:
+        """The project this agent belongs to: <project>/.ai/agents/<name> (or legacy <project>/agents/<name>).
+
+        Agents outside a project (e.g. staged in a temp dir during import) fall back to the current directory.
+        """
+        parent = self.agent_root.parent
+        if parent.name == "agents" and parent.parent.name == HARNESS_ROOT:
+            return str(parent.parent.parent)
+        if parent.name == "agents" and (parent.parent / HARNESS_ROOT).exists():
+            return str(parent.parent)
+        return "."
+
     def sync(self) -> dict:
         """
         Crawl tracked directories and update the manifest to match
@@ -184,7 +197,7 @@ class ManifestMixin(LibrarianBase):
         self._save_manifest(manifest)
 
         # Propagate changes to the global registry if installed
-        _librarian().sync_to_global(manifest, ".")
+        _librarian().sync_to_global(manifest, self.project_root)
 
         return manifest
 

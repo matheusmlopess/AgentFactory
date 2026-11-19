@@ -159,6 +159,7 @@ agentfactory-gen whoami / logout             # show the account / revoke the tok
 agentfactory-gen publish <name>              # upload wrapped agent to public registry
 agentfactory-gen publish <name> --version <v> --tag <t>  # override version and add tags
 agentfactory-gen uninstall <name>            # remove agent cleanly
+# every command that reads or writes .ai/ accepts --project-root <path> (default: the current directory)
 ```
 
 ### Orchestration
