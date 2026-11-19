@@ -3,6 +3,12 @@
 
 ## [Unreleased]
 
+### Fixed (import safety, #146)
+- `import` is all-or-nothing: the agent's `source` record is written while the bundle is still staged, and
+  if registration fails after the move the agent folder is removed again and the import is reported as
+  rolled back. A failed audit also cleans up the `--from-git` temp clone.
+- `init`'s project manifest and SKILL.md → `skill-manifest.json` reconciliation use atomic writes.
+
 ### Added
 - **Publisher signatures** (#144), using SSH signatures (`ssh-keygen -Y`, namespace `agentfactory-unit`):
   `wrap --sign <key>` / `sign <zip>` write `<zip>.sig`; `publish` uploads it and the registry returns it with

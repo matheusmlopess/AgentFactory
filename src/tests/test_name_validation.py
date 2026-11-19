@@ -279,3 +279,40 @@ def test_from_git_incomplete_manifest_is_a_clear_error(tmp_path):
         r = runner.invoke(cli, ["import", "--from-git", str(repo), "--allow-scripts"])
         assert r.exit_code != 0
         assert "incomplete" in r.output and "commands/docs-plan.md" in r.output
+
+
+# ---------------------------------------------------------------- #146: import is all-or-nothing
+
+
+def test_import_rolls_back_when_registration_fails(tmp_path):
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path) as cwd:
+        assert runner.invoke(cli, ["init"]).exit_code == 0
+        global_manifest = Path(cwd) / ".ai" / MANIFEST_FILE
+        before = global_manifest.read_text()
+        bundle = _bundle(Path(cwd) / "ok.zip", "rollback-agent")
+        with patch.object(Librarian, "register_in_project", side_effect=OSError("disk full")):
+            r = runner.invoke(cli, ["import", str(bundle)])
+        assert r.exit_code != 0
+        assert "rolled back" in r.output
+        assert not (Path(cwd) / ".ai" / "agents" / "rollback-agent").exists()
+        assert json.loads(global_manifest.read_text()) == json.loads(before)
+        # A clean retry still works afterwards.
+        r = runner.invoke(cli, ["import", str(bundle)])
+        assert r.exit_code == 0, r.output
+        assert "rollback-agent" in json.loads(global_manifest.read_text())["agents"]
+
+
+def test_registry_import_records_source_before_the_move(tmp_path):
+    runner = CliRunner()
+    buf_path = tmp_path / "reg.zip"
+    _bundle(buf_path, "reg-src")
+    entry = {"name": "reg-src", "version": "1.0.0", "zip_url": "https://x/reg.zip",
+             "sha256": __import__("hashlib").sha256(buf_path.read_bytes()).hexdigest()}
+    with runner.isolated_filesystem(temp_dir=tmp_path) as cwd:
+        runner.invoke(cli, ["init"])
+        with patch("agent_gen.cli._registry_fetch", return_value=(entry, buf_path.read_bytes())):
+            r = runner.invoke(cli, ["import", "--from-registry", "reg-src"])
+        assert r.exit_code == 0, r.output
+        data = json.loads((Path(cwd) / ".ai" / "agents" / "reg-src" / MANIFEST_FILE).read_text())
+        assert data["source"] == {"registry": "reg-src"}
