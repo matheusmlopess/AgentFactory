@@ -4,6 +4,8 @@ Split out of cli.py (#190); `agent_gen.cli` is the entry point and re-exports th
 
 from __future__ import annotations
 
+import contextlib
+import hashlib
 import json
 import os
 import shutil
@@ -11,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 
 import click
@@ -176,47 +179,64 @@ def import_agent(
 
     Accepts a local ZIP_PATH, --from-git URL, or --from-registry SLUG.
 
-    Steps:
-      1. Pre-unpack inspection (structure, scripts, checksum)
-      2. Unpack ZIP to temp dir
-      3. Audit unpacked content
-      4. Move to final location + register in project manifest
+    Steps (each one can stop the import; temp files are always cleaned up):
+      1. Source: resolve the bundle (local ZIP, git clone, registry download + server checksum)
+      2. Verify: --checksum and the publisher signature
+      3. Inspect: manifest, agent name and executable content, without unpacking
+      4. Gate: dry-run preview, or confirm executable content
+      5. Install: unpack to a temp dir, audit, record the source, move + register (rolled back on failure)
     """
-    import hashlib
-
-    _cleanup = None
-
-    registry_entry: dict | None = None
     sources = [s for s in (zip_path, from_git, from_registry) if s is not None]
     if len(sources) > 1:
         raise click.UsageError("ZIP_PATH, --from-git, and --from-registry are mutually exclusive.")
     if not sources:
         raise click.UsageError("Provide either ZIP_PATH, --from-git URL, or --from-registry SLUG.")
-
-    # Validate project root is an initialised harness (#143)
     if project_root != ".":
-        _assert_valid_project_root(project_root)
+        _assert_valid_project_root(project_root)  # #143
 
+    bundle, registry_entry, cleanup = _resolve_bundle(zip_path, from_git, from_registry, checksum)
+    try:
+        _verify_bundle(bundle, checksum, signature_file, signer, allowed_signers, require_signature, registry_entry)
+        name, peeked, info = _inspect_bundle(bundle)
+        target_root = Path(project_root).resolve() / HARNESS_ROOT / "agents" / name  # #135: not CWD
+        if dry_run:
+            _print_dry_run(name, peeked, info, target_root)
+            return
+        _gate_executables(info, allow_scripts)
+        if target_root.exists():
+            _echo(
+                f"[librarian] '{name}' already exists at {target_root}. Remove it first or rename the incoming bundle.",
+                err=True,
+            )
+            sys.exit(1)
+        source_ref = {"git": from_git} if from_git else {"registry": from_registry} if from_registry else None
+        manifest = _install_bundle(bundle, name, target_root, project_root, source_ref)
+    finally:
+        cleanup()
+    _print_import_summary(name, manifest)
+
+
+def _resolve_bundle(zip_path, from_git, from_registry, checksum) -> tuple[Path, dict | None, Callable[[], None]]:
+    """Step 1: a local ZIP path for the bundle, the registry entry (if any) and an idempotent cleanup."""
+    cleanup: Callable[[], None] = lambda: None  # noqa: E731
+    registry_entry = None
     if from_git:
-        zip_path, _cleanup = _clone_and_prepare(from_git)
-
+        zip_path, cleanup = _clone_and_prepare(from_git)
     if from_registry:
         _echo(f"[librarian] Fetching '{from_registry}' from registry...")
-        _entry, zip_bytes = _remote._registry_fetch(from_registry)
-        registry_entry = _entry
+        registry_entry, zip_bytes = _remote._registry_fetch(from_registry)
         tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
         tmp.write(zip_bytes)
         tmp.close()
         zip_path = tmp.name
-        _cleanup = lambda p=tmp.name: os.unlink(p)  # noqa: E731
+        cleanup = lambda p=tmp.name: Path(p).unlink(missing_ok=True)  # noqa: E731
 
-        # Auto-verify if registry provides a checksum (#144 extension)
-        registry_sha256 = _entry.get("sha256")
+        # The registry's own checksum is checked unless the user brings one (#144).
+        registry_sha256 = registry_entry.get("sha256")
         if registry_sha256 and not checksum:
             actual = hashlib.sha256(zip_bytes).hexdigest()
             if actual != registry_sha256:
-                if _cleanup:
-                    _cleanup()
+                cleanup()
                 _echo(
                     f"[librarian] Registry checksum mismatch — bundle may be tampered.\n"
                     f"  Expected: {registry_sha256}\n"
@@ -231,21 +251,23 @@ def import_agent(
                 "[librarian] ⚠  Registry did not provide a checksum for this bundle. "
                 "Use --checksum <file> to verify provenance manually."
             )
-
-    zip_path = Path(zip_path).resolve()
-
-    if not zip_path.exists():
-        _echo(f"[librarian] File not found: {zip_path}", err=True)
+    bundle = Path(zip_path).resolve()
+    if not bundle.exists():
+        cleanup()
+        _echo(f"[librarian] File not found: {bundle}", err=True)
         sys.exit(1)
+    return bundle, registry_entry, cleanup
 
-    # --- Checksum verification (#144) ---
+
+def _verify_bundle(bundle, checksum, signature_file, signer, allowed_signers, require_signature, registry_entry):
+    """Step 2: user-supplied checksum, then the publisher signature (#144)."""
     if checksum:
         checksum_path = Path(checksum)
         if not checksum_path.exists():
             _echo(f"[librarian] Checksum file not found: {checksum}", err=True)
             sys.exit(1)
         expected = checksum_path.read_text().strip().split()[0]
-        actual = hashlib.sha256(zip_path.read_bytes()).hexdigest()
+        actual = hashlib.sha256(bundle.read_bytes()).hexdigest()
         if actual != expected:
             _echo(
                 f"[librarian] Checksum mismatch — ZIP may be tampered.\n  Expected: {expected}\n  Actual:   {actual}",
@@ -253,98 +275,71 @@ def import_agent(
             )
             sys.exit(1)
         _echo("[librarian] Checksum verified.")
-
-    # --- Publisher signature (#144) ---
     _verify_publisher_signature(
-        zip_path,
-        signature_file,
-        signer,
-        allowed_signers,
-        require_signature,
-        registry_entry,
-        _cleanup,
+        bundle, signature_file, signer, allowed_signers, require_signature, registry_entry, None
     )
 
-    # --- Pre-unpack inspection (#141 / #146) ---
-    info = _inspect_zip(zip_path)
+
+def _inspect_bundle(bundle: Path) -> tuple[str, dict, dict]:
+    """Step 3: (agent name, manifest as shipped, inspection info) — nothing is unpacked (#141 / #146)."""
+    info = _inspect_zip(bundle)
     if not info["has_manifest"]:
         _echo("[librarian] Invalid bundle — agent-manifest.json missing from ZIP.", err=True)
         sys.exit(1)
-
-    # Peek at the archive to get the agent name before unpacking
-    with zipfile.ZipFile(zip_path) as zf, zf.open("agent-manifest.json") as mf:
+    with zipfile.ZipFile(bundle) as zf, zf.open("agent-manifest.json") as mf:
         peeked = json.load(mf)
-
     try:
         name = validate_name(peeked.get("name"), "agent")
     except ValueError as exc:
-        if _cleanup:
-            _cleanup()
         raise click.ClickException(f"Invalid bundle: {exc}") from exc
-    # Resolve target_root against project_root, not CWD (#135)
-    project_path = Path(project_root).resolve()
-    target_root = project_path / HARNESS_ROOT / "agents" / name
+    return name, peeked, info
 
-    # --- Dry-run: print preview and exit (#140 / #146) ---
-    if dry_run:
-        conflict = "YES — would abort" if target_root.exists() else "none"
-        _echo("[librarian] DRY RUN — nothing will be written to disk.")
-        _echo(f"  Agent   : {name}")
-        _echo(f"  Version : {peeked.get('version', 'unknown')}")
-        _echo(f"  Target  : {target_root}")
-        _echo(f"  Files   : {len(info['names'])}")
-        _echo(
-            f"  Scripts : {len(info['executable_files'])} file(s)"
-            + (f" — {info['executable_files']}" if info["executable_files"] else "")
-        )
-        _echo(f"  Conflict: {conflict}")
-        if _cleanup:
-            _cleanup()
+
+def _print_dry_run(name: str, peeked: dict, info: dict, target_root: Path) -> None:
+    """Step 4a: preview only (#140 / #146)."""
+    conflict = "YES — would abort" if target_root.exists() else "none"
+    _echo("[librarian] DRY RUN — nothing will be written to disk.")
+    _echo(f"  Agent   : {name}")
+    _echo(f"  Version : {peeked.get('version', 'unknown')}")
+    _echo(f"  Target  : {target_root}")
+    _echo(f"  Files   : {len(info['names'])}")
+    _echo(
+        f"  Scripts : {len(info['executable_files'])} file(s)"
+        + (f" — {info['executable_files']}" if info["executable_files"] else "")
+    )
+    _echo(f"  Conflict: {conflict}")
+
+
+def _gate_executables(info: dict, allow_scripts: bool) -> None:
+    """Step 4b: executable content needs --allow-scripts or an explicit yes (#142)."""
+    if not info["executable_files"] or allow_scripts:
+        return
+    _echo(f"[librarian] ⚠  This agent includes {len(info['executable_files'])} executable script(s):")
+    for s in info["executable_files"]:
+        _echo(f"  {s}")
+    _echo("[librarian] Review these files before allowing execution.")
+    if not click.confirm("Proceed with import?", default=False):
+        _echo("[librarian] Import cancelled.")
         sys.exit(0)
 
-    # --- Scripts gate (#142 + shebang extension) ---
-    if info["executable_files"] and not allow_scripts:
-        _echo(f"[librarian] ⚠  This agent includes {len(info['executable_files'])} executable script(s):")
-        for s in info["executable_files"]:
-            _echo(f"  {s}")
-        _echo("[librarian] Review these files before allowing execution.")
-        if not click.confirm("Proceed with import?", default=False):
-            _echo("[librarian] Import cancelled.")
-            if _cleanup:
-                _cleanup()
-            sys.exit(0)
 
-    if target_root.exists():
-        _echo(
-            f"[librarian] '{name}' already exists at {target_root}. Remove it first or rename the incoming bundle.",
-            err=True,
-        )
-        sys.exit(1)
-
+def _install_bundle(bundle: Path, name: str, target_root: Path, project_root: str, source_ref: dict | None) -> dict:
+    """Step 5: unpack + audit in a temp dir, record the source, then move and register as one unit (#146)."""
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir) / name
         temp_root.mkdir(parents=True)
 
         _echo(f"[librarian] Unpacking '{name}'...")
-        manifest = Librarian.unpack(str(zip_path), str(temp_root))
+        manifest = Librarian.unpack(str(bundle), str(temp_root))
 
-        # Deep Audit before finalizing
         _echo(f"[librarian] Auditing '{name}' before registration...")
-        librarian = Librarian(str(temp_root))
-        report = librarian.audit()
+        report = Librarian(str(temp_root)).audit()
         if report["broken_resources"] or report["broken_dependencies"] or report.get("invalid_skill_manifests"):
             _echo("[librarian] Audit FAILED for imported bundle. Aborting...", err=True)
-            if _cleanup:
-                _cleanup()
             sys.exit(1)
 
-        # Record where this agent came from (so `export` can patch changes back to it) while the
-        # bundle is still in the temp dir, so the project only ever sees a complete agent.
-        source_ref = None
-        if from_git:
-            source_ref = {"git": from_git}
-        elif from_registry:
-            source_ref = {"registry": from_registry}
+        # Record where the agent came from (for `export`) while it is still staged, so the project only ever
+        # sees a complete agent.
         if source_ref:
             staged_manifest = temp_root / MANIFEST_FILE
             try:
@@ -355,48 +350,37 @@ def import_agent(
             except (OSError, ValueError):
                 pass  # non-fatal: export can still take --git explicitly
 
-        # Move into place and register as one unit: if registration fails, undo the move (#146).
         target_root.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(temp_root), str(target_root))
         _echo(f"[librarian] Registering '{name}' in project manifest...")
         try:
             Librarian.register_in_project(manifest, project_root)
-        except Exception as exc:
+        except Exception as exc:  # any failure rolls the move back; the cause is chained
             shutil.rmtree(target_root, ignore_errors=True)
-            try:
+            with contextlib.suppress(Exception):
                 Librarian.deregister_from_project(name, project_root)
-            except Exception:
-                pass
-            if _cleanup:
-                _cleanup()
             raise click.ClickException(
                 f"Registration failed, import rolled back (nothing was left in {target_root.parent}): {exc}"
             ) from exc
+    return manifest
 
-    # Clean up temp dir from --from-git clone
-    if _cleanup:
-        _cleanup()
 
-    # Success summary (paste-ready for Claude)
-    skills = manifest["resources"].get("skills", [])
-    commands = manifest["resources"].get("commands", [])
-    docs = manifest["resources"].get("docs", [])
-    scripts = manifest["resources"].get("scripts", [])
-    orchestration = manifest["resources"].get("orchestration", [])
-
+def _print_import_summary(name: str, manifest: dict) -> None:
+    """Paste-ready summary of what was added."""
+    res = manifest["resources"]
+    docs = res.get("docs", [])
     _echo("")
     _echo("=" * 60)
     _echo("Librarian: Import Complete.")
     _echo(
-        f"  Added {len(skills)} skill(s), {len(commands)} command(s), "
-        f"{len(docs)} doc(s), {len(scripts)} script(s), "
-        f"and {len(orchestration)} orchestration file(s) to your environment."
+        f"  Added {len(res.get('skills', []))} skill(s), {len(res.get('commands', []))} command(s), "
+        f"{len(docs)} doc(s), {len(res.get('scripts', []))} script(s), "
+        f"and {len(res.get('orchestration', []))} orchestration file(s) to your environment."
     )
     _echo(f"  You are now configured as the '{name}' agent.")
-    if docs:
-        claude_md = next((d for d in docs if "CLAUDE.md" in d), None)
-        if claude_md:
-            _echo(f"  Check {claude_md} for your new instructions.")
+    claude_md = next((d for d in docs if "CLAUDE.md" in d), None)
+    if claude_md:
+        _echo(f"  Check {claude_md} for your new instructions.")
     _echo("=" * 60)
 
 

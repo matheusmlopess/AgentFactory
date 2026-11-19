@@ -362,3 +362,34 @@ def test_registry_import_records_source_before_the_move(tmp_path):
         assert r.exit_code == 0, r.output
         data = json.loads((Path(cwd) / ".ai" / "agents" / "reg-src" / MANIFEST_FILE).read_text())
         assert data["source"] == {"registry": "reg-src"}
+
+
+# ---------------------------------------------------------------- #190: import always cleans up its temp files
+
+
+@pytest.mark.parametrize("scenario", ["target_exists", "missing_checksum_file", "dry_run", "success"])
+def test_registry_import_never_leaves_its_download_behind(tmp_path, monkeypatch, scenario):
+    import hashlib
+    import tempfile
+
+    bundle = _bundle(tmp_path / "src.zip", "leak-check")
+    data = bundle.read_bytes()
+    entry = {"name": "leak-check", "version": "1.0.0", "zip_url": "https://x/z.zip",
+             "sha256": hashlib.sha256(data).hexdigest()}
+    scratch = tmp_path / "tmpdir"
+    scratch.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(scratch))
+    runner = CliRunner()
+    with runner.isolated_filesystem(temp_dir=tmp_path) as cwd:
+        runner.invoke(cli, ["init"])
+        args = ["import", "--from-registry", "leak-check"]
+        if scenario == "target_exists":
+            (Path(cwd) / ".ai" / "agents" / "leak-check").mkdir(parents=True)
+        elif scenario == "missing_checksum_file":
+            args += ["--checksum", "nope.sha256"]
+        elif scenario == "dry_run":
+            args += ["--dry-run"]
+        with patch("agent_gen.commands._remote._registry_fetch", return_value=(entry, data)):
+            r = runner.invoke(cli, args)
+        assert (r.exit_code == 0) == (scenario in ("dry_run", "success")), r.output
+    assert list(scratch.glob("*.zip")) == []
