@@ -273,7 +273,7 @@ def _fit_context_to_budget(context: str, adapter_config: dict, project_root: str
     if has_key and project_root:
         try:
             _run_preamble_oracle(context, truncated, project_root)
-        except Exception:
+        except Exception:  # advisory oracle: a failure must never block a brief
             logger.debug("preamble completeness oracle failed", exc_info=True)
     completeness_hint = " Run: python3 .ai/scripts/skill-completeness-check.py --context to verify." if has_key else ""
     warning = (

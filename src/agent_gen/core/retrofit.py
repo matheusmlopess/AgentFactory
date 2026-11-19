@@ -160,7 +160,7 @@ class RetrofitMixin(LibrarianBase):
                             dest_path.parent.mkdir(parents=True, exist_ok=True)
                             shutil.move(str(src_path), str(dest_path))
 
-            except Exception as exc:
+            except Exception as exc:  # any failure rolls back; the cause is chained
                 # Nothing outside the staging copy has been touched yet.
                 raise RuntimeError(f"Migration failed and was safely rolled back. Reason: {exc}") from exc
 
@@ -172,7 +172,7 @@ class RetrofitMixin(LibrarianBase):
             os.replace(self.agent_root, backup)
             try:
                 shutil.move(str(staging_path), str(self.agent_root))
-            except Exception as exc:
+            except Exception as exc:  # restore the original agent on any failure
                 if self.agent_root.exists():
                     shutil.rmtree(self.agent_root, ignore_errors=True)
                 os.replace(backup, self.agent_root)

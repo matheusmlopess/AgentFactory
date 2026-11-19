@@ -42,6 +42,6 @@ def _run_preamble_oracle(original: str, truncated: str, project_root: str) -> in
         score, _ = oracle.compute_score(atoms, results)
         logger.warning("⚠ preamble completeness: %s%%", score)
         return score
-    except Exception:
+    except Exception:  # optional external script: any failure means "no score"
         logger.debug("preamble oracle unavailable", exc_info=True)
         return None
