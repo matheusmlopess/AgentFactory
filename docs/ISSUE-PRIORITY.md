@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-11-19 13:46 UTC -->
-<!-- open-issues: 44 -->
+<!-- generated: 2026-11-19 13:51 UTC -->
+<!-- open-issues: 43 -->
 
 Living priority matrix — regenerated automatically on every push to `main`.
 Priority and effort come from the `p0`–`p3` and `size:S|M|L` labels.
@@ -13,7 +13,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ┌──────────────────┬───────────────────────────────────────────┐
   │  Track           │  Issues                                    │
   ├──────────────────┼───────────────────────────────────────────┤
-  │  Harness / CLI   │  #137  #138  #139  #145  #146  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #189  #190  #191  #194  #195  #196  #197  #198│
+  │  Harness / CLI   │  #137  #138  #139  #145  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #189  #190  #191  #194  #195  #196  #197  #198│
   │  Webapp / UI     │                                             │
   │  Platform Core   │  #192  #203                                 │
   │  Platform Upper  │  #200                                       │
@@ -29,7 +29,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #138    —                         —                         enhancement(cli): add agentfactory-gen upgrad
   #139    —                         #178                      enhancement(cli): promote skill-completeness-
   #145    —                         —                         Skill creation pipeline: 10 CLI gaps discover
-  #146    —                         —                         enhancement(cli): import atomicity + safety o
   #147    —                         —                         enhancement(cli): warn when skill version unc
   #148    —                         —                         enhancement(cli): add create-skill command wi
   #149    —                         —                         enhancement(cli): add test-skill smoke-test r
@@ -78,7 +77,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
 ```
   #       Pri  Effort    Track             Unblocks              Title
   ──────  ───  ────────  ────────────────  ────────────────────  ────────────────────────────────────────
-  #146    p1   medium    Harness / CLI     —                     enhancement(cli): import atomicity + safety o
   #191    p1   medium    Harness / CLI     #189                  ci: type checking, formatting, dependency and
   #203    p1   medium    Platform Core     —                     ops: deploy the API (api.agentfactory.dev)
   #137    p2   medium    Harness / CLI     —                     enhancement(cli): add agentfactory-gen status
@@ -159,5 +157,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-11-19 13:46 UTC by `generate-priority-report.py`._
+_Generated 2026-11-19 13:51 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
