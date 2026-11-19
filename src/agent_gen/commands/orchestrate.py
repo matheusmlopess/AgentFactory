@@ -131,21 +131,25 @@ def orchestrate_list(project_root: str):
     project_path = _assert_valid_project_root(project_root)
     ai_root = project_path / HARNESS_ROOT
 
-    found = []
+    found: list[tuple[str, Path]] = []
     project_wf = ai_root / "orchestration" / "workflows"
     if project_wf.exists():
-        for p in sorted(project_wf.iterdir()):
-            if p.name.endswith(_WORKFLOW_SUFFIXES):
-                found.append((p.stem.replace(".workflow", ""), p))
+        found.extend(
+            (p.stem.replace(".workflow", ""), p)
+            for p in sorted(project_wf.iterdir())
+            if p.name.endswith(_WORKFLOW_SUFFIXES)
+        )
     agents_root = ai_root / "agents"
     if agents_root.exists():
         for agent_dir in sorted(agents_root.iterdir()):
             wf_dir = agent_dir / "orchestration" / "workflows"
             if not wf_dir.exists():
                 continue
-            for p in sorted(wf_dir.iterdir()):
-                if p.name.endswith(_WORKFLOW_SUFFIXES):
-                    found.append((f"{agent_dir.name}/{p.stem.replace('.workflow', '')}", p))
+            found.extend(
+                (f"{agent_dir.name}/{p.stem.replace('.workflow', '')}", p)
+                for p in sorted(wf_dir.iterdir())
+                if p.name.endswith(_WORKFLOW_SUFFIXES)
+            )
 
     if not found:
         _echo("[orchestrate] no workflows found — run 'orchestrate init' to scaffold one")

@@ -87,7 +87,7 @@ def import_skill(path: str, target_agent: str, project_root: str):
         skill_name = librarian.import_skill(str(path_obj))
         _echo(f"[librarian] Successfully imported skill '{skill_name}' into '{target_agent}'.")
         _echo(f"  Path: {target_root / 'skills' / skill_name}")
-    except Exception as exc:
+    except (OSError, ValueError, zipfile.BadZipFile) as exc:
         _echo(f"[librarian] Skill import failed: {exc}", err=True)
         sys.exit(1)
 
@@ -225,11 +225,13 @@ def _resolve_bundle(zip_path, from_git, from_registry, checksum) -> tuple[Path, 
     if from_registry:
         _echo(f"[librarian] Fetching '{from_registry}' from registry...")
         registry_entry, zip_bytes = _remote._registry_fetch(from_registry)
-        tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
-        tmp.write(zip_bytes)
-        tmp.close()
-        zip_path = tmp.name
-        cleanup = lambda p=tmp.name: Path(p).unlink(missing_ok=True)  # noqa: E731
+        fd, tmp_name = tempfile.mkstemp(suffix=".zip")
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(zip_bytes)
+        zip_path = tmp_name
+
+        def cleanup() -> None:
+            Path(tmp_name).unlink(missing_ok=True)
 
         # The registry's own checksum is checked unless the user brings one (#144).
         registry_sha256 = registry_entry.get("sha256")

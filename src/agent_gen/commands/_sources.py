@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 import click
@@ -40,7 +41,7 @@ def _find_agent_dir(repo: Path) -> Path | None:
     return None
 
 
-def _clone_and_prepare(url: str) -> tuple[str, object]:
+def _clone_and_prepare(url: str) -> tuple[str, Callable[[], None]]:
     """
     Clone a git URL, retrofit it to AgentFactory standard, and wrap it as a ZIP.
 

@@ -4,6 +4,8 @@ Split out of cli.py (#190); `agent_gen.cli` is the entry point and re-exports th
 
 from __future__ import annotations
 
+import contextlib
+
 import click
 
 from . import _remote
@@ -22,10 +24,8 @@ def login(no_browser: bool):
     url = start.get("verification_uri_complete") or start["verification_uri"]
     click.echo(f"[librarian] Open {start['verification_uri']} and enter the code: {start['user_code']}")
     if not no_browser:
-        try:
+        with contextlib.suppress(webbrowser.Error, OSError):  # no browser: the URL is printed above
             webbrowser.open(url)
-        except Exception:
-            pass
     interval = float(start.get("interval", 5))
     deadline = time.monotonic() + int(start.get("expires_in", 600))
     while time.monotonic() < deadline:

@@ -87,7 +87,7 @@ def _registry_publish(manifest: dict, zip_path: Path) -> dict:
     except urllib.error.HTTPError as exc:
         try:
             detail = json.loads(exc.read().decode()).get("detail", exc.reason)
-        except Exception:
+        except (OSError, ValueError, AttributeError):  # body unreadable, not JSON, or not an object
             detail = exc.reason
         raise click.ClickException(f"Registry error {exc.code}: {detail}") from exc
     except urllib.error.URLError as exc:
@@ -159,7 +159,7 @@ def _api_json(method: str, path: str, payload: dict | None = None, auth: bool = 
     except urllib.error.HTTPError as exc:
         try:
             detail = json.loads(exc.read().decode()).get("detail", exc.reason)
-        except Exception:
+        except (OSError, ValueError, AttributeError):  # body unreadable, not JSON, or not an object
             detail = exc.reason
         raise click.ClickException(f"API error {exc.code}: {detail}") from exc
     except urllib.error.URLError as exc:

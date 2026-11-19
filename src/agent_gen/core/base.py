@@ -17,6 +17,9 @@ class LibrarianBase:
 
     if TYPE_CHECKING:  # implemented by the mixins; declared for the type checker only
 
+        @property
+        def project_root(self) -> str: ...
+
         def sync(self) -> dict: ...
         def _load_manifest(self) -> dict: ...
         @staticmethod

@@ -14,13 +14,17 @@ from ..librarian import (
 )
 
 
-def _agent_root(name: str) -> Path:
+def _agent_root(name: str, project_root: str = ".") -> Path:
+    """Directory of agent *name* inside the project at *project_root* (validated; legacy layout fallback)."""
     try:
         validate_name(name, "agent")
     except ValueError as exc:
         raise click.ClickException(str(exc)) from exc
-    new = Path.cwd() / HARNESS_ROOT / "agents" / name
-    legacy = Path.cwd() / "agents" / name
+    if project_root != ".":
+        _assert_valid_project_root(project_root)  # #143: must be an initialised harness
+    base = Path(project_root).resolve()
+    new = base / HARNESS_ROOT / "agents" / name
+    legacy = base / "agents" / name
     # Backward-compat: fall back to legacy path if .ai/agents/ doesn't exist yet
     if not new.parent.exists() and legacy.parent.exists():
         return legacy

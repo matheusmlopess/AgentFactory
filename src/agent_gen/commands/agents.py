@@ -20,13 +20,19 @@ from ._paths import _agent_root, _assert_within_root
 
 @cli.command()
 @click.argument("name")
-def deploy(name: str):
+@click.option(
+    "--project-root",
+    default=".",
+    show_default=True,
+    help="Root of the AgentFactory project (the folder that contains .ai/).",
+)
+def deploy(name: str, project_root: str):
     """
     Deploy a new agent directory and initialise its manifest.
 
     Creates:  agents/<name>/{skills,commands,docs,scripts,orchestration}/  + agent-manifest.json
     """
-    root = _agent_root(name)
+    root = _agent_root(name, project_root)
 
     if root.exists():
         _echo(f"[librarian] Agent '{name}' already exists at {root}.", err=True)
@@ -43,8 +49,8 @@ def deploy(name: str):
 
     # Register in the global project manifest so the agent appears in briefs
     # Only when a harness exists (skip if running outside an init'd project)
-    if Librarian._global_manifest_path(str(Path.cwd())).exists():
-        Librarian.register_in_project(manifest, str(Path.cwd()))
+    if Librarian._global_manifest_path(project_root).exists():
+        Librarian.register_in_project(manifest, project_root)
 
     _echo(f"[librarian] Deployed '{name}'")
     _echo(f"  Root   : {root}")
@@ -55,13 +61,19 @@ def deploy(name: str):
 
 @cli.command()
 @click.argument("name")
+@click.option(
+    "--project-root",
+    default=".",
+    show_default=True,
+    help="Root of the AgentFactory project (the folder that contains .ai/).",
+)
 @click.option("--desc", help="Description of the agent.")
 @click.option("--plan", help="Path to the orchestration plan (relative to agent root).")
-def describe(name: str, desc: str, plan: str):
+def describe(name: str, desc: str, plan: str, project_root: str):
     """
     Update agent metadata (description, orchestration plan).
     """
-    root = _agent_root(name)
+    root = _agent_root(name, project_root)
     librarian = Librarian(str(root))
 
     try:
@@ -79,17 +91,23 @@ def describe(name: str, desc: str, plan: str):
         manifest["orchestration_plan"] = plan
 
     librarian._save_manifest(manifest)
-    Librarian.sync_to_global(manifest, ".")
+    Librarian.sync_to_global(manifest, project_root)
     _echo(f"[librarian] Updated metadata for '{name}'")
 
 
 @cli.command()
 @click.argument("name")
-def uninstall(name: str):
+@click.option(
+    "--project-root",
+    default=".",
+    show_default=True,
+    help="Root of the AgentFactory project (the folder that contains .ai/).",
+)
+def uninstall(name: str, project_root: str):
     """
     Remove an agent and its registration.
     """
-    root = _agent_root(name)
+    root = _agent_root(name, project_root)
     librarian = Librarian(str(root))
 
     if not root.exists():
@@ -101,24 +119,30 @@ def uninstall(name: str):
         sys.exit(0)
 
     _echo(f"[librarian] Uninstalling '{name}'...")
-    librarian.uninstall()
-    Librarian.update_harness_files(".")
+    librarian.uninstall(project_root)
+    Librarian.update_harness_files(project_root)
     _echo(f"[librarian] Uninstalled '{name}'.")
 
 
 @cli.command()
 @click.argument("name")
 @click.option(
+    "--project-root",
+    default=".",
+    show_default=True,
+    help="Root of the AgentFactory project (the folder that contains .ai/).",
+)
+@click.option(
     "--fix",
     is_flag=True,
     default=False,
     help="Auto-sync manifest to resolve untracked-file warnings, then re-audit.",
 )
-def audit(name: str, fix: bool):
+def audit(name: str, fix: bool, project_root: str):
     """
     Check an agent for integrity drift and missing metadata.
     """
-    root = _agent_root(name)
+    root = _agent_root(name, project_root)
     librarian = Librarian(str(root))
 
     _echo(f"[librarian] Auditing '{name}'...")
@@ -180,6 +204,12 @@ def audit(name: str, fix: bool):
 @cli.command()
 @click.argument("name")
 @click.option(
+    "--project-root",
+    default=".",
+    show_default=True,
+    help="Root of the AgentFactory project (the folder that contains .ai/).",
+)
+@click.option(
     "--out",
     default=".",
     show_default=True,
@@ -200,11 +230,11 @@ def audit(name: str, fix: bool):
     help="Also write <zip>.sig, signed with this SSH private key (e.g. ~/.ssh/id_ed25519); "
     "`publish` uploads it and importers can verify it against your GitHub keys.",
 )
-def wrap(name: str, out: str, print_path: bool, sign_key: str | None):
+def wrap(name: str, out: str, print_path: bool, sign_key: str | None, project_root: str):
     """
     Validate and bundle an agent into a portable .zip package.
     """
-    root = _agent_root(name)
+    root = _agent_root(name, project_root)
     librarian = Librarian(str(root))
 
     _echo(f"[librarian] Syncing manifest for '{name}'...")
@@ -256,11 +286,17 @@ def wrap(name: str, out: str, print_path: bool, sign_key: str | None):
 
 @cli.command()
 @click.argument("name")
+@click.option(
+    "--project-root",
+    default=".",
+    show_default=True,
+    help="Root of the AgentFactory project (the folder that contains .ai/).",
+)
 @click.option("--version", "version_override", default=None, help="Override version from manifest.")
 @click.option("--tag", "tags", multiple=True, metavar="TAG", help="Discovery tag (repeatable).")
-def publish(name: str, version_override: str, tags: tuple):
+def publish(name: str, version_override: str, tags: tuple, project_root: str):
     """Upload a wrapped agent to the public registry."""
-    root = _agent_root(name)
+    root = _agent_root(name, project_root)
     librarian = Librarian(str(root))
     manifest = librarian._load_manifest()
 
@@ -333,10 +369,9 @@ def retrofit(path: str, yes: bool):
     for src, dest in mapping.items():
         _echo(f"  - {src} -> {dest}")
 
-    if not yes:
-        if not click.confirm("[librarian] Proceed with migration?"):
-            _echo("[librarian] Aborted.")
-            sys.exit(0)
+    if not yes and not click.confirm("[librarian] Proceed with migration?"):
+        _echo("[librarian] Aborted.")
+        sys.exit(0)
 
     # In-place migration
     librarian = Librarian(str(source_path))

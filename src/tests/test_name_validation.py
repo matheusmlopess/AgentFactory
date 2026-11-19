@@ -374,8 +374,12 @@ def test_registry_import_never_leaves_its_download_behind(tmp_path, monkeypatch,
 
     bundle = _bundle(tmp_path / "src.zip", "leak-check")
     data = bundle.read_bytes()
-    entry = {"name": "leak-check", "version": "1.0.0", "zip_url": "https://x/z.zip",
-             "sha256": hashlib.sha256(data).hexdigest()}
+    entry = {
+        "name": "leak-check",
+        "version": "1.0.0",
+        "zip_url": "https://x/z.zip",
+        "sha256": hashlib.sha256(data).hexdigest(),
+    }
     scratch = tmp_path / "tmpdir"
     scratch.mkdir()
     monkeypatch.setattr(tempfile, "tempdir", str(scratch))
