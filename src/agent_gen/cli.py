@@ -15,7 +15,7 @@ import click
 from . import __version__
 from .librarian import (
     TRACKED_DIRS, HARNESS_ROOT, MANIFEST_FILE, CONTEXT_FILE,
-    Librarian, _FORMAT_REGISTRY, _inspect_zip, validate_name,
+    Librarian, _FORMAT_REGISTRY, _inspect_zip, validate_name, _atomic_write_json,
 )
 
 DEFAULT_API_URL = "https://api.agentfactory.dev"
@@ -459,7 +459,6 @@ def init_project(project_root: str, primary: str):
 
     Safe to run on an existing project — skips items that already exist.
     """
-    import json as _json
     from datetime import datetime, timezone
 
     project_path = Path(project_root).resolve()
@@ -533,8 +532,7 @@ def init_project(project_root: str, primary: str):
             "created_at": datetime.now(timezone.utc).isoformat(),
             "agents": {},
         }
-        with open(global_manifest_path, "w") as f:
-            _json.dump(manifest, f, indent=2)
+        _atomic_write_json(global_manifest_path, manifest)
         _echo(f"  [created] {global_manifest_path.relative_to(project_path)}")
     else:
         _echo(f"  [skip] {global_manifest_path.relative_to(project_path)} (already exists)")
@@ -1285,29 +1283,44 @@ def import_agent(
         report = librarian.audit()
         if report["broken_resources"] or report["broken_dependencies"] or report.get("invalid_skill_manifests"):
             _echo("[librarian] Audit FAILED for imported bundle. Aborting...", err=True)
+            if _cleanup:
+                _cleanup()
             sys.exit(1)
 
-        # Move to final location
+        # Record where this agent came from (so `export` can patch changes back to it) while the
+        # bundle is still in the temp dir, so the project only ever sees a complete agent.
+        source_ref = None
+        if from_git:
+            source_ref = {"git": from_git}
+        elif from_registry:
+            source_ref = {"registry": from_registry}
+        if source_ref:
+            staged_manifest = temp_root / MANIFEST_FILE
+            try:
+                data = json.loads(staged_manifest.read_text())
+                data["source"] = source_ref
+                _atomic_write_json(staged_manifest, data)
+                manifest["source"] = source_ref
+            except (OSError, ValueError):
+                pass  # non-fatal: export can still take --git explicitly
+
+        # Move into place and register as one unit: if registration fails, undo the move (#146).
         target_root.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(temp_root), str(target_root))
-
-    _echo(f"[librarian] Registering '{name}' in project manifest...")
-    Librarian.register_in_project(manifest, project_root)
-
-    # Record where this agent came from so `export` can patch changes back to it.
-    source_ref = None
-    if from_git:
-        source_ref = {"git": from_git}
-    elif from_registry:
-        source_ref = {"registry": from_registry}
-    if source_ref:
-        agent_manifest = target_root / MANIFEST_FILE
+        _echo(f"[librarian] Registering '{name}' in project manifest...")
         try:
-            data = json.loads(agent_manifest.read_text())
-            data["source"] = source_ref
-            agent_manifest.write_text(json.dumps(data, indent=2))
-        except (OSError, ValueError):
-            pass  # non-fatal: export can still take --git explicitly
+            Librarian.register_in_project(manifest, project_root)
+        except Exception as exc:
+            shutil.rmtree(target_root, ignore_errors=True)
+            try:
+                Librarian.deregister_from_project(name, project_root)
+            except Exception:
+                pass
+            if _cleanup:
+                _cleanup()
+            raise click.ClickException(
+                f"Registration failed, import rolled back (nothing was left in {target_root.parent}): {exc}"
+            ) from exc
 
     # Clean up temp dir from --from-git clone
     if _cleanup:

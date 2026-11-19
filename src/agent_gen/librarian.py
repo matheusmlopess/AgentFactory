@@ -1011,7 +1011,7 @@ class Librarian:
                 data["version"] = fm_version
             if fm_triggers:
                 data["triggers"] = fm_triggers
-            manifest_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            _atomic_write_json(manifest_path, data)
         else:
             # Reconcile: update name/description; merge optional fields if present
             try:
@@ -1028,7 +1028,7 @@ class Librarian:
                 data["version"] = fm_version
             if fm_triggers:
                 data["triggers"] = fm_triggers
-            manifest_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            _atomic_write_json(manifest_path, data)
 
     @staticmethod
     def _check_repo_state(repo_state_path: Path) -> list[str]:
