@@ -170,9 +170,11 @@ agentfactory-gen orchestrate list                        # workflows in the proj
 agentfactory-gen orchestrate validate <workflow>         # check a workflow against the contract
 agentfactory-gen orchestrate run <workflow> --dry-run    # print steps without executing
 agentfactory-gen orchestrate run <workflow> --json       # run; RunResult as JSON (for nesting)
+agentfactory-gen orchestrate convert <workflow> --to canonical|af   # craft-plan/0.1 (CRAFT ADR 0002) ⇄ .workflow.json
 ```
 
-Steps run inside `--project-root`; evidence is written to `.ai/memory/orchestration-runs/`.
+Workflows are `.workflow.json` (AgentFactory) or `.plan.json` in the shared CRAFT format `craft-plan/0.1`; both load
+anywhere a workflow is accepted. Steps run inside `--project-root`; evidence is written to `.ai/memory/orchestration-runs/`.
 `claude` steps use your Claude subscription (API key variables are stripped); set
 `AGENTFACTORY_CLAUDE_BACKEND=api` to use `ANTHROPIC_API_KEY` instead.
 Design and roadmap: [`docs/DECISIONS-ORCHESTRATION.md`](docs/DECISIONS-ORCHESTRATION.md).

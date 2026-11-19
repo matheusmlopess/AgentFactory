@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 STEP_TYPES = ("shell", "agent", "delegate")
+PROVIDERS = ("", "cli", "anthropic", "openai")
 # Step field -> contract policy that supplies its default when the workflow omits it.
 POLICY_DEFAULTS = {
     "remediation": "default_remediation",
@@ -90,6 +91,9 @@ class WorkflowStep:
     timeout_seconds: int = 60
     depends_on: list[str] = field(default_factory=list)
     evidence_capture: dict = field(default_factory=lambda: {"stdout": True, "stderr": True, "exit_code": True})
+    provider: str = ""  # "" / cli = a CLI agent; anthropic / openai = SDK workers (not run by this executor)
+    model: str = ""  # passed to the CLI when its contract declares model_args
+    extensions: dict = field(default_factory=dict)  # x-* keys from a canonical plan, kept for round trips
 
     @classmethod
     def from_dict(cls, data: dict, *, seq: int = 0) -> WorkflowStep:
@@ -131,6 +135,8 @@ class WorkflowStep:
             raise ValueError(f"step '{self.id}': shell step requires 'command'")
         if self.type in ("agent", "delegate") and not self.prompt:
             raise ValueError(f"step '{self.id}': {self.type} step requires 'prompt'")
+        if self.provider not in PROVIDERS:
+            raise ValueError(f"step '{self.id}': unknown provider '{self.provider}' (use {'|'.join(PROVIDERS[1:])})")
         if self.expects and self.expects not in ("nonempty", "json") and not self.expects.startswith("regex:"):
             raise ValueError(f"step '{self.id}': expects must be nonempty|json|regex:<pattern>")
 
@@ -148,7 +154,12 @@ class WorkflowStep:
         return _TEMPLATE_RE.sub(_sub, self.prompt)
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        data = asdict(self)
+        # New optional fields stay out of the af-workflow file unless used, so existing files round-trip unchanged.
+        for key in ("provider", "model", "extensions"):
+            if not data[key]:
+                del data[key]
+        return data
 
 
 @dataclass
@@ -162,6 +173,7 @@ class Workflow:
     workflow_id: str = field(default_factory=lambda: f"wf-{uuid.uuid4().hex[:12]}")
     created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     steps: list[WorkflowStep] = field(default_factory=list)
+    extensions: dict = field(default_factory=dict)  # root x-* keys from a canonical plan (e.g. x-studio)
 
     @classmethod
     def from_dict(cls, data: dict) -> Workflow:
@@ -207,6 +219,7 @@ class Workflow:
             workflow_id=self.workflow_id,
             created_at=self.created_at,
             steps=merged,
+            extensions=dict(self.extensions),
         )
         return clone
 
@@ -219,6 +232,7 @@ class Workflow:
             "workflow_id": self.workflow_id,
             "created_at": self.created_at,
             "steps": [s.to_dict() for s in self.steps],
+            **({"extensions": self.extensions} if self.extensions else {}),
         }
 
 
@@ -275,7 +289,7 @@ def load_workflow(path: str | Path) -> Workflow:
     text = p.read_text(encoding="utf-8")
 
     if p.suffix == ".json" or p.name.endswith(".workflow.json"):
-        return Workflow.from_dict(json.loads(text))
+        return _from_any_dialect(json.loads(text))
 
     if p.suffix == ".md":
         meta = _parse_flat_frontmatter(text)
@@ -286,7 +300,7 @@ def load_workflow(path: str | Path) -> Workflow:
         for key in ("name", "version", "description", "mode"):
             if key in meta and key not in data:
                 data[key] = meta[key]
-        return Workflow.from_dict(data)
+        return _from_any_dialect(data)
 
     raise ValueError(f"{p}: unsupported workflow format (use .workflow.json or .md)")
 
@@ -323,8 +337,21 @@ def validate_workflow_data(data: Any) -> list[str]:
     issues: list[str] = []
     if not isinstance(data, dict):
         return ["workflow root must be a JSON object"]
+    from .canonical import canonical_issues, is_canonical
+
+    if is_canonical(data):
+        issues = canonical_issues(data)
+        if issues:
+            return issues
     try:
-        Workflow.from_dict(data)
+        _from_any_dialect(data)
     except (ValueError, TypeError) as exc:
         issues.append(str(exc))
     return issues
+
+
+def _from_any_dialect(data: dict) -> Workflow:
+    """A canonical plan (version craft-plan/0.1, ADR 0002) or AgentFactory's own af-workflow format."""
+    from .canonical import from_canonical, is_canonical
+
+    return from_canonical(data) if is_canonical(data) else Workflow.from_dict(data)

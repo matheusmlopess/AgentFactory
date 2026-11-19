@@ -3,6 +3,14 @@
 
 ## [Unreleased]
 
+### Added (orchestrate, #194)
+- Canonical plans: `orchestrate` reads and writes `craft-plan/0.1` (CRAFT ADR 0002) next to its own
+  `.workflow.json`. `.plan.json` files load everywhere a workflow is accepted; `orchestrate convert --to
+  canonical|af` converts; `validate` shows the dialect. `x-*` keys round-trip, `agy` maps to `antigravity`,
+  step ids are checked, and the plan revision travels in `x-af.version`.
+- Steps can name a `provider` and a `model`. SDK providers (`anthropic`, `openai`) load but are refused by the
+  CLI executor; `model` reaches the CLI through the agent's new `model_args` (claude `--model`, codex `-m`).
+
 ### Changed (CLI structure, #190)
 - `cli.py` (2,046 lines) is split into `agent_gen.commands`: `project` (init, adapter, brief), `agents`
   (deploy, describe, uninstall, audit, wrap, sign, publish, retrofit), `account`, `transfer` (import,

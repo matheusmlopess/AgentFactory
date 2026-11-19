@@ -16,7 +16,7 @@ from ..librarian import (
 from ._group import _echo, cli
 from ._paths import _assert_valid_project_root
 
-_WORKFLOW_SUFFIXES = (".workflow.json", ".md")
+_WORKFLOW_SUFFIXES = (".plan.json", ".workflow.json", ".md")  # .plan.json: canonical craft-plan/0.1
 
 
 def _resolve_workflow_path(spec: str, project_path: Path) -> Path:
@@ -99,7 +99,11 @@ def orchestrate_validate(workflow: str, project_root: str):
     wf = contract = None
     try:
         wf = load_workflow(wf_path)
-        _echo(f"[orchestrate] workflow '{wf.name}' v{wf.version}: {len(wf.steps)} step(s)")
+        dialect = _dialect_of(wf_path)
+        _echo(f"[orchestrate] workflow '{wf.name}' v{wf.version} ({dialect}): {len(wf.steps)} step(s)")
+        for s in wf.steps:
+            if s.type == "agent" and s.provider not in ("", "cli"):
+                _echo(f"[orchestrate] ⚠  step '{s.id}': provider '{s.provider}' is not run by the CLI executor")
     except (ValueError, FileNotFoundError, json.JSONDecodeError) as exc:
         issues.append(f"workflow: {exc}")
 
@@ -200,3 +204,49 @@ def orchestrate_init(project_root: str):
         _echo(f"  [created] {wf_path.relative_to(project_path)}")
 
     _echo("\n[orchestrate] Ready. Try: agentfactory-gen orchestrate run example --dry-run")
+
+
+def _dialect_of(path: Path) -> str:
+    from ..orchestrate.canonical import FORMAT, is_canonical
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8")) if path.suffix == ".json" else None
+    except (OSError, ValueError):
+        data = None
+    return FORMAT if is_canonical(data) else "af-workflow"
+
+
+@orchestrate_group.command("convert")
+@click.argument("workflow")
+@click.option(
+    "--to",
+    "target",
+    type=click.Choice(["canonical", "af"]),
+    default="canonical",
+    show_default=True,
+    help="canonical = craft-plan/0.1 (CRAFT ADR 0002); af = AgentFactory's .workflow.json format.",
+)
+@click.option("--output", "-o", default=None, help="Write here instead of stdout.")
+@click.option("--project-root", default=".", show_default=True)
+def orchestrate_convert(workflow: str, target: str, output: str | None, project_root: str):
+    """Convert WORKFLOW between the canonical plan format and AgentFactory's own."""
+    from ..orchestrate import load_workflow
+    from ..orchestrate.canonical import to_canonical
+
+    project_path = _assert_valid_project_root(project_root)
+    wf = load_workflow(_resolve_workflow_path(workflow, project_path))
+    try:
+        data = to_canonical(wf) if target == "canonical" else wf.to_dict()
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if target == "af":
+        data.pop("workflow_id", None)
+        data.pop("created_at", None)
+        for step in data["steps"]:
+            step.pop("seq", None)
+    text = json.dumps(data, indent=2) + "\n"
+    if output:
+        Path(output).write_text(text, encoding="utf-8")
+        _echo(f"[orchestrate] wrote {output}")
+    else:
+        click.echo(text, nl=False)

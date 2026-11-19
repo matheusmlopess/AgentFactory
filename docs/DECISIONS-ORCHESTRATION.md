@@ -255,3 +255,21 @@ sequenceDiagram
 - Delegate-authored shell steps → gated by `allow_shell_steps`, checkpoint mode recommended for delegate workflows, audit warns.
 - Quota-limited workers → empty-output/provider-marker ⇒ exit-125 evidence, never silent success.
 - Parallel evidence races → per-step files, RunResult assembled single-threaded.
+
+## Canonical plan format (#194, CRAFT ADR 0002)
+
+`orchestrate` reads and writes the shared CRAFT plan format `craft-plan/0.1` (`agent_gen.orchestrate.canonical`), so
+plans move between the harness, the webapp, Twinwork and AgentFactory. `Workflow`/`WorkflowStep` stay the internal
+model; `load_workflow` picks the dialect from `version`.
+
+| Canonical | AgentFactory |
+|---|---|
+| `version: "craft-plan/0.1"` (format tag) | plan revision in `x-af.version` ↔ `Workflow.version` |
+| `x-*` keys (root and step, e.g. `x-studio`) | kept in `extensions`, written back on conversion |
+| `agent: "agy"` | contract key `antigravity` |
+| `provider: anthropic|openai` | loads; the CLI executor refuses the step (exit 126) |
+| `model` | passed to the CLI through the agent's `model_args` (claude `--model`, codex `-m`) |
+| array order | `seq` (internal); `workflow_id`/`created_at` are run data |
+
+`agentfactory-gen orchestrate convert <wf> --to canonical|af` converts files; `validate` names the dialect.
+
