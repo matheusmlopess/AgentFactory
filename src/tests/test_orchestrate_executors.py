@@ -3,6 +3,7 @@
 All runs go through the public API (run_workflow) against a project whose
 contract wires agents to the fake stub — the same path the CLI takes.
 """
+
 import json
 
 import pytest
@@ -28,8 +29,7 @@ class TestHappyPath:
     def test_shell_then_agent_with_templating(self, orch_project):
         wf = _wf(
             _shell("collect", "echo repo-is-clean"),
-            _agent("summarize", "Summarize: {steps.collect.stdout}",
-                   depends_on=["collect"], expects="nonempty"),
+            _agent("summarize", "Summarize: {steps.collect.stdout}", depends_on=["collect"], expects="nonempty"),
         )
         result = run_workflow(wf, project_root=orch_project)
         assert result.ok, result.statuses
@@ -117,8 +117,7 @@ class TestExpectsAndPolicies:
         assert result.statuses["a"] == "failed"
 
     def test_blocked_clearance_refused(self, orch_project):
-        wf = _wf(_shell("a", "echo hi", security_clearance="blocked",
-                        remediation="abort"))
+        wf = _wf(_shell("a", "echo hi", security_clearance="blocked", remediation="abort"))
         result = run_workflow(wf, project_root=orch_project)
         ev = result.evidence[-1]
         assert ev.exit_code == EXIT_POLICY_BLOCKED
@@ -199,16 +198,22 @@ class TestContractPoliciesAndProjectRoot:
     def test_policy_defaults_apply_to_unset_fields(self, orch_project):
         contract = orch_project / ".ai" / "config" / "orchestration.json"
         data = json.loads(contract.read_text()) if contract.exists() else {}
-        data.setdefault("policies", {}).update(
-            {"default_remediation": "retry", "max_retries": 2, "timeout_seconds": 7}
-        )
+        data.setdefault("policies", {}).update({"default_remediation": "retry", "max_retries": 2, "timeout_seconds": 7})
         contract.parent.mkdir(parents=True, exist_ok=True)
         contract.write_text(json.dumps(data))
-        wf = self._from_dict([
-            {"id": "bad", "type": "shell", "command": "exit 1"},
-            {"id": "own", "type": "shell", "command": "true", "timeout_seconds": 3,
-             "remediation": "skip", "max_retries": 0},
-        ])
+        wf = self._from_dict(
+            [
+                {"id": "bad", "type": "shell", "command": "exit 1"},
+                {
+                    "id": "own",
+                    "type": "shell",
+                    "command": "true",
+                    "timeout_seconds": 3,
+                    "remediation": "skip",
+                    "max_retries": 0,
+                },
+            ]
+        )
         result = run_workflow(wf, project_root=orch_project)
         bad, own = wf.steps
         assert (bad.remediation, bad.max_retries, bad.timeout_seconds) == ("retry", 2, 7)
@@ -222,10 +227,13 @@ class TestContractPoliciesAndProjectRoot:
 
     def test_depth_passed_to_children_without_touching_own_env(self, orch_project, monkeypatch):
         import os
+
         monkeypatch.delenv("AGENTFACTORY_ORCH_DEPTH", raising=False)
-        wf = self._from_dict([
-            {"id": "d", "type": "shell", "command": "echo depth=$AGENTFACTORY_ORCH_DEPTH"},
-        ])
+        wf = self._from_dict(
+            [
+                {"id": "d", "type": "shell", "command": "echo depth=$AGENTFACTORY_ORCH_DEPTH"},
+            ]
+        )
         result = run_workflow(wf, project_root=orch_project)
         assert result.evidence[0].stdout.strip() == "depth=1"
         assert "AGENTFACTORY_ORCH_DEPTH" not in os.environ

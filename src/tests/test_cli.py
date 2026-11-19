@@ -9,6 +9,7 @@ from agent_gen.librarian import HARNESS_ROOT
 
 AGENTS = f"{HARNESS_ROOT}/agents"
 
+
 class TestCliCommands(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
@@ -155,6 +156,7 @@ class TestCliCommands(unittest.TestCase):
     def test_import_skill_zip(self):
         with self.runner.isolated_filesystem():
             import zipfile
+
             # 1. Setup target agent
             self.runner.invoke(cli, ["deploy", "target-agent"])
 
@@ -166,7 +168,7 @@ class TestCliCommands(unittest.TestCase):
             (skill_path / "logic.py").write_text("pass")
 
             zip_name = "skill.zip"
-            with zipfile.ZipFile(zip_name, 'w') as zf:
+            with zipfile.ZipFile(zip_name, "w") as zf:
                 zf.write(skill_path / "skill-manifest.json", "skill-manifest.json")
                 zf.write(skill_path / "logic.py", "logic.py")
 
@@ -188,8 +190,17 @@ class TestCliCommands(unittest.TestCase):
             self.assertEqual(result.exit_code, 0)
 
             # Directory tree
-            for subdir in ["adapters/claude", "adapters/gemini", "adapters/antigravity", "adapters/codex",
-                           "rules", "commands", "skills", "agents", "memory"]:
+            for subdir in [
+                "adapters/claude",
+                "adapters/gemini",
+                "adapters/antigravity",
+                "adapters/codex",
+                "rules",
+                "commands",
+                "skills",
+                "agents",
+                "memory",
+            ]:
                 self.assertTrue(os.path.isdir(f".ai/{subdir}"), f"missing .ai/{subdir}")
 
             # Milestone file scaffolded
@@ -292,10 +303,14 @@ class TestCliCommands(unittest.TestCase):
                 os.makedirs(cloned_dir, exist_ok=True)
                 # Minimal agent scaffold so the pipeline can proceed
                 import json as _j
+
                 manifest = {
-                    "name": "cloned-agent", "version": "1.0.0",
+                    "name": "cloned-agent",
+                    "version": "1.0.0",
                     "resources": {"skills": [], "commands": [], "docs": [], "scripts": [], "orchestration": []},
-                    "dependencies": {}, "description": "", "git_ref": "abc123",
+                    "dependencies": {},
+                    "description": "",
+                    "git_ref": "abc123",
                 }
                 with open(os.path.join(cloned_dir, "agent-manifest.json"), "w") as fh:
                     _j.dump(manifest, fh)
@@ -304,12 +319,9 @@ class TestCliCommands(unittest.TestCase):
                 return r
 
             with mock.patch("agent_gen.cli.subprocess.run", side_effect=fake_clone):
-                result = self.runner.invoke(
-                    cli, ["import", "--from-git", "https://github.com/user/cloned-agent"]
-                )
+                result = self.runner.invoke(cli, ["import", "--from-git", "https://github.com/user/cloned-agent"])
             # Should not fail with URL validation error
             self.assertNotIn("Invalid git URL", result.output)
-
 
     # --- Error paths & edge cases ---
 
@@ -574,9 +586,7 @@ class TestCliCommands(unittest.TestCase):
             skill_dir = Path(f"{HARNESS_ROOT}/skills/big-skill")
             skill_dir.mkdir(parents=True)
             oversized = "x" * 11_000
-            (skill_dir / "SKILL.md").write_text(
-                f"---\nname: big-skill\ndescription: test\n---\n{oversized}\n"
-            )
+            (skill_dir / "SKILL.md").write_text(f"---\nname: big-skill\ndescription: test\n---\n{oversized}\n")
             result = self.runner.invoke(cli, ["adapter", "add", "codex"])
             self.assertEqual(result.exit_code, 0, result.output)
             self.assertIn("exceed", result.output)
@@ -589,12 +599,8 @@ class TestCliCommands(unittest.TestCase):
             self.runner.invoke(cli, ["init", "--primary", "claude"])
             skill_dir = Path(f"{HARNESS_ROOT}/skills/big-skill")
             skill_dir.mkdir(parents=True)
-            (skill_dir / "SKILL.md").write_text(
-                "---\nname: big-skill\ndescription: test\n---\n" + "x" * 11_000
-            )
-            result = self.runner.invoke(
-                cli, ["adapter", "add", "codex", "--check-completeness"]
-            )
+            (skill_dir / "SKILL.md").write_text("---\nname: big-skill\ndescription: test\n---\n" + "x" * 11_000)
+            result = self.runner.invoke(cli, ["adapter", "add", "codex", "--check-completeness"])
             self.assertEqual(result.exit_code, 0, result.output)
             # Script is not present in isolated filesystem → script-not-found warning
             self.assertIn("completeness script not found", result.output)
@@ -625,9 +631,7 @@ class TestCliCommands(unittest.TestCase):
             config_dir = Path(f"{HARNESS_ROOT}/config")
             config_dir.mkdir(parents=True)
             # No 'claude' key — should fall back to default 85
-            (config_dir / "completeness.json").write_text(
-                '{"completeness": {"thresholds": {}, "default": 85}}'
-            )
+            (config_dir / "completeness.json").write_text('{"completeness": {"thresholds": {}, "default": 85}}')
             skill_dir = Path(f"{HARNESS_ROOT}/skills/big-skill")
             skill_dir.mkdir(parents=True)
             (skill_dir / "SKILL.md").write_text("---\nname: big-skill\ndescription: t\n---\n" + "x" * 19_000)
@@ -670,9 +674,9 @@ class TestCliCommands(unittest.TestCase):
             self.runner.invoke(cli, ["init", "--primary", "claude"])
             self.runner.invoke(cli, ["adapter", "add", "codex"])
             claude_brief = Path(f"{HARNESS_ROOT}/adapters/claude/brief.md").read_text()
-            codex_brief  = Path(f"{HARNESS_ROOT}/adapters/codex/brief.md").read_text()
+            codex_brief = Path(f"{HARNESS_ROOT}/adapters/codex/brief.md").read_text()
             self.assertIn("claude", claude_brief.split("YOU ARE HERE")[0].split("\n")[-1])
-            self.assertIn("codex",  codex_brief.split("YOU ARE HERE")[0].split("\n")[-1])
+            self.assertIn("codex", codex_brief.split("YOU ARE HERE")[0].split("\n")[-1])
 
     def test_brief_cmd_no_harness_errors(self):
         """brief command exits non-zero when there is no .ai/ harness."""
@@ -697,6 +701,7 @@ class TestCliCommands(unittest.TestCase):
             os.symlink(f"{HARNESS_ROOT}/AgentFactory.md", "CLAUDE.md")
             # Run brief to trigger migration
             from agent_gen.librarian import Librarian
+
             Librarian.update_harness_files(".")
             target = os.readlink("CLAUDE.md")
             self.assertIn("brief.md", target)
@@ -708,6 +713,7 @@ class TestCliCommands(unittest.TestCase):
             Path(f"{HARNESS_ROOT}/AgentFactory.md").write_text("# Context\n")
             os.symlink(f"{HARNESS_ROOT}/AgentFactory.md", "CLAUDE.md")
             from agent_gen.librarian import Librarian
+
             Librarian._migrate_root_symlinks(".")
             # Brief doesn't exist → symlink unchanged
             self.assertIn("AgentFactory.md", os.readlink("CLAUDE.md"))
@@ -799,9 +805,7 @@ class TestWave1Fixes(unittest.TestCase):
             shutil.copytree(str(src), str(dst))
 
             # Importing into target-project should fail because the agent already exists there
-            result = self.runner.invoke(
-                cli, ["import", zip_name, "--project-root", str(target)]
-            )
+            result = self.runner.invoke(cli, ["import", zip_name, "--project-root", str(target)])
             self.assertNotEqual(result.exit_code, 0)
             self.assertIn("already exists", result.output)
 
@@ -850,12 +854,8 @@ class TestWave1Fixes(unittest.TestCase):
             skill_dir = Path("bad-skill")
             skill_dir.mkdir()
             # description field is missing — still required by the open standard
-            (skill_dir / "SKILL.md").write_text(
-                "---\nname: bad-skill\nversion: 1.0.0\n---\n"
-            )
-            result = self.runner.invoke(
-                cli, ["import-skill", str(skill_dir), "--to", "validate-agent"]
-            )
+            (skill_dir / "SKILL.md").write_text("---\nname: bad-skill\nversion: 1.0.0\n---\n")
+            result = self.runner.invoke(cli, ["import-skill", str(skill_dir), "--to", "validate-agent"])
             self.assertNotEqual(result.exit_code, 0)
             self.assertIn("description", result.output.lower())
 
@@ -869,9 +869,7 @@ class TestWave1Fixes(unittest.TestCase):
             (skill_dir / "SKILL.md").write_text(
                 "---\nname: open-skill\ndescription: A cross-agent open-standard skill\n---\n"
             )
-            result = self.runner.invoke(
-                cli, ["import-skill", str(skill_dir), "--to", "validate-agent"]
-            )
+            result = self.runner.invoke(cli, ["import-skill", str(skill_dir), "--to", "validate-agent"])
             self.assertEqual(result.exit_code, 0, result.output)
 
 
@@ -937,9 +935,7 @@ class TestWave2Security(unittest.TestCase):
             self.runner.invoke(cli, ["uninstall", "script-agent"], input="y\n")
 
             # Answer 'n' — import should be cancelled
-            result = self.runner.invoke(
-                cli, ["import", str(zip_path)], input="n\n"
-            )
+            result = self.runner.invoke(cli, ["import", str(zip_path)], input="n\n")
             self.assertEqual(result.exit_code, 0, result.output)
             self.assertIn("cancelled", result.output.lower())
             self.assertFalse(Path(f"{AGENTS}/script-agent").exists())
@@ -951,9 +947,7 @@ class TestWave2Security(unittest.TestCase):
             zip_path = self._make_agent_zip(self.runner, "skip-script-agent", with_scripts=True)
             self.runner.invoke(cli, ["uninstall", "skip-script-agent"], input="y\n")
 
-            result = self.runner.invoke(
-                cli, ["import", str(zip_path), "--allow-scripts"]
-            )
+            result = self.runner.invoke(cli, ["import", str(zip_path), "--allow-scripts"])
             self.assertEqual(result.exit_code, 0, result.output)
             self.assertTrue(Path(f"{AGENTS}/skip-script-agent").exists())
 
@@ -989,9 +983,7 @@ class TestWave2Security(unittest.TestCase):
             sidecar = Path("check-agent-v1.0.0.zip.sha256")
             self.runner.invoke(cli, ["uninstall", "check-agent"], input="y\n")
 
-            result = self.runner.invoke(
-                cli, ["import", str(zip_path), "--checksum", str(sidecar)]
-            )
+            result = self.runner.invoke(cli, ["import", str(zip_path), "--checksum", str(sidecar)])
             self.assertEqual(result.exit_code, 0, result.output)
             self.assertIn("verified", result.output.lower())
 
@@ -1005,9 +997,7 @@ class TestWave2Security(unittest.TestCase):
             zip_path.write_bytes(b"garbage" + zip_path.read_bytes())
             self.runner.invoke(cli, ["uninstall", "tamper-agent"], input="y\n")
 
-            result = self.runner.invoke(
-                cli, ["import", str(zip_path), "--checksum", str(sidecar)]
-            )
+            result = self.runner.invoke(cli, ["import", str(zip_path), "--checksum", str(sidecar)])
             self.assertNotEqual(result.exit_code, 0)
             self.assertIn("mismatch", result.output.lower())
 
@@ -1022,9 +1012,7 @@ class TestWave2Security(unittest.TestCase):
             # Point to a dir with no .ai/
             bad_root = Path("not-a-project")
             bad_root.mkdir()
-            result = self.runner.invoke(
-                cli, ["import", str(zip_path), "--project-root", str(bad_root)]
-            )
+            result = self.runner.invoke(cli, ["import", str(zip_path), "--project-root", str(bad_root)])
             self.assertNotEqual(result.exit_code, 0)
             self.assertIn("not an AgentFactory project", result.output)
 
@@ -1044,8 +1032,7 @@ class TestGapMitigations(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
 
-    def _make_agent_zip(self, runner, name="gap-agent", with_scripts=False,
-                        with_shebang_cmd=False) -> Path:
+    def _make_agent_zip(self, runner, name="gap-agent", with_scripts=False, with_shebang_cmd=False) -> Path:
         runner.invoke(cli, ["deploy", name])
         Path(f"{AGENTS}/{name}/docs/readme.md").write_text("# hi")
         if with_scripts:
@@ -1095,19 +1082,19 @@ class TestGapMitigations(unittest.TestCase):
         with self.runner.isolated_filesystem():
             # Init two side-by-side project roots
             import os
+
             os.makedirs("proj-a")
             self.runner.invoke(cli, ["init", "--project-root", "proj-a"])
 
             skill_path = Path("my-skill")
             skill_path.mkdir()
             import json as _j
+
             with open(skill_path / "skill-manifest.json", "w") as f:
                 _j.dump({"name": "my-skill", "version": "1.0.0", "description": "test"}, f)
             (skill_path / "logic.md").write_text("content")
 
-            result = self.runner.invoke(
-                cli, ["import-skill", str(skill_path), "--project-root", "proj-a"]
-            )
+            result = self.runner.invoke(cli, ["import-skill", str(skill_path), "--project-root", "proj-a"])
             self.assertEqual(result.exit_code, 0, result.output)
             self.assertTrue(Path("proj-a/.ai/skills/my-skill/logic.md").exists())
 
@@ -1115,16 +1102,16 @@ class TestGapMitigations(unittest.TestCase):
         """import-skill --project-root to a non-harness dir exits non-zero."""
         with self.runner.isolated_filesystem():
             import os
+
             os.makedirs("not-a-project")
             skill_path = Path("dummy-skill")
             skill_path.mkdir()
             import json as _j
+
             with open(skill_path / "skill-manifest.json", "w") as f:
                 _j.dump({"name": "dummy", "version": "1.0.0", "description": "d"}, f)
 
-            result = self.runner.invoke(
-                cli, ["import-skill", str(skill_path), "--project-root", "not-a-project"]
-            )
+            result = self.runner.invoke(cli, ["import-skill", str(skill_path), "--project-root", "not-a-project"])
             self.assertNotEqual(result.exit_code, 0)
             self.assertIn("not an AgentFactory project", result.output)
 
@@ -1151,9 +1138,7 @@ class TestGapMitigations(unittest.TestCase):
         """import prompts when commands/ contains a file with a shebang line."""
         with self.runner.isolated_filesystem():
             self.runner.invoke(cli, ["init"])
-            zip_path = self._make_agent_zip(
-                self.runner, "shebang-cmd-agent", with_shebang_cmd=True
-            )
+            zip_path = self._make_agent_zip(self.runner, "shebang-cmd-agent", with_shebang_cmd=True)
             self.runner.invoke(cli, ["uninstall", "shebang-cmd-agent"], input="y\n")
 
             # Answer 'n' — import should be cancelled
@@ -1166,14 +1151,10 @@ class TestGapMitigations(unittest.TestCase):
         """--allow-scripts bypasses the shebang gate for commands/ files."""
         with self.runner.isolated_filesystem():
             self.runner.invoke(cli, ["init"])
-            zip_path = self._make_agent_zip(
-                self.runner, "shebang-allow-agent", with_shebang_cmd=True
-            )
+            zip_path = self._make_agent_zip(self.runner, "shebang-allow-agent", with_shebang_cmd=True)
             self.runner.invoke(cli, ["uninstall", "shebang-allow-agent"], input="y\n")
 
-            result = self.runner.invoke(
-                cli, ["import", str(zip_path), "--allow-scripts"]
-            )
+            result = self.runner.invoke(cli, ["import", str(zip_path), "--allow-scripts"])
             self.assertEqual(result.exit_code, 0, result.output)
             self.assertTrue(Path(f"{AGENTS}/shebang-allow-agent").exists())
 
@@ -1183,9 +1164,7 @@ class TestGapMitigations(unittest.TestCase):
             self.runner.invoke(cli, ["init"])
             # Normal commands/ file without shebang
             self.runner.invoke(cli, ["deploy", "no-shebang-agent"])
-            Path(f"{AGENTS}/no-shebang-agent/commands/task.md").write_text(
-                "# Task\nDo something."
-            )
+            Path(f"{AGENTS}/no-shebang-agent/commands/task.md").write_text("# Task\nDo something.")
             self.runner.invoke(cli, ["wrap", "no-shebang-agent"])
             zip_path = Path("no-shebang-agent-v1.0.0.zip")
             self.runner.invoke(cli, ["uninstall", "no-shebang-agent"], input="y\n")
@@ -1195,5 +1174,5 @@ class TestGapMitigations(unittest.TestCase):
             self.assertNotIn("executable script", result.output.lower())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -159,7 +159,7 @@ class TestAutoStubSkillManifests(unittest.TestCase):
             "agents": {
                 "qa-writer": "Writes comprehensive unit tests.",
                 "security": "Scans for OWASP vulnerabilities.",
-            }
+            },
         }
         Librarian._auto_stub_skill_manifests(str(self.agent_dir), ctx)
 

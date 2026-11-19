@@ -9,10 +9,16 @@ import click
 
 from agent_gen.cli import _assert_within_root
 from agent_gen.librarian import (
-    _sanitize_for_markdown, Librarian,
-    _FORMAT_REGISTRY, _FORMATTER_DISPATCH,
-    _fmt_skills_table, _fmt_skills_blocks, _fmt_skills_tools,
-    _fmt_commands_list, _fmt_agents_list, _fmt_rules_list,
+    _sanitize_for_markdown,
+    Librarian,
+    _FORMAT_REGISTRY,
+    _FORMATTER_DISPATCH,
+    _fmt_skills_table,
+    _fmt_skills_blocks,
+    _fmt_skills_tools,
+    _fmt_commands_list,
+    _fmt_agents_list,
+    _fmt_rules_list,
 )
 
 
@@ -92,6 +98,7 @@ class TestAgentNameSanitization(unittest.TestCase):
         # We test the name sanitization logic indirectly by checking the
         # _clone_and_prepare path. Here we test the regex directly.
         import re
+
         name = url.rstrip("/").split("/")[-1]
         if name.endswith(".git"):
             name = name[:-4]
@@ -127,10 +134,14 @@ class TestRegisterInProjectSanitizes(unittest.TestCase):
             project_root = tmp
             manifest_path = Path(tmp) / ".ai" / "agent-manifest.json"
             manifest_path.parent.mkdir(parents=True)
-            manifest_path.write_text(json.dumps({
-                "factory": "AgentFactory",
-                "agents": {},
-            }))
+            manifest_path.write_text(
+                json.dumps(
+                    {
+                        "factory": "AgentFactory",
+                        "agents": {},
+                    }
+                )
+            )
 
             imported = {
                 "name": "test-agent",
@@ -172,9 +183,17 @@ class TestFormatRegistryIntegrity(unittest.TestCase):
     """FormatSwitch registry completeness and formatter robustness."""
 
     _REQUIRED_KEYS = [
-        "output", "header", "root_files", "folder_symlink",
-        "wiring", "config_file", "config_default",
-        "skill_path_template", "command_prefix", "sections", "section_order",
+        "output",
+        "header",
+        "root_files",
+        "folder_symlink",
+        "wiring",
+        "config_file",
+        "config_default",
+        "skill_path_template",
+        "command_prefix",
+        "sections",
+        "section_order",
     ]
 
     def test_format_registry_completeness(self):
@@ -201,8 +220,12 @@ class TestFormatRegistryIntegrity(unittest.TestCase):
             "command_prefix": "/",
         }
         formatters = [
-            _fmt_skills_table, _fmt_skills_blocks, _fmt_skills_tools,
-            _fmt_commands_list, _fmt_agents_list, _fmt_rules_list,
+            _fmt_skills_table,
+            _fmt_skills_blocks,
+            _fmt_skills_tools,
+            _fmt_commands_list,
+            _fmt_agents_list,
+            _fmt_rules_list,
         ]
         for fn in formatters:
             result = fn([], empty_config)

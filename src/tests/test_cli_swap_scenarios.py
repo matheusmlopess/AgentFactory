@@ -15,6 +15,7 @@ Run Tier 1 only:
 Run Tier 2 (live CLIs required):
     pytest src/tests/test_cli_swap_scenarios.py -m live -v
 """
+
 import json
 import os
 import shutil
@@ -39,12 +40,12 @@ def runner():
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _add_skill(root: Path, name: str, desc: str = "Test skill") -> None:
     sd = root / HARNESS_ROOT / "skills" / name
     sd.mkdir(parents=True, exist_ok=True)
     (sd / "skill-manifest.json").write_text(
-        json.dumps({"name": name, "description": desc,
-                    "triggers": f"when you need {name}", "input": ""}),
+        json.dumps({"name": name, "description": desc, "triggers": f"when you need {name}", "input": ""}),
         encoding="utf-8",
     )
 
@@ -69,6 +70,7 @@ def _you_are_here_row(content: str) -> str:
 # Class A — init with each primary adapter
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestInitPrimary:
     """init --primary <adapter> creates all root files + correct YOU ARE HERE."""
 
@@ -85,8 +87,7 @@ class TestInitPrimary:
             content = _read_brief(adapter)
             row = _you_are_here_row(content)
             assert row, f"← YOU ARE HERE not found in {adapter} brief"
-            assert adapter in row, \
-                f"YOU ARE HERE row does not mention '{adapter}': {row!r}"
+            assert adapter in row, f"YOU ARE HERE row does not mention '{adapter}': {row!r}"
 
     @pytest.mark.parametrize("adapter", ["claude", "codex", "gemini", "antigravity"])
     def test_you_are_here_appears_exactly_once(self, runner, adapter):
@@ -103,19 +104,20 @@ class TestInitPrimary:
             # Write a preamble (fresh init leaves AF.md empty of preamble)
             af = Path(".ai/AgentFactory.md")
             original = af.read_text(encoding="utf-8")
-            af.write_text("## Overview\n\nTest project description.\n\n" + original,
-                          encoding="utf-8")
+            af.write_text("## Overview\n\nTest project description.\n\n" + original, encoding="utf-8")
             runner.invoke(cli, ["brief"])
             content = _read_brief(adapter)
-            assert "## Project Context" in content, \
-                f"## Project Context missing from {adapter} brief"
+            assert "## Project Context" in content, f"## Project Context missing from {adapter} brief"
 
-    @pytest.mark.parametrize("adapter,root_files", [
-        ("claude", ["CLAUDE.md"]),
-        ("codex",  ["AGENTS.md", "CODEX.md"]),
-        ("gemini", ["GEMINI.md"]),
-        ("antigravity", ["AGENTS.md"]),
-    ])
+    @pytest.mark.parametrize(
+        "adapter,root_files",
+        [
+            ("claude", ["CLAUDE.md"]),
+            ("codex", ["AGENTS.md", "CODEX.md"]),
+            ("gemini", ["GEMINI.md"]),
+            ("antigravity", ["AGENTS.md"]),
+        ],
+    )
     def test_root_files_exist_for_primary(self, runner, adapter, root_files):
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init", "--primary", adapter])
@@ -126,6 +128,7 @@ class TestInitPrimary:
 # ─────────────────────────────────────────────────────────────────────────────
 # Class B — directed swap scenarios (all 6 ordered pairs)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestAdapterSwap:
     """Init with one adapter then activate a second. Verify YOU ARE HERE and root files."""
@@ -214,6 +217,7 @@ class TestAdapterSwap:
 # Class C — three-way lifecycle from each starting adapter
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestThreeWayLifecycle:
     """Init with A, add B, add C, recompile. Each brief must have exactly one YOU ARE HERE."""
 
@@ -232,8 +236,7 @@ class TestThreeWayLifecycle:
             briefs = self._full_lifecycle(runner, primary)
             for adapter, content in briefs.items():
                 count = content.count("← YOU ARE HERE")
-                assert count == 1, \
-                    f"{adapter} brief has {count} YOU ARE HERE markers (expected 1)"
+                assert count == 1, f"{adapter} brief has {count} YOU ARE HERE markers (expected 1)"
 
     @pytest.mark.parametrize("primary", ["claude", "codex", "gemini", "antigravity"])
     def test_each_brief_you_are_here_on_own_row(self, runner, primary):
@@ -241,8 +244,7 @@ class TestThreeWayLifecycle:
             briefs = self._full_lifecycle(runner, primary)
             for adapter, content in briefs.items():
                 row = _you_are_here_row(content)
-                assert adapter in row, \
-                    f"{adapter} brief YOU ARE HERE on wrong row: {row!r}"
+                assert adapter in row, f"{adapter} brief YOU ARE HERE on wrong row: {row!r}"
 
     @pytest.mark.parametrize("primary", ["claude", "codex", "gemini", "antigravity"])
     def test_all_three_adapters_in_cross_table(self, runner, primary):
@@ -251,8 +253,7 @@ class TestThreeWayLifecycle:
             briefs = self._full_lifecycle(runner, primary)
             for adapter, content in briefs.items():
                 for listed in ["claude", "codex", "gemini", "antigravity"]:
-                    assert listed in content, \
-                        f"{adapter} brief missing '{listed}' from cross-adapter table"
+                    assert listed in content, f"{adapter} brief missing '{listed}' from cross-adapter table"
 
     @pytest.mark.parametrize("primary", ["claude", "codex", "gemini", "antigravity"])
     def test_all_root_files_present(self, runner, primary):
@@ -265,6 +266,7 @@ class TestThreeWayLifecycle:
 # ─────────────────────────────────────────────────────────────────────────────
 # Class D — adapter-specific format and content assertions
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestBriefContentAssertions:
     """Structural and format checks per adapter."""
@@ -301,16 +303,14 @@ class TestBriefContentAssertions:
             runner.invoke(cli, ["init"])
             for adapter in ["claude", "codex", "gemini", "antigravity"]:
                 content = _read_brief(adapter)
-                assert "AgentFactory.md" in content, \
-                    f"AgentFactory.md reference missing from {adapter} brief"
+                assert "AgentFactory.md" in content, f"AgentFactory.md reference missing from {adapter} brief"
 
     def test_all_briefs_have_rules_section(self, runner):
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init"])
             for adapter in ["claude", "codex", "gemini", "antigravity"]:
                 content = _read_brief(adapter)
-                assert "## Behavior Rules" in content, \
-                    f"## Behavior Rules missing from {adapter} brief"
+                assert "## Behavior Rules" in content, f"## Behavior Rules missing from {adapter} brief"
 
     def test_section_order_harness_before_context_before_skills(self, runner):
         """## Harness must precede ## Project Context which must precede skills section."""
@@ -319,8 +319,7 @@ class TestBriefContentAssertions:
             # Write preamble so ## Project Context is injected
             af = Path(".ai/AgentFactory.md")
             original = af.read_text(encoding="utf-8")
-            af.write_text("## Overview\n\nTest project description.\n\n" + original,
-                          encoding="utf-8")
+            af.write_text("## Overview\n\nTest project description.\n\n" + original, encoding="utf-8")
             runner.invoke(cli, ["brief"])
             for adapter in ["claude", "codex", "gemini", "antigravity"]:
                 content = _read_brief(adapter)
@@ -355,8 +354,9 @@ class TestBriefContentAssertions:
             # Recompile
             runner.invoke(cli, ["brief"])
             content = _read_brief("codex")
-            assert "context truncated" in content, \
+            assert "context truncated" in content, (
                 "Codex brief should contain truncation warning when preamble > 2000 chars"
+            )
 
     def test_claude_no_truncation_warning_when_preamble_within_budget(self, runner):
         """Claude 4000-char budget — default preamble should not be truncated."""
@@ -379,10 +379,10 @@ class TestBriefContentAssertions:
             runner.invoke(cli, ["init"])
             runner.invoke(cli, ["brief"])
             af = Path(".ai/AgentFactory.md").read_text(encoding="utf-8")
-            assert "<!-- @rules-start -->" in af, \
-                "AgentFactory.md missing <!-- @rules-start --> after brief recompile"
-            assert "<!-- @commands-start -->" in af, \
+            assert "<!-- @rules-start -->" in af, "AgentFactory.md missing <!-- @rules-start --> after brief recompile"
+            assert "<!-- @commands-start -->" in af, (
                 "AgentFactory.md missing <!-- @commands-start --> after brief recompile"
+            )
 
     def test_skill_appears_in_all_adapter_briefs_after_swap(self, runner):
         """A skill added before a swap must appear in the new adapter's brief."""
@@ -393,8 +393,7 @@ class TestBriefContentAssertions:
             runner.invoke(cli, ["brief"])
             for adapter in ["claude", "codex"]:
                 content = _read_brief(adapter)
-                assert "my-workflow" in content, \
-                    f"Skill 'my-workflow' missing from {adapter} brief after swap"
+                assert "my-workflow" in content, f"Skill 'my-workflow' missing from {adapter} brief after swap"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -403,27 +402,23 @@ class TestBriefContentAssertions:
 
 # Probe prompt sent to each agent. Short enough to get a fast response,
 # specific enough to verify the agent has read the harness brief.
-_PROBE_PROMPT = (
-    "What harness root does this project use? "
-    "What adapter are you running in? "
-    "Name one available skill."
-)
+_PROBE_PROMPT = "What harness root does this project use? What adapter are you running in? Name one available skill."
 
 # Best-effort CLI flags per agent. Users should verify for their installed version.
 # Note: Gemini CLI was retired 2026-06-18; Antigravity CLI (binary: agy) is its
 # successor. The gemini entry stays for environments that still have it installed.
 _CLI_INVOCATION = {
-    "claude":      ["claude", "--print", _PROBE_PROMPT],
-    "codex":       ["codex",  "exec", "--skip-git-repo-check", _PROBE_PROMPT],
-    "gemini":      ["gemini", "--prompt", _PROBE_PROMPT],
+    "claude": ["claude", "--print", _PROBE_PROMPT],
+    "codex": ["codex", "exec", "--skip-git-repo-check", _PROBE_PROMPT],
+    "gemini": ["gemini", "--prompt", _PROBE_PROMPT],
     "antigravity": ["agy", "-p", _PROBE_PROMPT],
 }
 
 # Keywords that a well-briefed agent should mention.
 _EXPECTED_KEYWORDS = {
-    "claude":      [".ai"],
-    "codex":       [".ai"],
-    "gemini":      [".ai"],
+    "claude": [".ai"],
+    "codex": [".ai"],
+    "gemini": [".ai"],
     "antigravity": [".ai"],
 }
 
@@ -471,12 +466,10 @@ def test_live_agent_acknowledges_harness(adapter, runner, tmp_path):
     if not response.strip():
         pytest.skip(f"{adapter} CLI returned an empty response (quota/outage?) — cannot verify")
     from agent_gen.orchestrate.runners import PROVIDER_ERROR_MARKERS
+
     hit = next((m for m in PROVIDER_ERROR_MARKERS if m in response), None)
     if hit:
         pytest.skip(f"{adapter} CLI unavailable ('{hit}' in response) — cannot verify")
 
     missing = [kw for kw in _EXPECTED_KEYWORDS[adapter] if kw.lower() not in response]
-    assert not missing, (
-        f"{adapter} live response did not mention: {missing}\n"
-        f"Response excerpt:\n{response[:800]}"
-    )
+    assert not missing, f"{adapter} live response did not mention: {missing}\nResponse excerpt:\n{response[:800]}"

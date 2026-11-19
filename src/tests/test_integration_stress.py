@@ -20,6 +20,7 @@ propagation to all three CLI formats, hash-before-write, legacy symlink
 migration, deploy registration, full lifecycle, registry integrity, and
 empty-input formatter robustness.
 """
+
 import json
 import os
 import time
@@ -48,22 +49,18 @@ def runner():
     return CliRunner()
 
 
-def _add_skill(root: Path, name: str, desc: str = "", triggers: str = "",
-               input_hint: str = "") -> None:
+def _add_skill(root: Path, name: str, desc: str = "", triggers: str = "", input_hint: str = "") -> None:
     """Helper — write a skill-manifest.json into the harness skills dir."""
     sd = root / HARNESS_ROOT / "skills" / name
     sd.mkdir(parents=True, exist_ok=True)
     (sd / "skill-manifest.json").write_text(
-        json.dumps({"name": name, "description": desc,
-                    "triggers": triggers, "input": input_hint}),
+        json.dumps({"name": name, "description": desc, "triggers": triggers, "input": input_hint}),
         encoding="utf-8",
     )
 
 
 def _add_rule(root: Path, name: str, body: str) -> None:
-    (root / HARNESS_ROOT / "rules" / f"{name}.md").write_text(
-        f"# {name}\n\n{body}", encoding="utf-8"
-    )
+    (root / HARNESS_ROOT / "rules" / f"{name}.md").write_text(f"# {name}\n\n{body}", encoding="utf-8")
 
 
 def _add_command(root: Path, name: str, desc: str = "No description") -> None:
@@ -76,6 +73,7 @@ def _add_command(root: Path, name: str, desc: str = "No description") -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Init — default (claude primary)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestInitDefaultPrimary:
     """agentfactory-gen init with no --primary flag (defaults to claude)."""
@@ -117,8 +115,7 @@ class TestInitDefaultPrimary:
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init"])
             for adapter in ["claude", "codex", "gemini"]:
-                assert Path(f".ai/adapters/{adapter}/brief.md").exists(), \
-                    f"brief.md missing for {adapter}"
+                assert Path(f".ai/adapters/{adapter}/brief.md").exists(), f"brief.md missing for {adapter}"
 
     def test_codex_skills_symlink_fixed(self, runner):
         """#94: codex/skills symlink created after init."""
@@ -158,6 +155,7 @@ class TestInitDefaultPrimary:
     def test_gemini_brief_skill_path_uses_skills_dir(self, runner):
         """Brief references .gemini/skills/<name>/SKILL.md not .gemini/tools/."""
         import json as _j
+
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init"])
             skill_dir = Path(".ai/skills/my-gemini-skill")
@@ -189,8 +187,8 @@ class TestInitDefaultPrimary:
 # 2. Init — alternate primary flags
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TestInitAlternatePrimary:
 
+class TestInitAlternatePrimary:
     def test_codex_primary_sets_agents_md(self, runner):
         """#93: AGENTS.md routes to codex/brief.md when primary=codex."""
         with runner.isolated_filesystem():
@@ -244,8 +242,8 @@ class TestInitAlternatePrimary:
 # 3. adapter add
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TestAdapterAdd:
 
+class TestAdapterAdd:
     def test_codex_add_creates_dir_and_brief(self, runner):
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init", "--primary", "claude"])
@@ -353,8 +351,8 @@ class TestAdapterAdd:
 # 4. brief command
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TestBriefCommand:
 
+class TestBriefCommand:
     def test_brief_no_harness_fails(self, runner):
         with runner.isolated_filesystem():
             r = runner.invoke(cli, ["brief"])
@@ -382,16 +380,19 @@ class TestBriefCommand:
 # 5. Skills — format fidelity across all three CLIs
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TestSkillsPropagation:
 
+class TestSkillsPropagation:
     def _setup(self, runner):
         runner.invoke(cli, ["init"])
         runner.invoke(cli, ["adapter", "add", "codex"])
         runner.invoke(cli, ["adapter", "add", "gemini"])
-        _add_skill(Path("."), "my-workflow",
-                   desc="Automate complex workflows",
-                   triggers="when you need to automate",
-                   input_hint="task description string")
+        _add_skill(
+            Path("."),
+            "my-workflow",
+            desc="Automate complex workflows",
+            triggers="when you need to automate",
+            input_hint="task description string",
+        )
         runner.invoke(cli, ["brief"])
 
     def test_claude_skill_in_table(self, runner):
@@ -439,8 +440,7 @@ class TestSkillsPropagation:
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init"])
             runner.invoke(cli, ["adapter", "add", "gemini"])
-            _add_skill(Path("."), "fallback-skill",
-                       desc="desc", triggers="trigger text")
+            _add_skill(Path("."), "fallback-skill", desc="desc", triggers="trigger text")
             runner.invoke(cli, ["brief"])
             b = Path(".ai/adapters/gemini/brief.md").read_text()
             assert "trigger text" in b
@@ -464,26 +464,29 @@ class TestSkillsPropagation:
                 skill_dir = Path(sd) / "imported-skill"
                 skill_dir.mkdir()
                 (skill_dir / "SKILL.md").write_text("# imported-skill\n\nDoes things.")
-                (skill_dir / "skill-manifest.json").write_text(json.dumps({
-                    "name": "imported-skill",
-                    "version": "1.0.0",
-                    "description": "Does things",
-                    "triggers": "always",
-                }))
+                (skill_dir / "skill-manifest.json").write_text(
+                    json.dumps(
+                        {
+                            "name": "imported-skill",
+                            "version": "1.0.0",
+                            "description": "Does things",
+                            "triggers": "always",
+                        }
+                    )
+                )
                 r = runner.invoke(cli, ["import-skill", str(skill_dir)])
             assert r.exit_code == 0, r.output
             for adapter in ["claude", "codex", "gemini"]:
                 b = Path(f".ai/adapters/{adapter}/brief.md").read_text()
-                assert "imported-skill" in b, \
-                    f"imported-skill missing from {adapter} brief"
+                assert "imported-skill" in b, f"imported-skill missing from {adapter} brief"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 6. Commands — Claude only, / prefix
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TestCommandsPropagation:
 
+class TestCommandsPropagation:
     def _setup(self, runner):
         runner.invoke(cli, ["init"])
         runner.invoke(cli, ["adapter", "add", "codex"])
@@ -520,8 +523,8 @@ class TestCommandsPropagation:
 # 7. Agents and rules in all briefs
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TestAgentsAndRules:
 
+class TestAgentsAndRules:
     def test_deployed_agent_appears_in_all_briefs(self, runner):
         """deploy now auto-registers in global manifest → appears in all briefs."""
         with runner.isolated_filesystem():
@@ -533,21 +536,18 @@ class TestAgentsAndRules:
             for adapter in ["claude", "codex", "gemini"]:
                 b = Path(f".ai/adapters/{adapter}/brief.md").read_text()
                 assert "my-agent" in b, f"my-agent missing from {adapter}"
-                assert "Does great things" in b, \
-                    f"description missing from {adapter}"
+                assert "Does great things" in b, f"description missing from {adapter}"
 
     def test_rules_appear_in_all_briefs(self, runner):
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init"])
             runner.invoke(cli, ["adapter", "add", "codex"])
             runner.invoke(cli, ["adapter", "add", "gemini"])
-            _add_rule(Path("."), "tdd",
-                      "- Always write tests before writing implementation code.")
+            _add_rule(Path("."), "tdd", "- Always write tests before writing implementation code.")
             runner.invoke(cli, ["brief"])
             for adapter in ["claude", "codex", "gemini"]:
                 b = Path(f".ai/adapters/{adapter}/brief.md").read_text()
-                assert "Always write tests before writing implementation" in b, \
-                    f"rule missing from {adapter}"
+                assert "Always write tests before writing implementation" in b, f"rule missing from {adapter}"
 
     def test_skill_briefing_rule_appears_in_all_briefs(self, runner):
         with runner.isolated_filesystem():
@@ -562,8 +562,9 @@ class TestAgentsAndRules:
             runner.invoke(cli, ["brief"])
             for adapter in ["claude", "codex", "gemini"]:
                 b = Path(f".ai/adapters/{adapter}/brief.md").read_text(encoding="utf-8")
-                assert "Keep description brief and triggers concise for compiled briefs." in b, \
+                assert "Keep description brief and triggers concise for compiled briefs." in b, (
                     f"skill briefing rule missing from {adapter}"
+                )
 
     def test_skill_manifest_brief_metadata_appears_in_codex_brief(self, runner):
         with runner.isolated_filesystem():
@@ -585,8 +586,8 @@ class TestAgentsAndRules:
 # 8. Hash-before-write
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TestHashBeforeWrite:
 
+class TestHashBeforeWrite:
     def test_unchanged_brief_not_rewritten(self, runner):
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init"])
@@ -594,8 +595,7 @@ class TestHashBeforeWrite:
             mtime1 = bp.stat().st_mtime
             runner.invoke(cli, ["brief"])
             mtime2 = bp.stat().st_mtime
-            assert mtime1 == mtime2, \
-                "brief.md was rewritten when content had not changed"
+            assert mtime1 == mtime2, "brief.md was rewritten when content had not changed"
 
     def test_changed_brief_is_rewritten(self, runner):
         with runner.isolated_filesystem():
@@ -606,20 +606,27 @@ class TestHashBeforeWrite:
             _add_skill(Path("."), "new-skill", "A brand new skill")
             runner.invoke(cli, ["brief"])
             mtime2 = bp.stat().st_mtime
-            assert mtime1 != mtime2, \
-                "brief.md was NOT rewritten after adding a new skill"
+            assert mtime1 != mtime2, "brief.md was NOT rewritten after adding a new skill"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 9. Legacy symlink migration
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TestLegacyMigration:
 
+class TestLegacyMigration:
     def _make_legacy_harness(self):
         """Simulate a pre-FormatSwitch project state (all links → AgentFactory.md)."""
-        for d in ["adapters/claude", "adapters/codex", "adapters/gemini",
-                  "skills", "commands", "rules", "agents", "memory"]:
+        for d in [
+            "adapters/claude",
+            "adapters/codex",
+            "adapters/gemini",
+            "skills",
+            "commands",
+            "rules",
+            "agents",
+            "memory",
+        ]:
             Path(f".ai/{d}").mkdir(parents=True, exist_ok=True)
         Path(".ai/AgentFactory.md").write_text(
             "# Context\n<!-- @agent-registry:start -->\n<!-- @agent-registry:end -->\n"
@@ -633,13 +640,10 @@ class TestLegacyMigration:
             os.symlink(".ai/AgentFactory.md", "AGENTS.md")
             os.symlink(".ai/AgentFactory.md", "GEMINI.md")
             Librarian.update_harness_files(".")
-            for f, expected_adapter in [("CLAUDE.md", "claude"),
-                                        ("AGENTS.md", "codex"),
-                                        ("GEMINI.md", "gemini")]:
+            for f, expected_adapter in [("CLAUDE.md", "claude"), ("AGENTS.md", "codex"), ("GEMINI.md", "gemini")]:
                 target = os.readlink(f)
                 assert "brief.md" in target, f"{f} not migrated to brief.md"
-                assert expected_adapter in target, \
-                    f"{f} target doesn't contain {expected_adapter}"
+                assert expected_adapter in target, f"{f} target doesn't contain {expected_adapter}"
 
     def test_migration_skips_if_brief_missing(self, runner):
         """No brief compiled → legacy symlink is NOT updated (no dangling link)."""
@@ -673,21 +677,19 @@ class TestLegacyMigration:
 # 10. Full lifecycle — deploy → describe → wrap → brief
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TestFullLifecycle:
 
+class TestFullLifecycle:
     def test_deploy_then_wrap_agent_in_briefs(self, runner):
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init"])
             runner.invoke(cli, ["adapter", "add", "codex"])
             runner.invoke(cli, ["deploy", "lifecycle-agent"])
-            runner.invoke(cli, ["describe", "lifecycle-agent",
-                                "--desc", "A lifecycle test agent"])
+            runner.invoke(cli, ["describe", "lifecycle-agent", "--desc", "A lifecycle test agent"])
             Path(".ai/agents/lifecycle-agent/skills/test.md").write_text("# test")
             runner.invoke(cli, ["wrap", "lifecycle-agent"])
             for adapter in ["claude", "codex"]:
                 b = Path(f".ai/adapters/{adapter}/brief.md").read_text()
-                assert "lifecycle-agent" in b, \
-                    f"lifecycle-agent missing from {adapter} after wrap"
+                assert "lifecycle-agent" in b, f"lifecycle-agent missing from {adapter} after wrap"
 
     def test_codex_then_claude_activation(self, runner):
         """Start with codex primary — all root files exist; claude symlink verified."""
@@ -705,8 +707,8 @@ class TestFullLifecycle:
 # 11. Wiring correctness
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TestAdapterWiring:
 
+class TestAdapterWiring:
     def test_claude_skills_and_commands_wired(self, runner):
         with runner.isolated_filesystem():
             runner.invoke(cli, ["init"])
@@ -738,32 +740,39 @@ class TestAdapterWiring:
 # 12. Registry integrity and formatter robustness
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TestRegistryIntegrity:
 
+class TestRegistryIntegrity:
     _REQUIRED_KEYS = [
-        "output", "header", "root_files", "folder_symlink", "wiring",
-        "config_file", "config_default", "skill_path_template",
-        "command_prefix", "sections", "section_order",
+        "output",
+        "header",
+        "root_files",
+        "folder_symlink",
+        "wiring",
+        "config_file",
+        "config_default",
+        "skill_path_template",
+        "command_prefix",
+        "sections",
+        "section_order",
     ]
 
     def test_all_required_keys_present(self):
         for adapter, config in _FORMAT_REGISTRY.items():
             for key in self._REQUIRED_KEYS:
-                assert key in config, \
-                    f"_FORMAT_REGISTRY['{adapter}'] missing required key '{key}'"
+                assert key in config, f"_FORMAT_REGISTRY['{adapter}'] missing required key '{key}'"
 
     def test_all_referenced_formatters_exist(self):
         for adapter, config in _FORMAT_REGISTRY.items():
             for section_key, fn_name in config["sections"].items():
                 if fn_name is None:
                     continue
-                assert fn_name in _FORMATTER_DISPATCH, \
-                    (f"_FORMAT_REGISTRY['{adapter}']['sections']['{section_key}'] "
-                     f"references unknown formatter '{fn_name}'")
+                assert fn_name in _FORMATTER_DISPATCH, (
+                    f"_FORMAT_REGISTRY['{adapter}']['sections']['{section_key}'] "
+                    f"references unknown formatter '{fn_name}'"
+                )
 
     def test_formatters_handle_empty_input(self):
-        empty_cfg = {"skill_path_template": ".cli/{name}/SKILL.md",
-                     "command_prefix": "/"}
+        empty_cfg = {"skill_path_template": ".cli/{name}/SKILL.md", "command_prefix": "/"}
         for fn in [_fmt_skills_table, _fmt_skills_blocks, _fmt_skills_tools]:
             result = fn([], empty_cfg)
             assert isinstance(result, str), f"{fn.__name__} must return str"

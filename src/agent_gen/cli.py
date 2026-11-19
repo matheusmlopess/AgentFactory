@@ -14,8 +14,15 @@ import click
 
 from . import __version__
 from .librarian import (
-    TRACKED_DIRS, HARNESS_ROOT, MANIFEST_FILE, CONTEXT_FILE,
-    Librarian, _FORMAT_REGISTRY, _inspect_zip, validate_name, _atomic_write_json,
+    TRACKED_DIRS,
+    HARNESS_ROOT,
+    MANIFEST_FILE,
+    CONTEXT_FILE,
+    Librarian,
+    _FORMAT_REGISTRY,
+    _inspect_zip,
+    validate_name,
+    _atomic_write_json,
 )
 
 DEFAULT_API_URL = "https://api.agentfactory.dev"
@@ -43,6 +50,7 @@ REGISTRY_URL = _resolve_api_url()  # name kept for callers/tests; it is the API 
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _require_safe_url(url: str, what: str) -> str:
     """Allow https anywhere and http only for localhost; never file:, ftp: or others."""
     from urllib.parse import urlparse
@@ -51,9 +59,7 @@ def _require_safe_url(url: str, what: str) -> str:
     local = parsed.hostname in ("localhost", "127.0.0.1", "::1")
     if parsed.scheme == "https" or (parsed.scheme == "http" and local):
         return url
-    raise click.ClickException(
-        f"Refusing {what} '{url}': only https:// (or http://localhost) is allowed."
-    )
+    raise click.ClickException(f"Refusing {what} '{url}': only https:// (or http://localhost) is allowed.")
 
 
 def _agent_root(name: str) -> Path:
@@ -122,18 +128,19 @@ def _clone_and_prepare(url: str) -> tuple[str, object]:
         _echo(f"[librarian] Cloning {url} ...")
         result = subprocess.run(
             ["git", "clone", "--quiet", url, cloned_dir],  # --quiet flag (#53)
-            capture_output=True, text=True
+            capture_output=True,
+            text=True,
         )
         if result.returncode != 0:
-            raise click.ClickException(
-                f"git clone failed:\n{result.stderr.strip()}"
-            )
+            raise click.ClickException(f"git clone failed:\n{result.stderr.strip()}")
 
         # 0. The repo already ships a Portable Unit: wrap it exactly as declared (#179 gap 1).
         agent_dir = _find_agent_dir(Path(cloned_dir))
         if agent_dir is not None:
             rel = agent_dir.relative_to(cloned_dir).as_posix()
-            _echo(f"[librarian] Found agent manifest at {rel if rel != '.' else '<repo root>'}/ — importing it as declared ...")
+            _echo(
+                f"[librarian] Found agent manifest at {rel if rel != '.' else '<repo root>'}/ — importing it as declared ..."
+            )
             try:
                 zip_path = Librarian(str(agent_dir)).wrap(tmp_dir)
             except FileNotFoundError as exc:
@@ -183,13 +190,12 @@ def _clone_and_prepare(url: str) -> tuple[str, object]:
 # Helpers: security
 # ---------------------------------------------------------------------------
 
+
 def _assert_within_root(rel_path: str, root: Path) -> None:
     """Raise ClickException if rel_path resolves outside root (path traversal guard, #59/#S3)."""
     resolved = (root / rel_path).resolve()
     if not resolved.is_relative_to(root.resolve()):
-        raise click.ClickException(
-            f"Path '{rel_path}' resolves outside the agent root — possible path traversal."
-        )
+        raise click.ClickException(f"Path '{rel_path}' resolves outside the agent root — possible path traversal.")
 
 
 def _assert_valid_project_root(project_root: str) -> Path:
@@ -224,14 +230,14 @@ def _normalize_git_url(url: str) -> str:
     if p.exists():
         return p.resolve().as_uri()
     raise click.ClickException(
-        f"Invalid git target '{url}'. Use a URL "
-        f"({', '.join(remote_schemes)}) or an existing local path."
+        f"Invalid git target '{url}'. Use a URL ({', '.join(remote_schemes)}) or an existing local path."
     )
 
 
 # ---------------------------------------------------------------------------
 # Registry HTTP helpers
 # ---------------------------------------------------------------------------
+
 
 def _registry_publish(manifest: dict, zip_path: Path) -> dict:
     """POST manifest JSON + ZIP to the registry. Returns the registry response."""
@@ -244,29 +250,30 @@ def _registry_publish(manifest: dict, zip_path: Path) -> dict:
 
     parts = [
         (
-            f"--{boundary}\r\nContent-Disposition: form-data; name=\"manifest\""
+            f'--{boundary}\r\nContent-Disposition: form-data; name="manifest"'
             f"\r\nContent-Type: application/json\r\n\r\n".encode()
-            + manifest_bytes + b"\r\n"
+            + manifest_bytes
+            + b"\r\n"
         ),
         (
-            f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\""
-            f"; filename=\"{zip_path.name}\"\r\nContent-Type: application/zip\r\n\r\n".encode()
-            + zip_bytes + b"\r\n"
+            f'--{boundary}\r\nContent-Disposition: form-data; name="file"'
+            f'; filename="{zip_path.name}"\r\nContent-Type: application/zip\r\n\r\n'.encode()
+            + zip_bytes
+            + b"\r\n"
         ),
     ]
     sig_path = zip_path.with_name(zip_path.name + ".sig")
     if sig_path.exists():  # publisher signature from `wrap --sign` / `sign` (#144)
         parts.append(
-            f"--{boundary}\r\nContent-Disposition: form-data; name=\"signature\"\r\n\r\n".encode()
-            + sig_path.read_bytes() + b"\r\n"
+            f'--{boundary}\r\nContent-Disposition: form-data; name="signature"\r\n\r\n'.encode()
+            + sig_path.read_bytes()
+            + b"\r\n"
         )
     parts.append(f"--{boundary}--\r\n".encode())
     body = b"".join(parts)
 
     _require_safe_url(REGISTRY_URL, "registry URL")
-    req = urllib.request.Request(
-        f"{REGISTRY_URL}/registry/publish", data=body, method="POST"
-    )
+    req = urllib.request.Request(f"{REGISTRY_URL}/registry/publish", data=body, method="POST")
     req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
     _attach_auth_header(req)
 
@@ -355,8 +362,9 @@ def _api_json(method: str, path: str, payload: dict | None = None, auth: bool = 
         raise click.ClickException(f"API unreachable ({REGISTRY_URL}): {exc.reason}")
 
 
-def _verify_publisher_signature(zip_path, signature_file, signer, allowed_signers, require_signature,
-                                registry_entry, cleanup) -> None:
+def _verify_publisher_signature(
+    zip_path, signature_file, signer, allowed_signers, require_signature, registry_entry, cleanup
+) -> None:
     """Check the bundle's SSH signature when one is available or required; exit 1 on failure."""
     from .signing import SignatureError, github_allowed_signers, verify_file
 
@@ -413,6 +421,7 @@ def _write_token(token: str) -> Path:
 # CLI group
 # ---------------------------------------------------------------------------
 
+
 @click.group()
 @click.version_option(__version__, prog_name="agentfactory-gen")
 @click.option("--quiet", "-q", is_flag=True, default=False, help="Suppress informational output.")
@@ -434,6 +443,7 @@ def _echo(msg: str, *, err: bool = False) -> None:
 # ---------------------------------------------------------------------------
 # init
 # ---------------------------------------------------------------------------
+
 
 @cli.command("init")
 @click.option(
@@ -579,6 +589,7 @@ def init_project(project_root: str, primary: str):
 # deploy
 # ---------------------------------------------------------------------------
 
+
 @cli.command()
 @click.argument("name")
 def deploy(name: str):
@@ -618,6 +629,7 @@ def deploy(name: str):
 # describe
 # ---------------------------------------------------------------------------
 
+
 @cli.command()
 @click.argument("name")
 @click.option("--desc", help="Description of the agent.")
@@ -628,7 +640,7 @@ def describe(name: str, desc: str, plan: str):
     """
     root = _agent_root(name)
     librarian = Librarian(str(root))
-    
+
     try:
         manifest = librarian._load_manifest()
     except FileNotFoundError as exc:
@@ -656,7 +668,7 @@ def uninstall(name: str):
     """
     root = _agent_root(name)
     librarian = Librarian(str(root))
-    
+
     if not root.exists():
         _echo(f"[librarian] Agent '{name}' not found at {root}.", err=True)
         sys.exit(1)
@@ -691,10 +703,7 @@ def audit(name: str, fix: bool):
 
     # Auto-fix: sync manifest to pick up untracked files, then re-audit
     if fix and report["untracked_files"]:
-        _echo(
-            f"[librarian] --fix: syncing {len(report['untracked_files'])} "
-            "untracked file(s) into manifest..."
-        )
+        _echo(f"[librarian] --fix: syncing {len(report['untracked_files'])} untracked file(s) into manifest...")
         librarian.sync()
         _echo("[librarian] Re-auditing after sync...")
         report = librarian.audit()
@@ -739,8 +748,7 @@ def audit(name: str, fix: bool):
         _echo(f"[librarian] ✗ '{name}' audit FAILED — fix the issues above.", err=True)
         sys.exit(1)
 
-    if not any([report["untracked_files"], report["missing_skill_manifests"],
-                report.get("skill_version_drift")]):
+    if not any([report["untracked_files"], report["missing_skill_manifests"], report.get("skill_version_drift")]):
         _echo(f"[librarian] ✓ '{name}' integrity is clean.")
     else:
         _echo(f"[librarian] ✓ '{name}' integrity OK (warnings above — run sync to resolve).")
@@ -749,6 +757,7 @@ def audit(name: str, fix: bool):
 # ---------------------------------------------------------------------------
 # wrap
 # ---------------------------------------------------------------------------
+
 
 @cli.command()
 @click.argument("name")
@@ -765,9 +774,14 @@ def audit(name: str, fix: bool):
     default=False,
     help="Print only the archive path to stdout for scripting (e.g. zip=$(agentfactory-gen wrap my-agent --print-path)).",
 )
-@click.option("--sign", "sign_key", default=None, metavar="SSH_KEY",
-              help="Also write <zip>.sig, signed with this SSH private key (e.g. ~/.ssh/id_ed25519); "
-                   "`publish` uploads it and importers can verify it against your GitHub keys.")
+@click.option(
+    "--sign",
+    "sign_key",
+    default=None,
+    metavar="SSH_KEY",
+    help="Also write <zip>.sig, signed with this SSH private key (e.g. ~/.ssh/id_ed25519); "
+    "`publish` uploads it and importers can verify it against your GitHub keys.",
+)
 def wrap(name: str, out: str, print_path: bool, sign_key: str | None):
     """
     Validate and bundle an agent into a portable .zip package.
@@ -782,7 +796,10 @@ def wrap(name: str, out: str, print_path: bool, sign_key: str | None):
     report = librarian.audit()
 
     if report["broken_resources"] or report["broken_dependencies"] or report.get("invalid_skill_manifests"):
-        _echo("[librarian] Audit failed — fix broken paths, dependencies, or invalid skill manifests before wrapping.", err=True)
+        _echo(
+            "[librarian] Audit failed — fix broken paths, dependencies, or invalid skill manifests before wrapping.",
+            err=True,
+        )
         _echo(f"[librarian] Run 'agentfactory-gen audit {name}' for details.", err=True)
         sys.exit(1)
 
@@ -798,6 +815,7 @@ def wrap(name: str, out: str, print_path: bool, sign_key: str | None):
 
     # Emit SHA-256 sidecar so consumers can verify provenance (#144)
     import hashlib as _hashlib
+
     sha256 = _hashlib.sha256(archive.read_bytes()).hexdigest()
     sidecar = archive.with_suffix(".zip.sha256")
     sidecar.write_text(f"{sha256}  {archive.name}\n", encoding="utf-8")
@@ -805,6 +823,7 @@ def wrap(name: str, out: str, print_path: bool, sign_key: str | None):
 
     if sign_key:
         from .signing import SignatureError, sign_file
+
         try:
             sig = sign_file(archive, Path(sign_key).expanduser())
         except SignatureError as exc:
@@ -820,6 +839,7 @@ def wrap(name: str, out: str, print_path: bool, sign_key: str | None):
 # ---------------------------------------------------------------------------
 # publish
 # ---------------------------------------------------------------------------
+
 
 @cli.command()
 @click.argument("name")
@@ -843,10 +863,7 @@ def publish(name: str, version_override: str, tags: tuple):
     zip_path = Path.cwd() / zip_name
 
     if not zip_path.exists():
-        raise click.ClickException(
-            f"No wrapped archive found: {zip_name}\n"
-            f"Run 'agentfactory-gen wrap {name}' first."
-        )
+        raise click.ClickException(f"No wrapped archive found: {zip_name}\nRun 'agentfactory-gen wrap {name}' first.")
 
     publish_manifest = {
         "name": agent_name,
@@ -864,12 +881,14 @@ def publish(name: str, version_override: str, tags: tuple):
 # sign (#144)
 # ---------------------------------------------------------------------------
 
+
 @cli.command()
 @click.argument("zip_file", type=click.Path(exists=True, dir_okay=False))
 @click.option("--key", default="~/.ssh/id_ed25519", show_default=True, help="SSH private key to sign with.")
 def sign(zip_file: str, key: str):
     """Sign a wrapped bundle: writes <zip>.sig (SSH signature, namespace agentfactory-unit)."""
     from .signing import SignatureError, sign_file
+
     try:
         sig = sign_file(Path(zip_file), Path(key).expanduser())
     except SignatureError as exc:
@@ -880,6 +899,7 @@ def sign(zip_file: str, key: str):
 # ---------------------------------------------------------------------------
 # login / logout / whoami (#201)
 # ---------------------------------------------------------------------------
+
 
 @cli.command()
 @click.option("--no-browser", is_flag=True, help="Print the URL instead of opening a browser.")
@@ -939,6 +959,7 @@ def whoami():
 # retrofit
 # ---------------------------------------------------------------------------
 
+
 @cli.command()
 @click.argument("path")
 @click.option("--yes", is_flag=True, help="Execute migration without asking for confirmation.")
@@ -976,12 +997,12 @@ def retrofit(path: str, yes: bool):
     # In-place migration
     librarian = Librarian(str(source_path))
     librarian.migrate(mapping)
-    
+
     # Initialize manifest if missing, otherwise sync
     if not librarian.manifest_path.exists():
         name = source_path.name
         librarian.init(name)
-    
+
     librarian.sync()
 
     _echo(f"[librarian] Retrofit complete for '{source_path.name}'.")
@@ -991,6 +1012,7 @@ def retrofit(path: str, yes: bool):
 # ---------------------------------------------------------------------------
 # import-skill
 # ---------------------------------------------------------------------------
+
 
 @cli.command("import-skill")
 @click.argument("path")
@@ -1040,7 +1062,7 @@ def import_skill(path: str, target_agent: str, project_root: str):
         sys.exit(1)
 
     librarian = Librarian(str(target_root))
-    
+
     try:
         _echo(f"[librarian] Importing skill from {path_obj} into '{target_agent}'...")
         skill_name = librarian.import_skill(str(path_obj))
@@ -1054,6 +1076,7 @@ def import_skill(path: str, target_agent: str, project_root: str):
 # ---------------------------------------------------------------------------
 # import (reserved word workaround)
 # ---------------------------------------------------------------------------
+
 
 @cli.command("import")
 @click.argument("zip_path", required=False, default=None)
@@ -1097,15 +1120,33 @@ def import_skill(path: str, target_agent: str, project_root: str):
     metavar="FILE",
     help="Path to a .sha256 file to verify the ZIP against before importing (#144).",
 )
-@click.option("--signature", "signature_file", default=None, metavar="FILE",
-              help="SSH signature of the ZIP (from `wrap --sign`); verified before unpacking.")
-@click.option("--signer", default=None, metavar="GITHUB_HANDLE",
-              help="Who must have signed it; keys come from github.com/<handle>.keys. "
-                   "Registry imports default to the unit's publisher.")
-@click.option("--allowed-signers", "allowed_signers", default=None, metavar="FILE",
-              help="OpenSSH allowed-signers file to verify against instead of GitHub keys.")
-@click.option("--require-signature", is_flag=True, default=False,
-              help="Refuse to import a bundle that has no valid publisher signature.")
+@click.option(
+    "--signature",
+    "signature_file",
+    default=None,
+    metavar="FILE",
+    help="SSH signature of the ZIP (from `wrap --sign`); verified before unpacking.",
+)
+@click.option(
+    "--signer",
+    default=None,
+    metavar="GITHUB_HANDLE",
+    help="Who must have signed it; keys come from github.com/<handle>.keys. "
+    "Registry imports default to the unit's publisher.",
+)
+@click.option(
+    "--allowed-signers",
+    "allowed_signers",
+    default=None,
+    metavar="FILE",
+    help="OpenSSH allowed-signers file to verify against instead of GitHub keys.",
+)
+@click.option(
+    "--require-signature",
+    is_flag=True,
+    default=False,
+    help="Refuse to import a bundle that has no valid publisher signature.",
+)
 def import_agent(
     zip_path: str,
     from_git: str,
@@ -1196,9 +1237,7 @@ def import_agent(
         actual = hashlib.sha256(zip_path.read_bytes()).hexdigest()
         if actual != expected:
             _echo(
-                f"[librarian] Checksum mismatch — ZIP may be tampered.\n"
-                f"  Expected: {expected}\n"
-                f"  Actual:   {actual}",
+                f"[librarian] Checksum mismatch — ZIP may be tampered.\n  Expected: {expected}\n  Actual:   {actual}",
                 err=True,
             )
             sys.exit(1)
@@ -1206,7 +1245,13 @@ def import_agent(
 
     # --- Publisher signature (#144) ---
     _verify_publisher_signature(
-        zip_path, signature_file, signer, allowed_signers, require_signature, registry_entry, _cleanup,
+        zip_path,
+        signature_file,
+        signer,
+        allowed_signers,
+        require_signature,
+        registry_entry,
+        _cleanup,
     )
 
     # --- Pre-unpack inspection (#141 / #146) ---
@@ -1239,8 +1284,8 @@ def import_agent(
         _echo(f"  Target  : {target_root}")
         _echo(f"  Files   : {len(info['names'])}")
         _echo(
-            f"  Scripts : {len(info['executable_files'])} file(s)" +
-            (f" — {info['executable_files']}" if info["executable_files"] else "")
+            f"  Scripts : {len(info['executable_files'])} file(s)"
+            + (f" — {info['executable_files']}" if info["executable_files"] else "")
         )
         _echo(f"  Conflict: {conflict}")
         if _cleanup:
@@ -1249,10 +1294,7 @@ def import_agent(
 
     # --- Scripts gate (#142 + shebang extension) ---
     if info["executable_files"] and not allow_scripts:
-        _echo(
-            f"[librarian] ⚠  This agent includes {len(info['executable_files'])} "
-            "executable script(s):"
-        )
+        _echo(f"[librarian] ⚠  This agent includes {len(info['executable_files'])} executable script(s):")
         for s in info["executable_files"]:
             _echo(f"  {s}")
         _echo("[librarian] Review these files before allowing execution.")
@@ -1264,8 +1306,7 @@ def import_agent(
 
     if target_root.exists():
         _echo(
-            f"[librarian] '{name}' already exists at {target_root}. "
-            "Remove it first or rename the incoming bundle.",
+            f"[librarian] '{name}' already exists at {target_root}. Remove it first or rename the incoming bundle.",
             err=True,
         )
         sys.exit(1)
@@ -1353,6 +1394,7 @@ def import_agent(
 # export
 # ---------------------------------------------------------------------------
 
+
 @cli.command("export")
 @click.argument("name")
 @click.option(
@@ -1374,9 +1416,7 @@ def import_agent(
     help="Branch to create & push (default: agentfactory/export-<name>).",
 )
 @click.option("-m", "--message", "message", default=None, help="Commit message.")
-@click.option(
-    "--project-root", default=".", show_default=True, help="Project root holding the agent."
-)
+@click.option("--project-root", default=".", show_default=True, help="Project root holding the agent.")
 @click.option("--push/--no-push", default=True, help="Push the branch to the source remote.")
 @click.option("--pr/--no-pr", default=True, help="Open a PR with gh (requires --push).")
 def export_agent(name, git_url, subpath, branch_name, message, project_root, push, pr):
@@ -1418,18 +1458,14 @@ def export_agent(name, git_url, subpath, branch_name, message, project_root, pus
     clone_dir = os.path.join(tmp_dir, "src")
 
     def _git(*args, check=True):
-        proc = subprocess.run(
-            ["git", "-C", clone_dir, *args], capture_output=True, text=True
-        )
+        proc = subprocess.run(["git", "-C", clone_dir, *args], capture_output=True, text=True)
         if check and proc.returncode != 0:
             raise click.ClickException(f"git {' '.join(args)} failed:\n{proc.stderr.strip()}")
         return proc
 
     try:
         _echo(f"[librarian] Cloning {src} ...")
-        clone = subprocess.run(
-            ["git", "clone", "--quiet", src, clone_dir], capture_output=True, text=True
-        )
+        clone = subprocess.run(["git", "clone", "--quiet", src, clone_dir], capture_output=True, text=True)
         if clone.returncode != 0:
             raise click.ClickException(f"git clone failed:\n{clone.stderr.strip()}")
         clone_path = Path(clone_dir)
@@ -1464,8 +1500,13 @@ def export_agent(name, git_url, subpath, branch_name, message, project_root, pus
             _echo("[librarian] No changes to export — the source already matches. ✓")
             return
         _git(
-            "-c", "user.email=agentfactory@local", "-c", "user.name=AgentFactory",
-            "commit", "-m", message,
+            "-c",
+            "user.email=agentfactory@local",
+            "-c",
+            "user.name=AgentFactory",
+            "commit",
+            "-m",
+            message,
         )
         _echo("[librarian] Committed: " + _git("--no-pager", "log", "-1", "--oneline").stdout.strip())
 
@@ -1481,15 +1522,27 @@ def export_agent(name, git_url, subpath, branch_name, message, project_root, pus
 
         if pr:
             pr_proc = subprocess.run(
-                ["gh", "pr", "create", "--head", branch_name, "--title", message,
-                 "--body", f"Automated export of agent `{name}` from AgentFactory."],
-                cwd=clone_dir, capture_output=True, text=True,
+                [
+                    "gh",
+                    "pr",
+                    "create",
+                    "--head",
+                    branch_name,
+                    "--title",
+                    message,
+                    "--body",
+                    f"Automated export of agent `{name}` from AgentFactory.",
+                ],
+                cwd=clone_dir,
+                capture_output=True,
+                text=True,
             )
             if pr_proc.returncode == 0:
                 _echo(f"[librarian] PR opened: {pr_proc.stdout.strip()}")
             else:
-                _echo(f"[librarian] Pushed '{branch_name}'; open a PR manually "
-                      f"(gh: {pr_proc.stderr.strip()})", err=True)
+                _echo(
+                    f"[librarian] Pushed '{branch_name}'; open a PR manually (gh: {pr_proc.stderr.strip()})", err=True
+                )
         else:
             _echo(f"[librarian] Pushed '{branch_name}'. Open a PR from it when ready.")
     finally:
@@ -1499,6 +1552,7 @@ def export_agent(name, git_url, subpath, branch_name, message, project_root, pus
 # ---------------------------------------------------------------------------
 # adapter
 # ---------------------------------------------------------------------------
+
 
 @cli.group("adapter")
 def adapter_group():
@@ -1569,11 +1623,12 @@ def adapter_add(name: str, project_root: str, check_completeness: bool, strict: 
 
     # 4. Compile brief.md
     from .librarian import _FORMATTER_DISPATCH  # noqa: F401 (already imported transitively)
+
     data = {
-        "skills":   Librarian._collect_skills_data(str(project_path)),
-        "agents":   Librarian._collect_agents_data(str(project_path)),
+        "skills": Librarian._collect_skills_data(str(project_path)),
+        "agents": Librarian._collect_agents_data(str(project_path)),
         "commands": Librarian._collect_commands_data(str(project_path)),
-        "rules":    Librarian._collect_rules_data(str(project_path)),
+        "rules": Librarian._collect_rules_data(str(project_path)),
     }
     brief_path = adapter_dir / config["output"]
     try:
@@ -1695,7 +1750,9 @@ def _adapter_completeness_gate(
 
     access = subprocess.run(
         [sys.executable, str(check_script), "--check-access"],
-        cwd=str(project_path), capture_output=True, text=True,
+        cwd=str(project_path),
+        capture_output=True,
+        text=True,
     )
     if access.returncode != 0:
         if "--check-access" in access.stderr:  # project has a pre-2.1 oracle script
@@ -1716,9 +1773,12 @@ def _adapter_completeness_gate(
             [
                 sys.executable,
                 str(check_script),
-                "--skill", skill_name,
-                "--threshold", str(threshold),
-                "--out", str(report_path),
+                "--skill",
+                skill_name,
+                "--threshold",
+                str(threshold),
+                "--out",
+                str(report_path),
                 "--quiet",
             ],
             cwd=str(project_path),
@@ -1745,6 +1805,7 @@ def _adapter_completeness_gate(
 # ---------------------------------------------------------------------------
 # brief
 # ---------------------------------------------------------------------------
+
 
 @cli.command("brief")
 @click.option(
@@ -1822,10 +1883,12 @@ def orchestrate_group():
 @click.argument("workflow")
 @click.option("--mode", default=None, help="Override execution mode (sequential, …).")
 @click.option("--dry-run", is_flag=True, default=False, help="Print steps without executing.")
-@click.option("--json", "as_json", is_flag=True, default=False,
-              help="Print the RunResult as JSON (machine surface for nesting).")
-@click.option("--project-root", default=".", show_default=True,
-              help="Root of the project whose contract governs the run.")
+@click.option(
+    "--json", "as_json", is_flag=True, default=False, help="Print the RunResult as JSON (machine surface for nesting)."
+)
+@click.option(
+    "--project-root", default=".", show_default=True, help="Root of the project whose contract governs the run."
+)
 def orchestrate_run(workflow: str, mode: str, dry_run: bool, as_json: bool, project_root: str):
     """Execute WORKFLOW (path, '<agent>/<name>', or bare name) under the contract."""
     from .orchestrate import run_workflow
@@ -1834,9 +1897,7 @@ def orchestrate_run(workflow: str, mode: str, dry_run: bool, as_json: bool, proj
     wf_path = _resolve_workflow_path(workflow, project_path)
 
     try:
-        result = run_workflow(
-            wf_path, project_root=project_path, mode=mode, dry_run=dry_run
-        )
+        result = run_workflow(wf_path, project_root=project_path, mode=mode, dry_run=dry_run)
     except (ValueError, RuntimeError, FileNotFoundError) as exc:
         raise click.ClickException(str(exc)) from exc
 
@@ -1934,9 +1995,7 @@ def orchestrate_init(project_root: str):
         _echo(f"  [skip] {CONTRACT_RELPATH} (already exists)")
     else:
         contract_path.parent.mkdir(parents=True, exist_ok=True)
-        contract_path.write_text(
-            json.dumps(DEFAULT_CONTRACT, indent=2) + "\n", encoding="utf-8"
-        )
+        contract_path.write_text(json.dumps(DEFAULT_CONTRACT, indent=2) + "\n", encoding="utf-8")
         _echo(f"  [created] {CONTRACT_RELPATH}")
 
     example = {
@@ -1945,11 +2004,14 @@ def orchestrate_init(project_root: str):
         "description": "Two-step example: shell output summarized by an agent.",
         "mode": "sequential",
         "steps": [
-            {"id": "collect", "type": "shell", "command": "ls -1",
-             "remediation": "retry", "max_retries": 2},
-            {"id": "summarize", "type": "agent",
-             "prompt": "Summarize this file listing in one sentence:\n{steps.collect.stdout}",
-             "depends_on": ["collect"], "expects": "nonempty"},
+            {"id": "collect", "type": "shell", "command": "ls -1", "remediation": "retry", "max_retries": 2},
+            {
+                "id": "summarize",
+                "type": "agent",
+                "prompt": "Summarize this file listing in one sentence:\n{steps.collect.stdout}",
+                "depends_on": ["collect"],
+                "expects": "nonempty",
+            },
         ],
     }
     wf_dir = project_path / HARNESS_ROOT / "orchestration" / "workflows"

@@ -8,6 +8,7 @@ contract (type: shell|agent|delegate, agent, prompt, expects).
 No imports from click or cli.py — this subpackage is the programmatic API
 surface consumed by external harnesses.
 """
+
 from __future__ import annotations
 
 import json
@@ -29,9 +30,9 @@ POLICY_DEFAULTS = {
 REMEDIATION_POLICIES = ("retry", "escalate", "skip", "abort")
 
 # Synthetic exit codes (never produced by the child process itself)
-EXIT_TIMEOUT = 124       # POSIX timeout convention (ported)
+EXIT_TIMEOUT = 124  # POSIX timeout convention (ported)
 EXIT_EXPECTS_FAILED = 125  # output failed the step's `expects` validation
-                           # (also used for empty-output / provider-error agent responses)
+# (also used for empty-output / provider-error agent responses)
 
 _TEMPLATE_RE = re.compile(r"\{steps\.([\w./-]+)\.(stdout|stderr|exit_code)\}")
 _TEMPLATE_TRUNCATE = 8_000  # cap per-substitution to prevent prompt blowup
@@ -54,9 +55,7 @@ class Evidence:
     exit_code: int
     stdout: str
     stderr: str
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     attempt: int = 1
 
     @property
@@ -80,19 +79,17 @@ class WorkflowStep:
     id: str = field(default_factory=lambda: f"step-{uuid.uuid4().hex[:8]}")
     seq: int = 0
     type: str = "shell"
-    command: str = ""            # shell steps
-    agent: str = ""              # agent/delegate steps; "" = contract default
-    prompt: str = ""             # agent/delegate steps
+    command: str = ""  # shell steps
+    agent: str = ""  # agent/delegate steps; "" = contract default
+    prompt: str = ""  # agent/delegate steps
     description: str = ""
-    expects: str = ""            # "" | nonempty | json | regex:<pattern>
-    security_clearance: str = "approved"   # approved|conditional|blocked
-    remediation: str = "escalate"          # retry|escalate|skip|abort
+    expects: str = ""  # "" | nonempty | json | regex:<pattern>
+    security_clearance: str = "approved"  # approved|conditional|blocked
+    remediation: str = "escalate"  # retry|escalate|skip|abort
     max_retries: int = 1
     timeout_seconds: int = 60
     depends_on: list[str] = field(default_factory=list)
-    evidence_capture: dict = field(
-        default_factory=lambda: {"stdout": True, "stderr": True, "exit_code": True}
-    )
+    evidence_capture: dict = field(default_factory=lambda: {"stdout": True, "stderr": True, "exit_code": True})
 
     @classmethod
     def from_dict(cls, data: dict, *, seq: int = 0) -> "WorkflowStep":
@@ -128,17 +125,13 @@ class WorkflowStep:
         if self.type not in STEP_TYPES:
             raise ValueError(f"step '{self.id}': unknown type '{self.type}'")
         if self.remediation not in REMEDIATION_POLICIES:
-            raise ValueError(
-                f"step '{self.id}': unknown remediation '{self.remediation}'"
-            )
+            raise ValueError(f"step '{self.id}': unknown remediation '{self.remediation}'")
         if self.type == "shell" and not self.command:
             raise ValueError(f"step '{self.id}': shell step requires 'command'")
         if self.type in ("agent", "delegate") and not self.prompt:
             raise ValueError(f"step '{self.id}': {self.type} step requires 'prompt'")
         if self.expects and self.expects not in ("nonempty", "json") and not self.expects.startswith("regex:"):
-            raise ValueError(
-                f"step '{self.id}': expects must be nonempty|json|regex:<pattern>"
-            )
+            raise ValueError(f"step '{self.id}': expects must be nonempty|json|regex:<pattern>")
 
     def render_prompt(self, evidence_by_step: dict[str, Evidence]) -> str:
         """Substitute {steps.<id>.stdout|stderr|exit_code} placeholders."""
@@ -166,9 +159,7 @@ class Workflow:
     description: str = ""
     mode: str = ""  # "" = use contract default_mode
     workflow_id: str = field(default_factory=lambda: f"wf-{uuid.uuid4().hex[:12]}")
-    created_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     steps: list[WorkflowStep] = field(default_factory=list)
 
     @classmethod
@@ -194,15 +185,11 @@ class Workflow:
         for s in self.steps:
             for dep in s.depends_on:
                 if dep not in known:
-                    raise ValueError(
-                        f"step '{s.id}': depends_on unknown step '{dep}'"
-                    )
+                    raise ValueError(f"step '{s.id}': depends_on unknown step '{dep}'")
         for s in self.steps:
             s.validate()
 
-    def patch(
-        self, replacement_steps: list[WorkflowStep], failed_ids: list[str]
-    ) -> "Workflow":
+    def patch(self, replacement_steps: list[WorkflowStep], failed_ids: list[str]) -> "Workflow":
         """Return a new Workflow with failed steps replaced by remediated ones.
 
         Kept steps retain their original sequence numbers; replacements are
@@ -242,9 +229,7 @@ class RunResult:
     workflow_id: str
     mode: str
     run_id: str = field(default_factory=lambda: f"run-{uuid.uuid4().hex[:12]}")
-    started_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     finished_at: str = ""
     statuses: dict[str, str] = field(default_factory=dict)  # step_id → StepStatus value
     evidence: list[Evidence] = field(default_factory=list)
@@ -253,8 +238,7 @@ class RunResult:
     @property
     def ok(self) -> bool:
         return bool(self.statuses) and all(
-            s in (StepStatus.SUCCESS.value, StepStatus.SKIPPED.value)
-            for s in self.statuses.values()
+            s in (StepStatus.SUCCESS.value, StepStatus.SKIPPED.value) for s in self.statuses.values()
         )
 
     def to_dict(self) -> dict:
@@ -275,6 +259,7 @@ class RunResult:
 # ---------------------------------------------------------------------------
 # Loading
 # ---------------------------------------------------------------------------
+
 
 def load_workflow(path: str | Path) -> Workflow:
     """Load a workflow from <name>.workflow.json or a Markdown wrapper.

@@ -1,4 +1,5 @@
 """Unit tests for orchestration models: steps, workflows, loading, templating."""
+
 import json
 
 import pytest
@@ -25,9 +26,7 @@ class TestWorkflowStep:
             WorkflowStep.from_dict({"id": "a", "command": "x", "bogus": 1})
 
     def test_branch_era_remediation_policy_alias(self):
-        step = WorkflowStep.from_dict(
-            {"id": "a", "command": "x", "remediation_policy": "retry"}
-        )
+        step = WorkflowStep.from_dict({"id": "a", "command": "x", "remediation_policy": "retry"})
         assert step.remediation == "retry"
 
     def test_unknown_type_rejected(self):
@@ -44,21 +43,16 @@ class TestWorkflowStep:
 
     def test_bad_expects_rejected(self):
         with pytest.raises(ValueError, match="expects"):
-            WorkflowStep.from_dict(
-                {"id": "a", "command": "x", "expects": "maybe"}
-            )
+            WorkflowStep.from_dict({"id": "a", "command": "x", "expects": "maybe"})
 
     def test_regex_expects_accepted(self):
-        step = WorkflowStep.from_dict(
-            {"id": "a", "command": "x", "expects": "regex:^OK"}
-        )
+        step = WorkflowStep.from_dict({"id": "a", "command": "x", "expects": "regex:^OK"})
         assert step.expects == "regex:^OK"
 
 
 class TestPromptTemplating:
     def _ev(self, step_id, stdout="out", exit_code=0):
-        return Evidence(step_id=step_id, command="c", exit_code=exit_code,
-                        stdout=stdout, stderr="err")
+        return Evidence(step_id=step_id, command="c", exit_code=exit_code, stdout=stdout, stderr="err")
 
     def test_stdout_substitution(self):
         step = WorkflowStep(id="b", type="agent", prompt="Given: {steps.a.stdout}")
@@ -67,7 +61,8 @@ class TestPromptTemplating:
 
     def test_exit_code_and_stderr(self):
         step = WorkflowStep(
-            id="b", type="agent",
+            id="b",
+            type="agent",
             prompt="{steps.a.exit_code} / {steps.a.stderr}",
         )
         assert step.render_prompt({"a": self._ev("a")}) == "0 / err"
@@ -87,9 +82,14 @@ class TestWorkflow:
         return {"name": "t", "steps": steps}
 
     def test_from_dict_assigns_seq(self):
-        wf = Workflow.from_dict(self._wf([
-            {"id": "a", "command": "x"}, {"id": "b", "command": "y"},
-        ]))
+        wf = Workflow.from_dict(
+            self._wf(
+                [
+                    {"id": "a", "command": "x"},
+                    {"id": "b", "command": "y"},
+                ]
+            )
+        )
         assert [s.seq for s in wf.steps] == [10, 20]
 
     def test_requires_name(self):
@@ -98,22 +98,35 @@ class TestWorkflow:
 
     def test_duplicate_ids_rejected(self):
         with pytest.raises(ValueError, match="duplicate step id"):
-            Workflow.from_dict(self._wf([
-                {"id": "a", "command": "x"}, {"id": "a", "command": "y"},
-            ]))
+            Workflow.from_dict(
+                self._wf(
+                    [
+                        {"id": "a", "command": "x"},
+                        {"id": "a", "command": "y"},
+                    ]
+                )
+            )
 
     def test_unknown_depends_on_rejected(self):
         with pytest.raises(ValueError, match="depends_on unknown step"):
-            Workflow.from_dict(self._wf([
-                {"id": "a", "command": "x", "depends_on": ["ghost"]},
-            ]))
+            Workflow.from_dict(
+                self._wf(
+                    [
+                        {"id": "a", "command": "x", "depends_on": ["ghost"]},
+                    ]
+                )
+            )
 
     def test_patch_replaces_failed_step_in_seq_order(self):
-        wf = Workflow.from_dict(self._wf([
-            {"id": "a", "command": "x"},
-            {"id": "bad", "command": "y"},
-            {"id": "c", "command": "z"},
-        ]))
+        wf = Workflow.from_dict(
+            self._wf(
+                [
+                    {"id": "a", "command": "x"},
+                    {"id": "bad", "command": "y"},
+                    {"id": "c", "command": "z"},
+                ]
+            )
+        )
         replacement = WorkflowStep(id="fixed", seq=20, command="y2")
         patched = wf.patch([replacement], ["bad"])
         assert [s.id for s in patched.steps] == ["a", "fixed", "c"]
@@ -132,7 +145,7 @@ class TestLoadWorkflow:
         p.write_text(
             "---\nname: from-md\nversion: 2.0.0\nmode: sequential\n---\n"
             "# Title\n<!-- version: 2.0.0 -->\n\nProse.\n\n"
-            "```json\n{\"steps\": [{\"id\": \"a\", \"command\": \"x\"}]}\n```\n"
+            '```json\n{"steps": [{"id": "a", "command": "x"}]}\n```\n'
         )
         wf = load_workflow(p)
         assert wf.name == "from-md"

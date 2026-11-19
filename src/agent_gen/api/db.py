@@ -3,6 +3,7 @@ SQLite database layer: users, hashed license keys, API tokens and the agent regi
 DATABASE_URL=sqlite:///./data/agentfactory.db  (default)
 Swap for postgresql:// via env var when scaling.
 """
+
 import hashlib
 import os
 import secrets
@@ -16,7 +17,7 @@ _DB_URL = os.environ.get("DATABASE_URL", "sqlite:///./data/agentfactory.db")
 
 def _db_path() -> str:
     if _DB_URL.startswith("sqlite:///"):
-        path = _DB_URL[len("sqlite:///"):]
+        path = _DB_URL[len("sqlite:///") :]
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         return path
     raise ValueError(f"Unsupported DATABASE_URL scheme: {_DB_URL!r}. Only sqlite:// is supported currently.")
@@ -164,6 +165,7 @@ def issue_api_token(user_id: str, label: str = "", ttl_days: int | None = 90) ->
     expires = None
     if ttl_days:
         from datetime import timedelta
+
         expires = (datetime.now(timezone.utc) + timedelta(days=ttl_days)).isoformat()
     with get_conn() as conn:
         if conn.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone() is None:
@@ -217,6 +219,7 @@ def normalize_user_code(code: str) -> str:
 def create_device_code(ttl_seconds: int = 600) -> tuple[str, str]:
     """Start a login: returns (device_code, user_code). Expired codes are purged; pending codes are capped."""
     from datetime import timedelta
+
     now = datetime.now(timezone.utc)
     device_code = secrets.token_urlsafe(32)
     with get_conn() as conn:
@@ -229,8 +232,12 @@ def create_device_code(ttl_seconds: int = 600) -> tuple[str, str]:
             try:
                 conn.execute(
                     "INSERT INTO device_codes (device_hash, user_code, created_at, expires_at) VALUES (?, ?, ?, ?)",
-                    (hash_key(device_code), user_code, now.isoformat(),
-                     (now + timedelta(seconds=ttl_seconds)).isoformat()),
+                    (
+                        hash_key(device_code),
+                        user_code,
+                        now.isoformat(),
+                        (now + timedelta(seconds=ttl_seconds)).isoformat(),
+                    ),
                 )
                 return device_code, user_code
             except sqlite3.IntegrityError:

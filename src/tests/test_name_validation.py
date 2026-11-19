@@ -4,6 +4,7 @@ Names from bundle manifests, SKILL.md frontmatter and CLI arguments become direc
 names that are later passed to rmtree/copytree/move, so they must stay inside the
 target directory.
 """
+
 # <!-- version: 1.0.0 -->
 import json
 import os
@@ -25,8 +26,22 @@ from agent_gen.librarian import (
     validate_name,
 )
 
-BAD_NAMES = ["../evil", "..", "../../x", "/abs/path", "a/b", "a\\b", "", ".hidden", "-flag",
-             "x" * 65, "a..b", None, 5, ["list"]]
+BAD_NAMES = [
+    "../evil",
+    "..",
+    "../../x",
+    "/abs/path",
+    "a/b",
+    "a\\b",
+    "",
+    ".hidden",
+    "-flag",
+    "x" * 65,
+    "a..b",
+    None,
+    5,
+    ["list"],
+]
 GOOD_NAMES = ["security-review", "my_skill", "Agent1", "v1.2", "a"]
 
 
@@ -66,8 +81,10 @@ def test_import_skill_refuses_hostile_name_and_leaves_victim(tmp_path, hostile):
     victim = tmp_path / "proj" / ".ai" / "victim"
     victim.mkdir()
     (victim / "keep.txt").write_text("keep")
-    with patch.object(Librarian, "_validate_and_reconcile_skill_manifest"), \
-            pytest.raises(ValueError, match="Invalid skill name"):
+    with (
+        patch.object(Librarian, "_validate_and_reconcile_skill_manifest"),
+        pytest.raises(ValueError, match="Invalid skill name"),
+    ):
         Librarian(str(agent_root)).import_skill(str(_skill_source(tmp_path, hostile)))
     assert (victim / "keep.txt").read_text() == "keep"
 
@@ -75,15 +92,20 @@ def test_import_skill_refuses_hostile_name_and_leaves_victim(tmp_path, hostile):
 def test_import_skill_to_project_refuses_hostile_name(tmp_path):
     project = tmp_path / "proj"
     (project / ".ai").mkdir(parents=True)
-    with patch.object(Librarian, "_validate_and_reconcile_skill_manifest"), \
-            pytest.raises(ValueError, match="Invalid skill name"):
+    with (
+        patch.object(Librarian, "_validate_and_reconcile_skill_manifest"),
+        pytest.raises(ValueError, match="Invalid skill name"),
+    ):
         Librarian.import_skill_to_project(str(_skill_source(tmp_path, "../escape")), str(project))
     assert not (project / "escape").exists()
 
 
 def _bundle(path: Path, name: object, extra: dict[str, str] | None = None) -> Path:
-    manifest = {"name": name, "version": "1.0.0",
-                "resources": {"skills": [], "commands": [], "docs": [], "scripts": [], "orchestration": []}}
+    manifest = {
+        "name": name,
+        "version": "1.0.0",
+        "resources": {"skills": [], "commands": [], "docs": [], "scripts": [], "orchestration": []},
+    }
     with zipfile.ZipFile(path, "w") as zf:
         zf.writestr(MANIFEST_FILE, json.dumps(manifest))
         for member, body in (extra or {}).items():
@@ -126,11 +148,14 @@ def test_dry_run_does_not_prompt_for_scripts(tmp_path):
         assert not (Path(cwd) / ".ai" / "agents" / "scripted").exists()
 
 
-@pytest.mark.parametrize("steps,flagged", [
-    ([{"id": "a", "type": "shell", "command": "rm -rf ~"}], True),
-    ([{"id": "a", "command": "id"}], True),  # shell is the default step type
-    ([{"id": "a", "type": "agent", "prompt": "hi"}], False),
-])
+@pytest.mark.parametrize(
+    "steps,flagged",
+    [
+        ([{"id": "a", "type": "shell", "command": "rm -rf ~"}], True),
+        ([{"id": "a", "command": "id"}], True),  # shell is the default step type
+        ([{"id": "a", "type": "agent", "prompt": "hi"}], False),
+    ],
+)
 def test_workflow_shell_steps_count_as_executable(tmp_path, steps, flagged):
     wf = json.dumps({"name": "w", "steps": steps})
     bundle = _bundle(tmp_path / "w.zip", "wf-agent", {"orchestration/w.workflow.json": wf})
@@ -138,15 +163,13 @@ def test_workflow_shell_steps_count_as_executable(tmp_path, steps, flagged):
     assert ("orchestration/w.workflow.json" in info["executable_files"]) is flagged
 
 
-@pytest.mark.parametrize("url", ["file:///etc/passwd", "ftp://host/x.zip", "http://evil.example/x.zip",
-                                 "gopher://x"])
+@pytest.mark.parametrize("url", ["file:///etc/passwd", "ftp://host/x.zip", "http://evil.example/x.zip", "gopher://x"])
 def test_require_safe_url_rejects(url):
     with pytest.raises(click.ClickException, match="only https"):
         _require_safe_url(url, "download URL")
 
 
-@pytest.mark.parametrize("url", ["https://agentfactory.dev/x.zip", "http://localhost:8000/x.zip",
-                                 "http://127.0.0.1/x"])
+@pytest.mark.parametrize("url", ["https://agentfactory.dev/x.zip", "http://localhost:8000/x.zip", "http://127.0.0.1/x"])
 def test_require_safe_url_accepts(url):
     assert _require_safe_url(url, "download URL") == url
 
@@ -156,8 +179,10 @@ def test_registry_fetch_refuses_file_zip_url():
     resp = MagicMock()
     resp.read.return_value = json.dumps(entry).encode()
     resp.__enter__.return_value = resp
-    with patch("urllib.request.urlopen", return_value=resp) as urlopen, \
-            pytest.raises(click.ClickException, match="Refusing download URL"):
+    with (
+        patch("urllib.request.urlopen", return_value=resp) as urlopen,
+        pytest.raises(click.ClickException, match="Refusing download URL"),
+    ):
         _registry_fetch("a")
     assert urlopen.call_count == 1  # the entry was fetched, the file:// URL never opened
 
@@ -196,8 +221,10 @@ def test_migrate_restores_original_when_swap_fails(tmp_path):
             raise OSError("disk full")
         return real_move(src, dst, *a, **kw)
 
-    with patch("agent_gen.librarian.shutil.move", side_effect=failing_move), \
-            pytest.raises(RuntimeError, match="rolled back"):
+    with (
+        patch("agent_gen.librarian.shutil.move", side_effect=failing_move),
+        pytest.raises(RuntimeError, match="rolled back"),
+    ):
         Librarian(str(agent)).migrate({"prompt.md": "docs"})
     assert (agent / "prompt.md").read_text() == "original"
     assert not any(p.name.endswith(".pre-migrate") for p in tmp_path.iterdir())
@@ -213,14 +240,19 @@ def test_migrate_still_works(tmp_path):
     assert not (tmp_path / ".agent.pre-migrate").exists()
 
 
-
 # ---------------------------------------------------------------- #179 gap 1: honor the repo's own manifest
 
 
 def _git(cwd, *args):
     import subprocess
-    env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.test",
-           "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.test"}
+
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@example.test",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@example.test",
+    }
     subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, env=env)
 
 
@@ -239,10 +271,16 @@ def _agent_repo(tmp_path: Path, layout: str) -> Path:
         write.parent.mkdir(parents=True, exist_ok=True)
         write.write_text(body)
     manifest = {
-        "name": "docs-system", "version": "1.0.2", "description": "Documentation agent",
-        "resources": {"skills": ["skills/docs-system/SKILL.md"], "commands": ["commands/docs-plan.md"],
-                      "docs": ["docs/SKILL-DOCS-SYSTEM.md"], "scripts": ["scripts/docs-plan.sh"],
-                      "orchestration": []},
+        "name": "docs-system",
+        "version": "1.0.2",
+        "description": "Documentation agent",
+        "resources": {
+            "skills": ["skills/docs-system/SKILL.md"],
+            "commands": ["commands/docs-plan.md"],
+            "docs": ["docs/SKILL-DOCS-SYSTEM.md"],
+            "scripts": ["scripts/docs-plan.sh"],
+            "orchestration": [],
+        },
         "dependencies": {},
     }
     (unit / MANIFEST_FILE).write_text(json.dumps(manifest))
@@ -263,8 +301,12 @@ def test_from_git_imports_the_declared_unit(tmp_path, layout):
         assert r.exit_code == 0, r.output
         assert "importing it as declared" in r.output
         dest = Path(cwd) / ".ai" / "agents" / "docs-system"
-        for rel in ("skills/docs-system/SKILL.md", "commands/docs-plan.md", "docs/SKILL-DOCS-SYSTEM.md",
-                    "scripts/docs-plan.sh"):
+        for rel in (
+            "skills/docs-system/SKILL.md",
+            "commands/docs-plan.md",
+            "docs/SKILL-DOCS-SYSTEM.md",
+            "scripts/docs-plan.sh",
+        ):
             assert (dest / rel).is_file(), rel
         assert json.loads((dest / MANIFEST_FILE).read_text())["version"] == "1.0.2"
 
@@ -307,8 +349,12 @@ def test_registry_import_records_source_before_the_move(tmp_path):
     runner = CliRunner()
     buf_path = tmp_path / "reg.zip"
     _bundle(buf_path, "reg-src")
-    entry = {"name": "reg-src", "version": "1.0.0", "zip_url": "https://x/reg.zip",
-             "sha256": __import__("hashlib").sha256(buf_path.read_bytes()).hexdigest()}
+    entry = {
+        "name": "reg-src",
+        "version": "1.0.0",
+        "zip_url": "https://x/reg.zip",
+        "sha256": __import__("hashlib").sha256(buf_path.read_bytes()).hexdigest(),
+    }
     with runner.isolated_filesystem(temp_dir=tmp_path) as cwd:
         runner.invoke(cli, ["init"])
         with patch("agent_gen.cli._registry_fetch", return_value=(entry, buf_path.read_bytes())):

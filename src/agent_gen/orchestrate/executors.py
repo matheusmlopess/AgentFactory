@@ -4,6 +4,7 @@ SequentialExecutor ports the supervisor-branch HarnessRunner loop:
 retry | skip | abort | escalate remediation, timeout evidence, dry-run.
 DAG and checkpoint modes land in PR2; plugins register via register_executor().
 """
+
 from __future__ import annotations
 
 import json
@@ -70,23 +71,23 @@ class BaseExecutor:
 
         if step.type == "shell":
             if not policies.get("allow_shell_steps", True):
-                return self._refused(
-                    step, "shell steps disabled by contract policy", attempt
-                )
+                return self._refused(step, "shell steps disabled by contract policy", attempt)
             ev = self._shell.run(step, step.command, attempt=attempt)
         elif step.type == "agent":
             agent_name = step.agent or self.contract.default_agent
             spec = self.contract.agent_spec(agent_name)
             runner = CliAgentRunner(
-                agent_name, spec, policies, dry_run=self.dry_run,
-                cwd=self.cwd, env_overrides=self.env_overrides,
+                agent_name,
+                spec,
+                policies,
+                dry_run=self.dry_run,
+                cwd=self.cwd,
+                env_overrides=self.env_overrides,
             )
             prompt = step.render_prompt(evidence_by_step)
             ev = runner.run(step, prompt, attempt=attempt)
         else:  # delegate — planning happens in the executor loop, not here
-            raise DelegateUnavailable(
-                f"step '{step.id}' has type 'delegate' — handled by the executor loop"
-            )
+            raise DelegateUnavailable(f"step '{step.id}' has type 'delegate' — handled by the executor loop")
 
         ev = self._check_expects(step, ev)
         self.sink.write_step(ev)
@@ -118,12 +119,10 @@ class BaseExecutor:
             except (ValueError, TypeError):
                 ok = False
         elif step.expects.startswith("regex:"):
-            ok = re.search(step.expects[len("regex:"):], ev.stdout) is not None
+            ok = re.search(step.expects[len("regex:") :], ev.stdout) is not None
         if not ok:
             ev.exit_code = EXIT_EXPECTS_FAILED
-            ev.stderr = (
-                ev.stderr + f"\n[orchestrate] output failed expects='{step.expects}'"
-            ).strip()
+            ev.stderr = (ev.stderr + f"\n[orchestrate] output failed expects='{step.expects}'").strip()
         return ev
 
 
@@ -152,9 +151,7 @@ class SequentialExecutor(BaseExecutor):
             if step.type == "delegate":
                 try:
                     prompt = step.render_prompt(evidence_by_step)
-                    substeps = plan_substeps(
-                        step, prompt, self.contract, result.evidence
-                    )
+                    substeps = plan_substeps(step, prompt, self.contract, result.evidence)
                     workflow = _splice(workflow, step, substeps)
                     result.statuses[step.id] = StepStatus.SUCCESS.value
                     step_index += 1
@@ -175,7 +172,9 @@ class SequentialExecutor(BaseExecutor):
 
             logger.warning(
                 "orchestrate: step=%s FAILED exit=%d stderr=%s",
-                step.id, ev.exit_code, ev.stderr[:120],
+                step.id,
+                ev.exit_code,
+                ev.stderr[:120],
             )
             policy = step.remediation
 
@@ -204,16 +203,15 @@ class SequentialExecutor(BaseExecutor):
                 if remediation_round >= max_rounds:
                     logger.error(
                         "orchestrate: max remediation rounds (%d) reached at step=%s",
-                        max_rounds, step.id,
+                        max_rounds,
+                        step.id,
                     )
                     result.statuses[step.id] = StepStatus.FAILED.value
                     break
                 remediation_round += 1
                 try:
                     draft = _failure_draft(step, result.evidence)
-                    replacements = plan_substeps(
-                        step, draft, self.contract, result.evidence
-                    )
+                    replacements = plan_substeps(step, draft, self.contract, result.evidence)
                     if replacements:
                         workflow = workflow.patch(replacements, [step.id])
                         result.statuses.pop(step.id, None)
@@ -248,9 +246,12 @@ def _splice(workflow: Workflow, after: WorkflowStep, substeps: list[WorkflowStep
         if s.id == after.id:
             steps.extend(substeps)
     clone = Workflow(
-        name=workflow.name, version=workflow.version,
-        description=workflow.description, mode=workflow.mode,
-        workflow_id=workflow.workflow_id, created_at=workflow.created_at,
+        name=workflow.name,
+        version=workflow.version,
+        description=workflow.description,
+        mode=workflow.mode,
+        workflow_id=workflow.workflow_id,
+        created_at=workflow.created_at,
         steps=steps,
     )
     return clone
@@ -258,6 +259,7 @@ def _splice(workflow: Workflow, after: WorkflowStep, substeps: list[WorkflowStep
 
 def _utcnow() -> str:
     from datetime import datetime, timezone
+
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -281,6 +283,5 @@ def get_executor(mode: str) -> type[BaseExecutor]:
         return _EXECUTOR_REGISTRY[mode]
     except KeyError:
         raise ValueError(
-            f"unknown execution mode '{mode}' — available: "
-            f"{', '.join(sorted(_EXECUTOR_REGISTRY))}"
+            f"unknown execution mode '{mode}' — available: {', '.join(sorted(_EXECUTOR_REGISTRY))}"
         ) from None

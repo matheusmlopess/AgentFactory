@@ -9,6 +9,7 @@ Provider-side failure detection lives here (PROVIDER_ERROR_MARKERS) and is
 shared with the live test suite: quota exhaustion, outages, and product
 retirement must never look like a successful step.
 """
+
 from __future__ import annotations
 
 import os
@@ -40,8 +41,7 @@ def _now() -> str:
 class ShellRunner:
     """Execute a shell step. Timeout maps to exit code 124 (POSIX)."""
 
-    def __init__(self, dry_run: bool = False, cwd: str | None = None,
-                 env_overrides: dict[str, str] | None = None):
+    def __init__(self, dry_run: bool = False, cwd: str | None = None, env_overrides: dict[str, str] | None = None):
         self.dry_run = dry_run
         self.cwd = cwd
         self.env_overrides = env_overrides or {}
@@ -55,25 +55,42 @@ class ShellRunner:
         timestamp = _now()
         if self.dry_run:
             return Evidence(
-                step_id=step.id, command=command, exit_code=0,
-                stdout=f"[dry-run] {command}", stderr="",
-                timestamp=timestamp, attempt=attempt,
+                step_id=step.id,
+                command=command,
+                exit_code=0,
+                stdout=f"[dry-run] {command}",
+                stderr="",
+                timestamp=timestamp,
+                attempt=attempt,
             )
         try:
             result = subprocess.run(
-                command, shell=True, capture_output=True, text=True,
-                timeout=step.timeout_seconds, cwd=self.cwd, env=self._child_env(),
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=step.timeout_seconds,
+                cwd=self.cwd,
+                env=self._child_env(),
             )
             return Evidence(
-                step_id=step.id, command=command, exit_code=result.returncode,
-                stdout=result.stdout, stderr=result.stderr,
-                timestamp=timestamp, attempt=attempt,
+                step_id=step.id,
+                command=command,
+                exit_code=result.returncode,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                timestamp=timestamp,
+                attempt=attempt,
             )
         except subprocess.TimeoutExpired:
             return Evidence(
-                step_id=step.id, command=command, exit_code=EXIT_TIMEOUT,
-                stdout="", stderr=f"Command timed out after {step.timeout_seconds}s",
-                timestamp=timestamp, attempt=attempt,
+                step_id=step.id,
+                command=command,
+                exit_code=EXIT_TIMEOUT,
+                stdout="",
+                stderr=f"Command timed out after {step.timeout_seconds}s",
+                timestamp=timestamp,
+                attempt=attempt,
             )
 
 
@@ -88,8 +105,15 @@ class CliAgentRunner:
     keeps them).
     """
 
-    def __init__(self, name: str, spec: dict, policies: dict, dry_run: bool = False,
-                 cwd: str | None = None, env_overrides: dict[str, str] | None = None):
+    def __init__(
+        self,
+        name: str,
+        spec: dict,
+        policies: dict,
+        dry_run: bool = False,
+        cwd: str | None = None,
+        env_overrides: dict[str, str] | None = None,
+    ):
         self.name = name
         self.spec = spec
         self.policies = policies
@@ -98,10 +122,7 @@ class CliAgentRunner:
         self.env_overrides = env_overrides or {}
 
     def _build_command(self, prompt: str) -> list[str]:
-        return [
-            part.replace("{prompt}", prompt).replace("{workflow}", prompt)
-            for part in self.spec["invocation"]
-        ]
+        return [part.replace("{prompt}", prompt).replace("{workflow}", prompt) for part in self.spec["invocation"]]
 
     def _child_env(self) -> dict | None:
         """Environment for the agent process, or None to inherit unchanged."""
@@ -121,28 +142,45 @@ class CliAgentRunner:
 
         if self.dry_run:
             return Evidence(
-                step_id=step.id, command=cmd_display, exit_code=0,
-                stdout=f"[dry-run] {self.name}: {prompt[:200]}", stderr="",
-                timestamp=timestamp, attempt=attempt,
+                step_id=step.id,
+                command=cmd_display,
+                exit_code=0,
+                stdout=f"[dry-run] {self.name}: {prompt[:200]}",
+                stderr="",
+                timestamp=timestamp,
+                attempt=attempt,
             )
 
         stdin = subprocess.DEVNULL if self.spec.get("stdin") == "devnull" else None
         try:
             result = subprocess.run(
-                cmd, capture_output=True, text=True,
-                timeout=step.timeout_seconds, stdin=stdin, env=self._child_env(), cwd=self.cwd,
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=step.timeout_seconds,
+                stdin=stdin,
+                env=self._child_env(),
+                cwd=self.cwd,
             )
         except subprocess.TimeoutExpired:
             return Evidence(
-                step_id=step.id, command=cmd_display, exit_code=EXIT_TIMEOUT,
-                stdout="", stderr=f"{self.name} timed out after {step.timeout_seconds}s",
-                timestamp=timestamp, attempt=attempt,
+                step_id=step.id,
+                command=cmd_display,
+                exit_code=EXIT_TIMEOUT,
+                stdout="",
+                stderr=f"{self.name} timed out after {step.timeout_seconds}s",
+                timestamp=timestamp,
+                attempt=attempt,
             )
         except FileNotFoundError:
             return Evidence(
-                step_id=step.id, command=cmd_display, exit_code=127,
-                stdout="", stderr=f"{self.name} binary not found: {cmd[0]}",
-                timestamp=timestamp, attempt=attempt,
+                step_id=step.id,
+                command=cmd_display,
+                exit_code=127,
+                stdout="",
+                stderr=f"{self.name} binary not found: {cmd[0]}",
+                timestamp=timestamp,
+                attempt=attempt,
             )
 
         exit_code = result.returncode
@@ -160,11 +198,16 @@ class CliAgentRunner:
             stderr = (stderr + f"\n[orchestrate] provider error detected: '{marker}'").strip()
         elif exit_code == 0 and empty_is_failure and not result.stdout.strip():
             exit_code = EXIT_EXPECTS_FAILED
-            stderr = (stderr + f"\n[orchestrate] {self.name} returned empty output "
-                               "(quota/outage?) — treated as failure").strip()
+            stderr = (
+                stderr + f"\n[orchestrate] {self.name} returned empty output (quota/outage?) — treated as failure"
+            ).strip()
 
         return Evidence(
-            step_id=step.id, command=cmd_display, exit_code=exit_code,
-            stdout=result.stdout, stderr=stderr,
-            timestamp=timestamp, attempt=attempt,
+            step_id=step.id,
+            command=cmd_display,
+            exit_code=exit_code,
+            stdout=result.stdout,
+            stderr=stderr,
+            timestamp=timestamp,
+            attempt=attempt,
         )

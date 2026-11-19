@@ -1,4 +1,5 @@
 """Device login (#201): API flow, single-use tokens, Bearer /auth/me, and `agentfactory-gen login|whoami|logout`."""
+
 import importlib
 import os
 import socket
@@ -24,23 +25,31 @@ def api(tmp_path, monkeypatch):
     monkeypatch.setenv("WEBAPP_URL", "https://app.example.test")
     monkeypatch.setenv("DEVICE_POLL_INTERVAL", "0.1")
     import agent_gen.api.db as db
+
     importlib.reload(db)
     db.init_db()
     import agent_gen.api.deps as deps
+
     importlib.reload(deps)
     import agent_gen.api.routers.auth as auth
+
     importlib.reload(auth)
     import agent_gen.api.routers.registry as registry
+
     importlib.reload(registry)
     import agent_gen.api.main as main
+
     importlib.reload(main)
     uid = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     with db.get_conn() as conn:
         conn.execute(
             "INSERT INTO users (id, github_id, github_handle, email, avatar_url, plan, created_at, updated_at) "
-            "VALUES (?, 4242, 'alice', 'alice@example.test', '', 'pro', ?, ?)", (uid, now, now))
+            "VALUES (?, 4242, 'alice', 'alice@example.test', '', 'pro', ?, ?)",
+            (uid, now, now),
+        )
     from agent_gen.api.jwt_utils import create_token
+
     return TestClient(main.app), db, uid, create_token(uid), main
 
 
@@ -54,7 +63,9 @@ def test_device_flow_issues_token_once(api):
     assert client.get("/auth/cli/poll", params={"device_code": start["device_code"]}).json()["status"] == "pending"
 
     client.cookies.set("session", session)
-    assert client.post("/auth/cli/approve", json={"user_code": start["user_code"].lower().replace("-", "")}).json() == {"approved": True}
+    assert client.post("/auth/cli/approve", json={"user_code": start["user_code"].lower().replace("-", "")}).json() == {
+        "approved": True
+    }
     client.cookies.clear()
 
     done = client.post("/auth/cli/poll", json={"device_code": start["device_code"]}).json()
@@ -128,6 +139,7 @@ def test_cli_login_whoami_logout(api, tmp_path, monkeypatch):
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
     import agent_gen.cli as cli_module
+
     monkeypatch.setattr(cli_module, "REGISTRY_URL", f"http://127.0.0.1:{port}")
 
     def approve_when_started():

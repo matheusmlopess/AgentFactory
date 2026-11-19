@@ -4,6 +4,7 @@ The signing secret comes from ``JWT_SECRET`` and is read on every call, so tests
 long-running processes see the current value. Outside development (``AGENTFACTORY_ENV``
 is ``dev``/``development``/``test``) the API refuses to run without a real secret.
 """
+
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -14,10 +15,12 @@ _EXPIRE_DAYS = 30
 _MIN_SECRET_LEN = 32
 _DEV_ENVS = frozenset({"dev", "development", "test"})
 # Placeholders shipped in examples or old defaults: never valid outside development.
-_PLACEHOLDERS = frozenset({
-    "dev-secret-change-in-production",
-    "change_me_generate_a_real_secret",
-})
+_PLACEHOLDERS = frozenset(
+    {
+        "dev-secret-change-in-production",
+        "change_me_generate_a_real_secret",
+    }
+)
 COOKIE_NAME = "session"
 
 
