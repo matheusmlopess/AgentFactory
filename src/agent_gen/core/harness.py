@@ -5,10 +5,12 @@ Split out of librarian.py (#189); `agent_gen.librarian` re-exports the public na
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from pathlib import Path
 
+from .base import LibrarianBase
 from .briefs import (
     _FORMAT_REGISTRY,
     _FORMATTER_DISPATCH,
@@ -21,8 +23,10 @@ from .briefs import (
 from .constants import CONTEXT_FILE, HARNESS_ROOT
 from .safety import _sanitize_for_markdown
 
+logger = logging.getLogger(__name__)
 
-class HarnessMixin:
+
+class HarnessMixin(LibrarianBase):
     """Compiled adapter briefs, AgentFactory.md, root symlinks and adapter wiring."""
 
     @classmethod
@@ -75,7 +79,8 @@ class HarnessMixin:
                         doc_ref = f"`{rel_path}/SKILL.md`" if skill_md_path.exists() else f"`{rel_path}`"
 
                         root_skills.append((s_name, s_desc, doc_ref))
-                    except Exception:
+                    except (OSError, ValueError) as exc:
+                        logger.warning("skipping unreadable skill manifest %s: %s", manifest_file, exc)
                         continue
 
             if not root_skills:
@@ -155,7 +160,8 @@ class HarnessMixin:
             if manifest.exists():
                 try:
                     data = json.loads(manifest.read_text(encoding="utf-8"))
-                except Exception:
+                except (OSError, ValueError) as exc:
+                    logger.warning("unreadable %s, listing the skill without metadata: %s", manifest, exc)
                     data = {}
                 skills.append(
                     {
@@ -176,7 +182,8 @@ class HarnessMixin:
             return []
         try:
             data = json.loads(manifest_path.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, ValueError) as exc:
+            logger.warning("unreadable %s, no agents listed: %s", manifest_path, exc)
             return []
         return [
             {"name": name, "description": info.get("description", "No description")}
@@ -216,9 +223,9 @@ class HarnessMixin:
     def _extract_first_bullet_or_line(content: str) -> str:
         for line in content.splitlines():
             stripped = line.strip()
-            if not stripped or stripped.startswith("#") or stripped.startswith("<!--"):
+            if not stripped or stripped.startswith(("#", "<!--")):
                 continue
-            if stripped.startswith("- ") or stripped.startswith("* "):
+            if stripped.startswith(("- ", "* ")):
                 return stripped[2:].strip()
             return stripped
         return ""
@@ -274,7 +281,6 @@ class HarnessMixin:
     @classmethod
     def _compile_adapter_briefs(cls, project_root: str) -> None:
         """Compile brief.md for every activated adapter using FormatSwitch."""
-        import click as _click
 
         adapters_root = Path(project_root) / HARNESS_ROOT / "adapters"
         if not adapters_root.exists():
@@ -298,8 +304,8 @@ class HarnessMixin:
                 if brief_path.exists() and brief_path.read_text(encoding="utf-8") == new_content:
                     continue
                 brief_path.write_text(new_content, encoding="utf-8")
-            except Exception as e:
-                _click.echo(f"Warning: failed to compile brief for {adapter_name}: {e}", err=True)
+            except Exception as e:  # noqa: BLE001 - one broken adapter must not stop the others
+                logger.warning("Warning: failed to compile brief for %s: %s", adapter_name, e)
 
         cls._compile_agentfactory_md(project_root, data)
 

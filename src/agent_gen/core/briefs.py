@@ -4,11 +4,14 @@ Split out of librarian.py (#189); `agent_gen.librarian` re-exports the public na
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 
 from .constants import CONTEXT_FILE, HARNESS_ROOT
 from .oracle import _run_preamble_oracle
+
+logger = logging.getLogger(__name__)
 
 _FORMAT_REGISTRY: dict[str, dict] = {
     "claude": {
@@ -172,28 +175,21 @@ def _fmt_commands_list(commands: list, config: dict) -> str:
     if not commands:
         return "## Commands\n\nNo commands registered."
     prefix = config.get("command_prefix", "")
-    lines = ["## Commands"]
-    for c in commands:
-        lines.append(f"- `{prefix}{c['name']}` — {c.get('description', 'No description')}")
+    lines = ["## Commands", *(f"- `{prefix}{c['name']}` — {c.get('description', 'No description')}" for c in commands)]
     return "\n".join(lines)
 
 
 def _fmt_agents_list(agents: list, config: dict) -> str:
     if not agents:
         return "## Registered Agents\n\nNo agents registered."
-    lines = ["## Registered Agents"]
-    for a in agents:
-        lines.append(f"- **{a['name']}**: {a.get('description', 'No description')}")
+    lines = ["## Registered Agents", *(f"- **{a['name']}**: {a.get('description', 'No description')}" for a in agents)]
     return "\n".join(lines)
 
 
 def _fmt_rules_list(rules: list, config: dict) -> str:
     if not rules:
         return "## Behavior Rules\n\nNo rules defined."
-    lines = ["## Behavior Rules"]
-    for r in rules:
-        lines.append(f"- {r['summary']}")
-    return "\n".join(lines)
+    return "\n".join(["## Behavior Rules", *(f"- {r['summary']}" for r in rules)])
 
 
 def _fmt_harness_identity(adapter_name: str) -> str:
@@ -278,7 +274,7 @@ def _fit_context_to_budget(context: str, adapter_config: dict, project_root: str
         try:
             _run_preamble_oracle(context, truncated, project_root)
         except Exception:
-            pass
+            logger.debug("preamble completeness oracle failed", exc_info=True)
     completeness_hint = " Run: python3 .ai/scripts/skill-completeness-check.py --context to verify." if has_key else ""
     warning = (
         f"\n\n<!-- ⚠ context truncated: {original_len} → {limit} chars "

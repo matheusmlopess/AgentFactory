@@ -5,15 +5,20 @@ Split out of librarian.py (#189); `agent_gen.librarian` re-exports the public na
 from __future__ import annotations
 
 import json
+import logging
 import re
 import subprocess
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
+from .base import LibrarianBase
 from .constants import MANIFEST_FILE, TRACKED_DIRS
 from .safety import _atomic_write_json, _safe_extract
 from .text import _git_ref
+
+logger = logging.getLogger(__name__)
 
 
 def _librarian():
@@ -23,7 +28,7 @@ def _librarian():
     return Librarian
 
 
-class ManifestMixin:
+class ManifestMixin(LibrarianBase):
     """Agent manifest lifecycle: load/save, crawl, dependencies, sync, audit, validate, wrap, unpack."""
 
     def __init__(self, agent_root: str):
@@ -69,7 +74,7 @@ class ManifestMixin:
         # Mapping of script stems to their relative paths for import detection
         script_map = {Path(p).stem: p for p in resources.get("scripts", [])}
 
-        for category, paths in resources.items():
+        for paths in resources.values():
             for rel_path in paths:
                 full_path = self.agent_root / rel_path
                 if not full_path.exists() or not full_path.is_file():
@@ -97,19 +102,19 @@ class ManifestMixin:
                                         root_mod = alias.name.split(".")[0]
                                         if root_mod in script_map:
                                             deps.add(script_map[root_mod])
-                                elif isinstance(node, ast.ImportFrom):
-                                    if node.module:
-                                        root_mod = node.module.split(".")[0]
-                                        if root_mod in script_map:
-                                            deps.add(script_map[root_mod])
+                                elif isinstance(node, ast.ImportFrom) and node.module:
+                                    root_mod = node.module.split(".")[0]
+                                    if root_mod in script_map:
+                                        deps.add(script_map[root_mod])
                         except SyntaxError:
                             pass
 
-                except Exception:
+                except (OSError, ValueError) as exc:
+                    logger.warning("dependency scan skipped %s: %s", rel_path, exc)
                     continue
 
                 if deps:
-                    dependencies[rel_path] = sorted(list(deps))
+                    dependencies[rel_path] = sorted(deps)
 
         return dependencies
 
@@ -129,14 +134,15 @@ class ManifestMixin:
                     data = json.load(f)
                     rel_path = str(manifest_file.parent.relative_to(self.agent_root))
                     skills_metadata[rel_path] = data
-            except Exception:
+            except (OSError, ValueError) as exc:
+                logger.warning("skipping unreadable %s: %s", manifest_file, exc)
                 continue
 
         return skills_metadata
 
     def init(self, name: str) -> dict:
         """Bootstrap a blank manifest for a newly deployed agent."""
-        manifest = {
+        manifest: dict[str, Any] = {
             "name": name,
             "version": "1.0.0",
             "description": f"AgentFactory-powered agent: {name}",
@@ -187,7 +193,7 @@ class ManifestMixin:
         Comprehensive check for integrity drift, missing metadata, and broken dependencies.
         """
         manifest = self._load_manifest()
-        report = {
+        report: dict[str, Any] = {
             "broken_resources": [],
             "broken_dependencies": [],
             "missing_skill_manifests": [],
@@ -198,7 +204,7 @@ class ManifestMixin:
         }
 
         # 1. Check resources
-        present, missing = self.validate()
+        _present, missing = self.validate()
         report["broken_resources"] = missing
 
         # 2. Check dependencies
@@ -236,7 +242,7 @@ class ManifestMixin:
                                 report["invalid_skill_manifests"].append(
                                     str(manifest_file.relative_to(self.agent_root))
                                 )
-                        except Exception:
+                        except (OSError, ValueError):
                             report["invalid_skill_manifests"].append(str(manifest_file.relative_to(self.agent_root)))
 
                         # Gap 1: Detect version drift between skill-manifest.json and SKILL.md frontmatter
@@ -256,8 +262,8 @@ class ManifestMixin:
                                     report["skill_version_drift"].append(
                                         f"{item.name}: skill-manifest.json={sm_version} vs SKILL.md={skill_version}"
                                     )
-                            except Exception:
-                                pass
+                            except (OSError, ValueError) as exc:
+                                logger.warning("version check skipped for %s: %s", item.name, exc)
 
         # Gap 2 & 3: repo-state.md checks (only meaningful for project-level audit)
         repo_state = self.agent_root / "skills" / "git-versioning" / "references" / "repo-state.md"
@@ -318,8 +324,9 @@ class ManifestMixin:
         Returns (present, missing) path lists.
         """
         manifest = self._load_manifest()
-        present, missing = [], []
-        for category, paths in manifest["resources"].items():
+        present: list[str] = []
+        missing: list[str] = []
+        for paths in manifest["resources"].values():
             for rel_path in paths:
                 full = self.agent_root / rel_path
                 (present if full.exists() else missing).append(rel_path)
@@ -331,7 +338,7 @@ class ManifestMixin:
         Returns the path to the created archive.
         """
         manifest = self._load_manifest()
-        present, missing = self.validate()
+        _present, missing = self.validate()
 
         if missing:
             raise FileNotFoundError(
@@ -346,7 +353,7 @@ class ManifestMixin:
 
         with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.write(self.manifest_path, MANIFEST_FILE)
-            for category, paths in manifest["resources"].items():
+            for paths in manifest["resources"].values():
                 for rel_path in paths:
                     full = self.agent_root / rel_path
                     zf.write(full, rel_path)
@@ -354,18 +361,18 @@ class ManifestMixin:
         return archive_path
 
     @staticmethod
-    def unpack(zip_path: str, target_root: str) -> dict:
+    def unpack(zip_path: str | Path, target_root: str | Path) -> dict:
         """
         Unpack a portable unit into target_root, honouring the manifest's
         directory layout.  Returns the imported manifest.
         """
-        zip_path = Path(zip_path).resolve()
-        target_root = Path(target_root).resolve()
+        archive = Path(zip_path).resolve()
+        root = Path(target_root).resolve()
 
-        with zipfile.ZipFile(zip_path) as zf:
-            _safe_extract(zf, target_root)
+        with zipfile.ZipFile(archive) as zf:
+            _safe_extract(zf, root)
 
-        manifest_path = target_root / MANIFEST_FILE
+        manifest_path = root / MANIFEST_FILE
         if not manifest_path.exists():
             raise FileNotFoundError("Archive has no agent-manifest.json — invalid package.")
 

@@ -4,13 +4,18 @@ Split out of librarian.py (#189); `agent_gen.librarian` re-exports the public na
 
 from __future__ import annotations
 
+import contextlib
 import json
+import logging
 import os
 import shutil
 from pathlib import Path
 
+from .base import LibrarianBase
 from .constants import TRACKED_DIRS
 from .text import _extract_first_paragraph
+
+logger = logging.getLogger(__name__)
 
 CONVERSION_PROFILES = {
     "claude": {
@@ -57,7 +62,7 @@ def _librarian():
     return Librarian
 
 
-class RetrofitMixin:
+class RetrofitMixin(LibrarianBase):
     """Retrofit foreign agent layouts (Claude/Codex/Gemini/agy) into the AgentFactory standard."""
 
     @classmethod
@@ -74,7 +79,7 @@ class RetrofitMixin:
 
         # Heuristic profile detection — collect ALL matches (#44)
         for profile, rules in CONVERSION_PROFILES.items():
-            matches = sum(1 for trigger in rules.keys() if (source_path / trigger).exists())
+            matches = sum(1 for trigger in rules if (source_path / trigger).exists())
             if matches >= 1:
                 all_matching_profiles.append(profile)
 
@@ -85,9 +90,7 @@ class RetrofitMixin:
         rules = CONVERSION_PROFILES.get(detected_profile, {})
 
         # Add profile-specific rules
-        for src, dest in rules.items():
-            if (source_path / src).exists():
-                mapping[src] = dest
+        mapping.update({src: dest for src, dest in rules.items() if (source_path / src).exists()})
 
         # Add auto-rules for common patterns if not already mapped
         auto_rules = {
@@ -146,10 +149,8 @@ class RetrofitMixin:
                                 item.rmdir()
                             else:
                                 shutil.move(str(item), str(target))
-                        try:
+                        with contextlib.suppress(OSError):  # directory not empty or already moved
                             src_path.rmdir()
-                        except OSError:
-                            pass  # Directory not empty or already moved
                     else:
                         # If destination is a directory, move file into it
                         if dest_rel in TRACKED_DIRS:

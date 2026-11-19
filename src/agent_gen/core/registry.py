@@ -10,11 +10,12 @@ import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .base import LibrarianBase
 from .constants import HARNESS_ROOT, MANIFEST_FILE
 from .safety import _atomic_write_json, _sanitize_for_markdown
 
 
-class ProjectRegistryMixin:
+class ProjectRegistryMixin(LibrarianBase):
     """The project-level registry (.ai/agent-manifest.json): register, sync, deregister, uninstall."""
 
     @staticmethod

@@ -5,10 +5,13 @@ Split out of librarian.py (#189); `agent_gen.librarian` re-exports the public na
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import zipfile
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def _safe_extract(zf: zipfile.ZipFile, target_dir: Path) -> None:
@@ -38,8 +41,7 @@ def validate_name(name: object, kind: str = "agent") -> str:
 
 def safe_child(base: Path, name: object, kind: str = "agent") -> Path:
     """Join a validated *name* onto *base* and confirm the result stays inside *base*."""
-    validate_name(name, kind)
-    child = base / name
+    child = base / validate_name(name, kind)
     if not child.resolve().is_relative_to(base.resolve()):
         raise ValueError(f"{kind} name {name!r} resolves outside {base}")
     return child
@@ -71,7 +73,7 @@ def _atomic_write_json(path: Path, data: dict) -> None:
     try:
         tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
         os.replace(tmp, path)
-    except Exception:
+    except BaseException:  # clean up on any failure (incl. KeyboardInterrupt), then re-raise
         tmp.unlink(missing_ok=True)
         raise
 
@@ -116,8 +118,10 @@ def _inspect_zip(zip_path: Path) -> dict:
                         elif n.endswith(".workflow.json") and _workflow_has_shell_steps(head + member.read()):
                             # Workflow shell steps run through `orchestrate run` (shell=True).
                             shebang_files.append(n)
-                except Exception:
-                    pass
+                except (OSError, zipfile.BadZipFile, RuntimeError, NotImplementedError) as exc:
+                    # A member we cannot read cannot be shown to be harmless: gate it like a script.
+                    logger.warning("cannot inspect %s in %s (%s); treating it as executable", n, zip_path, exc)
+                    shebang_files.append(n)
     scripts = [n for n in names if n.startswith("scripts/") and not n.endswith("/")]
     executable_files = scripts + shebang_files
     has_manifest = "agent-manifest.json" in names

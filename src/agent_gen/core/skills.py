@@ -5,13 +5,17 @@ Split out of librarian.py (#189); `agent_gen.librarian` re-exports the public na
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import tempfile
 import zipfile
 from pathlib import Path
 
+from .base import LibrarianBase
 from .constants import HARNESS_ROOT
 from .safety import _atomic_write_json, _safe_extract, safe_child
+
+logger = logging.getLogger(__name__)
 
 
 def _librarian():
@@ -21,7 +25,7 @@ def _librarian():
     return Librarian
 
 
-class SkillsMixin:
+class SkillsMixin(LibrarianBase):
     """SKILL.md parsing/reconciliation and skill imports (agent-level and project-level)."""
 
     @staticmethod
@@ -58,7 +62,8 @@ class SkillsMixin:
                 if key:
                     result[key] = value
             return result
-        except Exception:
+        except (OSError, ValueError) as exc:
+            logger.warning("cannot read frontmatter of %s: %s", skill_md_path, exc)
             return {}
 
     @staticmethod
@@ -108,7 +113,8 @@ class SkillsMixin:
             # Reconcile: update name/description; merge optional fields if present
             try:
                 data = json.loads(manifest_path.read_text(encoding="utf-8"))
-            except Exception:
+            except (OSError, ValueError) as exc:
+                logger.warning("replacing unreadable %s: %s", manifest_path, exc)
                 data = {}
             if data.get("name") and data["name"] != fm_name:
                 raise ValueError(f"skill-manifest.json name '{data['name']}' conflicts with SKILL.md name '{fm_name}'")
@@ -120,10 +126,12 @@ class SkillsMixin:
                 data["triggers"] = fm_triggers
             _atomic_write_json(manifest_path, data)
 
-    def import_skill(self, skill_source: str) -> str:
-        """
-        Import a standalone skill into this agent's skills/ directory.
-        Supports both directories and ZIP files.
+    @classmethod
+    def _install_skill(cls, skill_source: str, skills_dir: Path) -> str:
+        """Normalize a skill (directory or ZIP) and install it as ``skills_dir/<name>``; returns the name.
+
+        Shared by agent-level and project-level imports: frontmatter is reconciled first (#134), the
+        skill-manifest.json may be nested (some ZIP exports), and the name must be a safe path component (#185).
         """
         source_path = Path(skill_source).resolve()
         if not source_path.exists():
@@ -136,105 +144,45 @@ class SkillsMixin:
                 with zipfile.ZipFile(source_path, "r") as zf:
                     _safe_extract(zf, temp_path)
             elif source_path.is_dir():
-                # Copy content to temp area to normalize
                 shutil.copytree(source_path, temp_path, dirs_exist_ok=True)
             else:
                 raise ValueError("Skill source must be a directory or a ZIP file.")
 
-            # Validate and reconcile SKILL.md frontmatter first (#134).
-            # This auto-generates skill-manifest.json from frontmatter when absent.
+            # Auto-generates skill-manifest.json from SKILL.md frontmatter when absent (#134).
             _librarian()._validate_and_reconcile_skill_manifest(temp_path)
 
-            # Look for skill-manifest.json (may have just been auto-generated)
             manifest_file = temp_path / "skill-manifest.json"
             if not manifest_file.exists():
-                # Maybe it's nested (common in some zip exports)
                 manifests = list(temp_path.rglob("skill-manifest.json"))
                 if not manifests:
                     raise FileNotFoundError("skill-manifest.json not found in the source.")
-                # Use the first one found and adjust temp_path
                 manifest_file = manifests[0]
                 temp_path = manifest_file.parent
 
-            with open(manifest_file) as f:
-                try:
-                    skill_data = json.load(f)
-                except json.JSONDecodeError:
-                    raise ValueError(f"Invalid JSON in {manifest_file}") from None
-
+            try:
+                skill_data = json.loads(manifest_file.read_text())
+            except json.JSONDecodeError:
+                raise ValueError(f"Invalid JSON in {manifest_file}") from None
             if "name" not in skill_data:
                 raise ValueError("skill-manifest.json must contain a 'name' field.")
 
             skill_name = skill_data["name"]
-            target_dir = safe_child(self.agent_root / "skills", skill_name, "skill")
-
-            # Ensure skills directory exists
+            target_dir = safe_child(skills_dir, skill_name, "skill")
             target_dir.parent.mkdir(parents=True, exist_ok=True)
-
             if target_dir.exists():
                 shutil.rmtree(target_dir)
-
-            # Copy normalized skill to agent
             shutil.copytree(temp_path, target_dir)
+        return skill_name
 
+    def import_skill(self, skill_source: str) -> str:
+        """Import a standalone skill (directory or ZIP) into this agent's skills/ directory."""
+        skill_name = self._install_skill(skill_source, self.agent_root / "skills")
         self.sync()
         return skill_name
 
     @classmethod
     def import_skill_to_project(cls, skill_source: str, project_root: str) -> str:
-        """Import a skill directly into the project-level .ai/skills/ directory.
-
-        This is the root-project variant of import_skill() — it targets
-        HARNESS_ROOT/skills/<name> rather than an agent's skills/ subdirectory,
-        and calls update_harness_files() to rebuild all adapter briefs.
-
-        Returns the skill name.
-        """
-        source_path = Path(skill_source).resolve()
-        if not source_path.exists():
-            raise FileNotFoundError(f"Skill source not found: {skill_source}")
-
-        target_root = Path(project_root).resolve() / HARNESS_ROOT
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_path = Path(temp_dir)
-
-            if zipfile.is_zipfile(source_path):
-                with zipfile.ZipFile(source_path, "r") as zf:
-                    _safe_extract(zf, temp_path)
-            elif source_path.is_dir():
-                shutil.copytree(source_path, temp_path, dirs_exist_ok=True)
-            else:
-                raise ValueError("Skill source must be a directory or a ZIP file.")
-
-            # Validate and reconcile SKILL.md frontmatter first (#134).
-            cls._validate_and_reconcile_skill_manifest(temp_path)
-
-            manifest_file = temp_path / "skill-manifest.json"
-            if not manifest_file.exists():
-                manifests = list(temp_path.rglob("skill-manifest.json"))
-                if not manifests:
-                    raise FileNotFoundError("skill-manifest.json not found in the source.")
-                manifest_file = manifests[0]
-                temp_path = manifest_file.parent
-
-            with open(manifest_file) as f:
-                try:
-                    skill_data = json.load(f)
-                except json.JSONDecodeError:
-                    raise ValueError(f"Invalid JSON in {manifest_file}") from None
-
-            if "name" not in skill_data:
-                raise ValueError("skill-manifest.json must contain a 'name' field.")
-
-            skill_name = skill_data["name"]
-            target_dir = safe_child(target_root / "skills", skill_name, "skill")
-            target_dir.parent.mkdir(parents=True, exist_ok=True)
-
-            if target_dir.exists():
-                shutil.rmtree(target_dir)
-
-            shutil.copytree(temp_path, target_dir)
-
+        """Import a skill into the project-level .ai/skills/ and rebuild every adapter brief."""
+        skill_name = cls._install_skill(skill_source, Path(project_root).resolve() / HARNESS_ROOT / "skills")
         cls.update_harness_files(project_root)
         return skill_name

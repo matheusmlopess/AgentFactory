@@ -4,8 +4,11 @@ Split out of librarian.py (#189); `agent_gen.librarian` re-exports the public na
 
 from __future__ import annotations
 
+import logging
 import subprocess
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def _extract_first_paragraph(path: Path) -> str:
@@ -17,7 +20,7 @@ def _extract_first_paragraph(path: Path) -> str:
     try:
         content = path.read_text(encoding="utf-8", errors="ignore")
         lines = content.splitlines()
-        collect = []
+        collect: list[str] = []
         i = 0
         # Skip YAML frontmatter
         if lines and lines[0].strip() == "---":
@@ -46,7 +49,7 @@ def _extract_first_paragraph(path: Path) -> str:
                 break
         text = " ".join(collect).strip()
         return text[:200] if text else ""
-    except Exception:
+    except OSError:
         return ""
 
 
@@ -61,5 +64,5 @@ def _git_ref(path: str) -> str:
             .decode()
             .strip()
         )
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return "untracked"
