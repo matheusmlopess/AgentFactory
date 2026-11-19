@@ -78,5 +78,5 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Broad excepts in the library are #189's scope (split librarian.py and narrow its exception handling).
 # Structural/style findings in cli.py are fixed as part of its split (#190).
-"src/agent_gen/cli.py" = ["BLE001", "S110", "S112", "SIM102", "SIM105", "SIM115", "PERF401"]
+"src/agent_gen/commands/*.py" = ["BLE001", "S110", "S112", "SIM102", "SIM105", "SIM115", "PERF401"]
 "src/tests/**" = ["BLE001", "S110", "S112", "RUF012"]

@@ -140,7 +140,9 @@ def test_cli_login_whoami_logout(api, tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(home))
     import agent_gen.cli as cli_module
 
-    monkeypatch.setattr(cli_module, "REGISTRY_URL", f"http://127.0.0.1:{port}")
+    monkeypatch.setattr(
+        __import__("agent_gen.commands._remote", fromlist=["_"]), "REGISTRY_URL", f"http://127.0.0.1:{port}"
+    )
 
     def approve_when_started():
         for _ in range(100):

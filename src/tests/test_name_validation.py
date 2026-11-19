@@ -203,7 +203,7 @@ def test_from_git_accepts_local_directory(tmp_path):
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
         runner.invoke(cli, ["init"])
-        with patch("agent_gen.cli.subprocess.run", side_effect=fake_run):
+        with patch("agent_gen.commands._sources.subprocess.run", side_effect=fake_run):
             result = runner.invoke(cli, ["import", "--from-git", str(repo)])
     assert "Invalid git URL" not in result.output
     assert seen["args"][-2] == repo.resolve().as_uri()
@@ -357,7 +357,7 @@ def test_registry_import_records_source_before_the_move(tmp_path):
     }
     with runner.isolated_filesystem(temp_dir=tmp_path) as cwd:
         runner.invoke(cli, ["init"])
-        with patch("agent_gen.cli._registry_fetch", return_value=(entry, buf_path.read_bytes())):
+        with patch("agent_gen.commands._remote._registry_fetch", return_value=(entry, buf_path.read_bytes())):
             r = runner.invoke(cli, ["import", "--from-registry", "reg-src"])
         assert r.exit_code == 0, r.output
         data = json.loads((Path(cwd) / ".ai" / "agents" / "reg-src" / MANIFEST_FILE).read_text())

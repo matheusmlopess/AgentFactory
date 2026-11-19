@@ -247,7 +247,7 @@ def test_cli_publish_then_import_from_registry(api, tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(home))
     import agent_gen.cli as cli_module
 
-    monkeypatch.setattr(cli_module, "REGISTRY_URL", base)
+    monkeypatch.setattr(__import__("agent_gen.commands._remote", fromlist=["_"]), "REGISTRY_URL", base)
     runner = CliRunner()
     try:
         src = tmp_path / "publisher"
