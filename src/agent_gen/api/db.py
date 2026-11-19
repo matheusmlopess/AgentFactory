@@ -8,8 +8,8 @@ import hashlib
 import os
 import secrets
 import sqlite3
-from datetime import datetime, timezone
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 
 _DB_URL = os.environ.get("DATABASE_URL", "sqlite:///./data/agentfactory.db")
@@ -111,7 +111,7 @@ def issue_license_key(plan: str, user_id: str | None = None) -> str:
     if plan not in PLAN_RANK:
         raise ValueError(f"Unknown plan {plan!r}; expected one of {', '.join(PLAN_RANK)}")
     key = f"afk_{secrets.token_urlsafe(32)}"
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO license_keys (key_hash, plan, user_id, created_at) VALUES (?, ?, ?, ?)",
@@ -121,7 +121,7 @@ def issue_license_key(plan: str, user_id: str | None = None) -> str:
 
 
 def revoke_license_key(key: str) -> bool:
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     with get_conn() as conn:
         cur = conn.execute(
             "UPDATE license_keys SET revoked_at = ? WHERE key_hash = ? AND revoked_at IS NULL",
@@ -156,7 +156,7 @@ def init_db() -> None:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def issue_api_token(user_id: str, label: str = "", ttl_days: int | None = 90) -> str:
@@ -166,7 +166,7 @@ def issue_api_token(user_id: str, label: str = "", ttl_days: int | None = 90) ->
     if ttl_days:
         from datetime import timedelta
 
-        expires = (datetime.now(timezone.utc) + timedelta(days=ttl_days)).isoformat()
+        expires = (datetime.now(UTC) + timedelta(days=ttl_days)).isoformat()
     with get_conn() as conn:
         if conn.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone() is None:
             raise ValueError(f"unknown user id {user_id!r}")
@@ -220,7 +220,7 @@ def create_device_code(ttl_seconds: int = 600) -> tuple[str, str]:
     """Start a login: returns (device_code, user_code). Expired codes are purged; pending codes are capped."""
     from datetime import timedelta
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     device_code = secrets.token_urlsafe(32)
     with get_conn() as conn:
         conn.execute("DELETE FROM device_codes WHERE expires_at <= ?", (now.isoformat(),))

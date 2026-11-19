@@ -7,14 +7,14 @@ import stat
 import threading
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
 pytest.importorskip("fastapi", reason="API tests need the [api] extra")
 
-from click.testing import CliRunner  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
+from click.testing import CliRunner
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture()
@@ -24,24 +24,24 @@ def api(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/dev.db")
     monkeypatch.setenv("WEBAPP_URL", "https://app.example.test")
     monkeypatch.setenv("DEVICE_POLL_INTERVAL", "0.1")
-    import agent_gen.api.db as db
+    from agent_gen.api import db
 
     importlib.reload(db)
     db.init_db()
-    import agent_gen.api.deps as deps
+    from agent_gen.api import deps
 
     importlib.reload(deps)
-    import agent_gen.api.routers.auth as auth
+    from agent_gen.api.routers import auth
 
     importlib.reload(auth)
-    import agent_gen.api.routers.registry as registry
+    from agent_gen.api.routers import registry
 
     importlib.reload(registry)
-    import agent_gen.api.main as main
+    from agent_gen.api import main
 
     importlib.reload(main)
     uid = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     with db.get_conn() as conn:
         conn.execute(
             "INSERT INTO users (id, github_id, github_handle, email, avatar_url, plan, created_at, updated_at) "
@@ -54,7 +54,7 @@ def api(tmp_path, monkeypatch):
 
 
 def test_device_flow_issues_token_once(api):
-    client, db, uid, session, _ = api
+    client, _db, _uid, session, _ = api
     start = client.post("/auth/cli/device", json={}).json()
     assert start["verification_uri"] == "https://app.example.test/device"
     assert start["user_code"] in start["verification_uri_complete"]

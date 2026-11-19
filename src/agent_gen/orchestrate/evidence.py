@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .models import Evidence, RunResult
@@ -24,7 +24,7 @@ class EvidenceSink:
     """Writes per-step outputs as they happen and run.json at the end."""
 
     def __init__(self, project_root: str | Path, evidence_dir: str, workflow_name: str):
-        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         self.run_dir = Path(project_root) / evidence_dir / f"{ts}-{_safe_name(workflow_name)}"
         self.steps_dir = self.run_dir / "steps"
 
@@ -46,8 +46,8 @@ class NullSink:
 
     run_dir = None
 
-    def write_step(self, ev: Evidence) -> None:  # noqa: ARG002
+    def write_step(self, ev: Evidence) -> None:
         return
 
-    def finalize(self, result: RunResult) -> None:  # noqa: ARG002
+    def finalize(self, result: RunResult) -> None:
         return None

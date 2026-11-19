@@ -48,6 +48,7 @@ _SUPPORTED = list(_CLI_INVOCATION.keys())
 
 def _init_project(proj: Path, adapter: str) -> None:
     from click.testing import CliRunner
+
     from agent_gen.cli import cli
     from agent_gen.librarian import HARNESS_ROOT
 

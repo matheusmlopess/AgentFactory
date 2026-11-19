@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-from agent_gen.cli import cli, REGISTRY_URL
+from agent_gen.cli import REGISTRY_URL, cli
 from agent_gen.librarian import HARNESS_ROOT, MANIFEST_FILE
 
 AGENTS = f"{HARNESS_ROOT}/agents"
@@ -65,7 +65,7 @@ class TestPublishCommand(unittest.TestCase):
 
             self.assertEqual(result.exit_code, 0, result.output)
             mock_pub.assert_called_once()
-            call_manifest, call_zip = mock_pub.call_args.args
+            call_manifest, _call_zip = mock_pub.call_args.args
             self.assertEqual(call_manifest["name"], "good-agent")
             self.assertEqual(call_manifest["description"], "A test agent")
             self.assertIn(REGISTRY_URL, result.output)
@@ -212,6 +212,7 @@ class TestApiUrlSetting(unittest.TestCase):
     def test_legacy_name_warns(self):
         import contextlib
         import io as _io
+
         from agent_gen.cli import _resolve_api_url
 
         err = _io.StringIO()

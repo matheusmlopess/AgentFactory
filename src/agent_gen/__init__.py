@@ -4,7 +4,8 @@ The package version has one source: ``version`` in pyproject.toml. Installed cop
 from package metadata; a plain source checkout (no install) reads pyproject.toml directly.
 """
 
-from importlib.metadata import PackageNotFoundError, version as _pkg_version
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 from pathlib import Path
 
 

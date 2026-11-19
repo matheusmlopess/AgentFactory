@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+from conftest import make_contract
 
 from agent_gen.cli import cli
-from conftest import make_contract
 
 
 @pytest.fixture

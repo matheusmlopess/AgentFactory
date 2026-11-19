@@ -2,17 +2,17 @@ import io
 import json
 import os
 import stat
-import unittest
 import tempfile
+import unittest
 import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
 from agent_gen.librarian import (
-    Librarian,
-    MANIFEST_FILE,
-    HARNESS_ROOT,
     CONTEXT_FILE,
+    HARNESS_ROOT,
+    MANIFEST_FILE,
+    Librarian,
     _safe_extract,
 )
 
@@ -158,9 +158,8 @@ class TestLibrarianLifecycle(unittest.TestCase):
                 zf.writestr("../escape.txt", "malicious content")
             zip_buf.seek(0)
 
-            with zipfile.ZipFile(zip_buf) as zf:
-                with self.assertRaises(ValueError) as ctx:
-                    _safe_extract(zf, target)
+            with zipfile.ZipFile(zip_buf) as zf, self.assertRaises(ValueError) as ctx:
+                _safe_extract(zf, target)
             self.assertIn("zip slip", str(ctx.exception).lower())
 
             # The escape file must NOT have been written
@@ -577,9 +576,11 @@ class TestProjectContextInjection(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             self._make_harness(root, af_content)
-            with patch("agent_gen.librarian._run_preamble_oracle", side_effect=Exception("api down")):
-                with patch.dict(os.environ, {"AGENTFACTORY_LICENSE_KEY": "pro_testkey"}):
-                    Librarian._compile_adapter_briefs(str(root))
+            with (
+                patch("agent_gen.librarian._run_preamble_oracle", side_effect=Exception("api down")),
+                patch.dict(os.environ, {"AGENTFACTORY_LICENSE_KEY": "pro_testkey"}),
+            ):
+                Librarian._compile_adapter_briefs(str(root))
             brief = (root / HARNESS_ROOT / "adapters" / "codex" / "brief.md").read_text(encoding="utf-8")
             self.assertIn("context truncated", brief)
 

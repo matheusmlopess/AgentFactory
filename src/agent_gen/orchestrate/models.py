@@ -14,11 +14,11 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
-from enum import Enum
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 STEP_TYPES = ("shell", "agent", "delegate")
 # Step field -> contract policy that supplies its default when the workflow omits it.
@@ -38,7 +38,7 @@ _TEMPLATE_RE = re.compile(r"\{steps\.([\w./-]+)\.(stdout|stderr|exit_code)\}")
 _TEMPLATE_TRUNCATE = 8_000  # cap per-substitution to prevent prompt blowup
 
 
-class StepStatus(str, Enum):
+class StepStatus(StrEnum):
     PENDING = "pending"
     SUCCESS = "success"
     FAILED = "failed"
@@ -55,7 +55,7 @@ class Evidence:
     exit_code: int
     stdout: str
     stderr: str
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     attempt: int = 1
 
     @property
@@ -92,8 +92,8 @@ class WorkflowStep:
     evidence_capture: dict = field(default_factory=lambda: {"stdout": True, "stderr": True, "exit_code": True})
 
     @classmethod
-    def from_dict(cls, data: dict, *, seq: int = 0) -> "WorkflowStep":
-        known = {f for f in cls.__dataclass_fields__}  # noqa: C401
+    def from_dict(cls, data: dict, *, seq: int = 0) -> WorkflowStep:
+        known = set(cls.__dataclass_fields__)
         unknown = set(data) - known - {"remediation_policy"}
         if unknown:
             raise ValueError(f"step has unknown field(s): {sorted(unknown)}")
@@ -104,7 +104,8 @@ class WorkflowStep:
         payload.setdefault("seq", seq)
         step = cls(**payload)
         # Fields the workflow left out may be filled from contract policies at run time.
-        setattr(step, "_explicit_fields", frozenset(payload))  # read via getattr in apply_policy_defaults
+        # Not a dataclass field (it must stay out of to_dict()); setattr keeps mypy and the dataclass happy.
+        setattr(step, "_explicit_fields", frozenset(payload))  # noqa: B010
         step.validate()
         return step
 
@@ -159,11 +160,11 @@ class Workflow:
     description: str = ""
     mode: str = ""  # "" = use contract default_mode
     workflow_id: str = field(default_factory=lambda: f"wf-{uuid.uuid4().hex[:12]}")
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     steps: list[WorkflowStep] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Workflow":
+    def from_dict(cls, data: dict) -> Workflow:
         payload = dict(data)
         raw_steps = payload.pop("steps", [])
         wf = cls(**{k: v for k, v in payload.items() if k in cls.__dataclass_fields__})
@@ -189,7 +190,7 @@ class Workflow:
         for s in self.steps:
             s.validate()
 
-    def patch(self, replacement_steps: list[WorkflowStep], failed_ids: list[str]) -> "Workflow":
+    def patch(self, replacement_steps: list[WorkflowStep], failed_ids: list[str]) -> Workflow:
         """Return a new Workflow with failed steps replaced by remediated ones.
 
         Kept steps retain their original sequence numbers; replacements are
@@ -229,11 +230,11 @@ class RunResult:
     workflow_id: str
     mode: str
     run_id: str = field(default_factory=lambda: f"run-{uuid.uuid4().hex[:12]}")
-    started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    started_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     finished_at: str = ""
     statuses: dict[str, str] = field(default_factory=dict)  # step_id → StepStatus value
     evidence: list[Evidence] = field(default_factory=list)
-    workflow_snapshot: Optional[dict] = None  # final workflow incl. spliced steps
+    workflow_snapshot: dict | None = None  # final workflow incl. spliced steps
 
     @property
     def ok(self) -> bool:

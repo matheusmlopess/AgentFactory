@@ -3,12 +3,12 @@
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import zipfile
-import shutil
-import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 TRACKED_DIRS = ["skills", "commands", "docs", "scripts", "orchestration"]
@@ -260,7 +260,7 @@ _FORMAT_REGISTRY: dict[str, dict] = {
         "section_order": ["skills", "commands", "agents", "rules"],
         # Per-skill character budget (bytes). Warn if SKILL.md exceeds this.
         "skill_char_limit": 18_000,
-        # Completeness score threshold (0–100) for --check-completeness.
+        # Completeness score threshold (0-100) for --check-completeness.
         "completeness_threshold": 90,
         # Max chars of AgentFactory.md preamble to inject into this brief.
         "context_char_limit": 4_000,
@@ -609,8 +609,8 @@ class Librarian:
         """
         Execute the migration based on a mapping with a safe rollback mechanism.
         """
-        import tempfile
         import shutil
+        import tempfile
 
         # Use a temporary staging area to prevent corrupting the original directory on failure
         with tempfile.TemporaryDirectory() as staging_dir:
@@ -662,7 +662,7 @@ class Librarian:
 
             except Exception as exc:
                 # Nothing outside the staging copy has been touched yet.
-                raise RuntimeError(f"Migration failed and was safely rolled back. Reason: {exc}")
+                raise RuntimeError(f"Migration failed and was safely rolled back. Reason: {exc}") from exc
 
             # 3. Swap: move the original aside, move staging in, then drop the original.
             # If the move-in fails, the original is put back, so the agent is never lost.
@@ -676,7 +676,7 @@ class Librarian:
                 if self.agent_root.exists():
                     shutil.rmtree(self.agent_root, ignore_errors=True)
                 os.replace(backup, self.agent_root)
-                raise RuntimeError(f"Migration failed and was safely rolled back. Reason: {exc}")
+                raise RuntimeError(f"Migration failed and was safely rolled back. Reason: {exc}") from exc
             shutil.rmtree(backup, ignore_errors=True)
 
     # ------------------------------------------------------------------
@@ -798,7 +798,7 @@ class Librarian:
             "version": "1.0.0",
             "description": f"AgentFactory-powered agent: {name}",
             "orchestration_plan": None,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "git_ref": _git_ref(str(self.agent_root)),
             "resources": {d: [] for d in TRACKED_DIRS},
             "dependencies": {},
@@ -822,7 +822,7 @@ class Librarian:
 
         manifest["resources"] = self._crawl_resources()
         manifest["git_ref"] = _git_ref(str(self.agent_root))
-        manifest["synced_at"] = datetime.now(timezone.utc).isoformat()
+        manifest["synced_at"] = datetime.now(UTC).isoformat()
 
         # Auto-detect orchestration plan
         if not manifest.get("orchestration_plan") and manifest["resources"].get("orchestration"):
@@ -1146,7 +1146,7 @@ class Librarian:
                 try:
                     skill_data = json.load(f)
                 except json.JSONDecodeError:
-                    raise ValueError(f"Invalid JSON in {manifest_file}")
+                    raise ValueError(f"Invalid JSON in {manifest_file}") from None
 
             if "name" not in skill_data:
                 raise ValueError("skill-manifest.json must contain a 'name' field.")
@@ -1208,7 +1208,7 @@ class Librarian:
                 try:
                     skill_data = json.load(f)
                 except json.JSONDecodeError:
-                    raise ValueError(f"Invalid JSON in {manifest_file}")
+                    raise ValueError(f"Invalid JSON in {manifest_file}") from None
 
             if "name" not in skill_data:
                 raise ValueError("skill-manifest.json must contain a 'name' field.")
@@ -1790,7 +1790,7 @@ class Librarian:
             else:
                 global_manifest = {
                     "factory": "AgentFactory",
-                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "created_at": datetime.now(UTC).isoformat(),
                     "agents": {},
                 }
 
@@ -1801,7 +1801,7 @@ class Librarian:
             global_manifest["agents"][name] = {
                 "version": str(imported_manifest.get("version", "0.0.0")),
                 "description": _sanitize_for_markdown(imported_manifest.get("description", "No description provided.")),
-                "imported_at": datetime.now(timezone.utc).isoformat(),
+                "imported_at": datetime.now(UTC).isoformat(),
                 "git_ref": str(imported_manifest.get("git_ref", "unknown")),
                 "resources": imported_manifest["resources"],
             }

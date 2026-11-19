@@ -4,6 +4,7 @@ import json
 import shutil
 import subprocess
 import zipfile
+from datetime import UTC
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -52,7 +53,7 @@ def test_sign_and_verify(tmp_path, keypair):
 
 
 def test_tampered_file_wrong_signer_and_wrong_namespace_fail(tmp_path, keypair):
-    key, pub, signers = keypair
+    key, _pub, signers = keypair
     z = _zip(tmp_path / "u.zip")
     sig = signing.sign_file(z, key).read_text()
     with pytest.raises(signing.SignatureError):
@@ -166,7 +167,8 @@ def test_registry_publish_stores_signature(tmp_path, keypair, monkeypatch):
     pytest.importorskip("multipart")
     import importlib
     import uuid
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     from fastapi.testclient import TestClient
 
     key, _, _ = keypair
@@ -174,15 +176,15 @@ def test_registry_publish_stores_signature(tmp_path, keypair, monkeypatch):
     monkeypatch.delenv("AGENTFACTORY_ENV", raising=False)
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/reg.db")
     monkeypatch.setenv("REGISTRY_STORAGE_DIR", str(tmp_path / "store"))
-    import agent_gen.api.db as db
+    from agent_gen.api import db
 
     importlib.reload(db)
     db.init_db()
     for mod in ("agent_gen.api.deps", "agent_gen.api.routers.registry", "agent_gen.api.main"):
         importlib.reload(importlib.import_module(mod))
-    import agent_gen.api.main as main
+    from agent_gen.api import main
 
-    uid, now = str(uuid.uuid4()), datetime.now(timezone.utc).isoformat()
+    uid, now = str(uuid.uuid4()), datetime.now(UTC).isoformat()
     with db.get_conn() as conn:
         conn.execute("INSERT INTO users VALUES (?, 1, 'alice', 'a@x', '', 'free', ?, ?)", (uid, now, now))
     token = db.issue_api_token(uid)
@@ -221,7 +223,7 @@ def test_init_db_migrates_old_registry_table(tmp_path, monkeypatch):
     conn.commit()
     conn.close()
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{path}")
-    import agent_gen.api.db as db
+    from agent_gen.api import db
 
     importlib.reload(db)
     db.init_db()

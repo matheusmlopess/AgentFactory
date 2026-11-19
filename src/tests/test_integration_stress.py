@@ -23,8 +23,8 @@ empty-input formatter robustness.
 
 import json
 import os
-import time
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -32,12 +32,12 @@ from click.testing import CliRunner
 
 from agent_gen.cli import cli
 from agent_gen.librarian import (
-    Librarian,
-    HARNESS_ROOT,
     _FORMAT_REGISTRY,
     _FORMATTER_DISPATCH,
-    _fmt_skills_table,
+    HARNESS_ROOT,
+    Librarian,
     _fmt_skills_blocks,
+    _fmt_skills_table,
     _fmt_skills_tools,
 )
 

@@ -1,6 +1,6 @@
 import shutil
-import unittest
 import tempfile
+import unittest
 from pathlib import Path
 
 from agent_gen.librarian import Librarian
@@ -47,7 +47,7 @@ class TestLibrarianRetrofit(unittest.TestCase):
 
     def test_retrofit_rollback_on_failure(self):
         librarian = Librarian(str(self.legacy_agent))
-        profile, mapping, _ = Librarian.propose_retrofit(str(self.legacy_agent))
+        _profile, mapping, _ = Librarian.propose_retrofit(str(self.legacy_agent))
 
         # Introduce a broken mapping that forces an exception
         # We'll map a non-existent file to an invalid path that raises an OSError

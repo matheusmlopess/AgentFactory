@@ -166,7 +166,7 @@ class TestModeSelection:
 
     def test_register_custom_executor(self, orch_project):
         from agent_gen.orchestrate import register_executor
-        from agent_gen.orchestrate.executors import SequentialExecutor, _EXECUTOR_REGISTRY
+        from agent_gen.orchestrate.executors import _EXECUTOR_REGISTRY, SequentialExecutor
 
         class EchoExecutor(SequentialExecutor):
             pass

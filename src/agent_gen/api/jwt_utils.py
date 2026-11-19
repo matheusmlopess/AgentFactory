@@ -6,7 +6,7 @@ is ``dev``/``development``/``test``) the API refuses to run without a real secre
 """
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 
@@ -51,7 +51,7 @@ def check_config() -> None:
 
 
 def create_token(user_id: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(days=_EXPIRE_DAYS)
+    expire = datetime.now(UTC) + timedelta(days=_EXPIRE_DAYS)
     return jwt.encode({"sub": user_id, "exp": expire}, _secret(), algorithm=_ALGORITHM)
 
 

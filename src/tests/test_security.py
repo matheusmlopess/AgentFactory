@@ -9,16 +9,16 @@ import click
 
 from agent_gen.cli import _assert_within_root
 from agent_gen.librarian import (
-    _sanitize_for_markdown,
-    Librarian,
     _FORMAT_REGISTRY,
     _FORMATTER_DISPATCH,
-    _fmt_skills_table,
-    _fmt_skills_blocks,
-    _fmt_skills_tools,
-    _fmt_commands_list,
+    Librarian,
     _fmt_agents_list,
+    _fmt_commands_list,
     _fmt_rules_list,
+    _fmt_skills_blocks,
+    _fmt_skills_table,
+    _fmt_skills_tools,
+    _sanitize_for_markdown,
 )
 
 
@@ -100,8 +100,7 @@ class TestAgentNameSanitization(unittest.TestCase):
         import re
 
         name = url.rstrip("/").split("/")[-1]
-        if name.endswith(".git"):
-            name = name[:-4]
+        name = name.removesuffix(".git")
         name = re.sub(r"[^\w\-]", "-", name).strip("-")
         return name or "imported-agent"
 

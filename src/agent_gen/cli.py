@@ -3,26 +3,27 @@
 import json
 import os
 import re
-import sys
 import shutil
 import subprocess
+import sys
 import tempfile
 import zipfile
+from datetime import UTC
 from pathlib import Path
 
 import click
 
 from . import __version__
 from .librarian import (
-    TRACKED_DIRS,
+    _FORMAT_REGISTRY,
+    CONTEXT_FILE,
     HARNESS_ROOT,
     MANIFEST_FILE,
-    CONTEXT_FILE,
+    TRACKED_DIRS,
     Librarian,
-    _FORMAT_REGISTRY,
+    _atomic_write_json,
     _inspect_zip,
     validate_name,
-    _atomic_write_json,
 )
 
 DEFAULT_API_URL = "https://api.agentfactory.dev"
@@ -107,8 +108,7 @@ def _clone_and_prepare(url: str) -> tuple[str, object]:
 
     # Derive agent name from URL and sanitize (#S4)
     name = url.rstrip("/").split("/")[-1]
-    if name.endswith(".git"):
-        name = name[:-4]
+    name = name.removesuffix(".git")
     name = re.sub(r"[^\w\-]", "-", name).strip("-")
     if not name:
         raise click.ClickException("Could not derive a valid agent name from the URL.")
@@ -241,8 +241,8 @@ def _normalize_git_url(url: str) -> str:
 
 def _registry_publish(manifest: dict, zip_path: Path) -> dict:
     """POST manifest JSON + ZIP to the registry. Returns the registry response."""
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     boundary = "AgentFactoryBoundary"
     manifest_bytes = json.dumps(manifest).encode()
@@ -285,15 +285,15 @@ def _registry_publish(manifest: dict, zip_path: Path) -> dict:
             detail = json.loads(exc.read().decode()).get("detail", exc.reason)
         except Exception:
             detail = exc.reason
-        raise click.ClickException(f"Registry error {exc.code}: {detail}")
+        raise click.ClickException(f"Registry error {exc.code}: {detail}") from exc
     except urllib.error.URLError as exc:
-        raise click.ClickException(f"Registry unreachable: {exc.reason}")
+        raise click.ClickException(f"Registry unreachable: {exc.reason}") from exc
 
 
 def _registry_fetch(slug: str) -> tuple[dict, bytes]:
     """GET agent entry from registry and download its ZIP. Returns (entry_dict, zip_bytes)."""
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     name, _, version = slug.partition("@")
     path = f"/registry/{name}/{version}" if version else f"/registry/{name}"
@@ -307,10 +307,10 @@ def _registry_fetch(slug: str) -> tuple[dict, bytes]:
             entry = json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
-            raise click.ClickException(f"Agent '{slug}' not found in registry.")
-        raise click.ClickException(f"Registry error {exc.code}: {exc.reason}")
+            raise click.ClickException(f"Agent '{slug}' not found in registry.") from exc
+        raise click.ClickException(f"Registry error {exc.code}: {exc.reason}") from exc
     except urllib.error.URLError as exc:
-        raise click.ClickException(f"Registry unreachable: {exc.reason}")
+        raise click.ClickException(f"Registry unreachable: {exc.reason}") from exc
 
     zip_url = entry.get("zip_url")
     if not zip_url:
@@ -321,7 +321,7 @@ def _registry_fetch(slug: str) -> tuple[dict, bytes]:
         with urllib.request.urlopen(zip_url, timeout=60) as resp:
             zip_bytes = resp.read()
     except urllib.error.URLError as exc:
-        raise click.ClickException(f"Failed to download agent ZIP: {exc.reason}")
+        raise click.ClickException(f"Failed to download agent ZIP: {exc.reason}") from exc
 
     return entry, zip_bytes
 
@@ -357,9 +357,9 @@ def _api_json(method: str, path: str, payload: dict | None = None, auth: bool = 
             detail = json.loads(exc.read().decode()).get("detail", exc.reason)
         except Exception:
             detail = exc.reason
-        raise click.ClickException(f"API error {exc.code}: {detail}")
+        raise click.ClickException(f"API error {exc.code}: {detail}") from exc
     except urllib.error.URLError as exc:
-        raise click.ClickException(f"API unreachable ({REGISTRY_URL}): {exc.reason}")
+        raise click.ClickException(f"API unreachable ({REGISTRY_URL}): {exc.reason}") from exc
 
 
 def _verify_publisher_signature(
@@ -469,7 +469,7 @@ def init_project(project_root: str, primary: str):
 
     Safe to run on an existing project — skips items that already exist.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     project_path = Path(project_root).resolve()
     ai_root = project_path / HARNESS_ROOT
@@ -539,7 +539,7 @@ def init_project(project_root: str, primary: str):
     if not global_manifest_path.exists():
         manifest = {
             "factory": "AgentFactory",
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "agents": {},
         }
         _atomic_write_json(global_manifest_path, manifest)
@@ -1261,9 +1261,8 @@ def import_agent(
         sys.exit(1)
 
     # Peek at the archive to get the agent name before unpacking
-    with zipfile.ZipFile(zip_path) as zf:
-        with zf.open("agent-manifest.json") as mf:
-            peeked = json.load(mf)
+    with zipfile.ZipFile(zip_path) as zf, zf.open("agent-manifest.json") as mf:
+        peeked = json.load(mf)
 
     try:
         name = validate_name(peeked.get("name"), "agent")

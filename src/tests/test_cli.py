@@ -1,7 +1,8 @@
-import os
 import json
+import os
 import unittest
 from pathlib import Path
+
 from click.testing import CliRunner
 
 from agent_gen.cli import cli
@@ -292,7 +293,7 @@ class TestCliCommands(unittest.TestCase):
 
     def test_import_from_git_valid_url_clones(self):
         """#50: import --from-git with a valid URL triggers git clone."""
-        import unittest.mock as mock
+        from unittest import mock
 
         with self.runner.isolated_filesystem():
             self.runner.invoke(cli, ["init"])
@@ -442,7 +443,7 @@ class TestCliCommands(unittest.TestCase):
             result = self.runner.invoke(cli, ["describe", "bare-agent", "--desc", "x"])
             self.assertNotEqual(result.exit_code, 0)
 
-    # --- FormatSwitch CLI tests (#93–#96) ---
+    # --- FormatSwitch CLI tests (#93-#96) ---
 
     def test_root_symlinks_point_to_briefs(self):
         """After init, CLAUDE.md symlink points to .ai/adapters/claude/brief.md."""
@@ -720,7 +721,7 @@ class TestCliCommands(unittest.TestCase):
 
 
 class TestWave1Fixes(unittest.TestCase):
-    """Wave 1 foundation-bug regression tests (#132–#136)."""
+    """Wave 1 foundation-bug regression tests (#132-#136)."""
 
     def setUp(self):
         self.runner = CliRunner()

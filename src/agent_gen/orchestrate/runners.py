@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import os
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from .models import Evidence, EXIT_TIMEOUT, EXIT_EXPECTS_FAILED, WorkflowStep
+from .models import EXIT_EXPECTS_FAILED, EXIT_TIMEOUT, Evidence, WorkflowStep
 
 # Lowercase substrings in agent output that mean the provider (not the
 # workflow) failed. Shared with src/tests/test_cli_swap_scenarios.py.
@@ -35,7 +35,7 @@ DEPTH_ENV = "AGENTFACTORY_ORCH_DEPTH"
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class ShellRunner:
@@ -138,7 +138,7 @@ class CliAgentRunner:
     def run(self, step: WorkflowStep, prompt: str, attempt: int = 1) -> Evidence:
         timestamp = _now()
         cmd = self._build_command(prompt)
-        cmd_display = " ".join(cmd[:-1] + [cmd[-1][:80]])
+        cmd_display = " ".join([*cmd[:-1], cmd[-1][:80]])
 
         if self.dry_run:
             return Evidence(

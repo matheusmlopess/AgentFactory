@@ -1,8 +1,9 @@
 """AgentFactory API — FastAPI application entry point."""
 
 import os
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from datetime import UTC
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -105,12 +106,12 @@ def _build_cli():
     def users_add(github_handle: str, email: str, plan: str) -> None:
         """Create a local account and print its id. It never matches a real GitHub login."""
         import uuid
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from .db import get_conn
 
         init_db()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         user_id = str(uuid.uuid4())
         with get_conn() as conn:
             if conn.execute("SELECT 1 FROM users WHERE github_handle = ?", (github_handle,)).fetchone():

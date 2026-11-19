@@ -1,10 +1,10 @@
-import os
 import json
-import unittest
+import os
 import tempfile
+import unittest
 from pathlib import Path
 
-from agent_gen.librarian import Librarian, MANIFEST_FILE, HARNESS_ROOT, CONTEXT_FILE
+from agent_gen.librarian import CONTEXT_FILE, HARNESS_ROOT, MANIFEST_FILE, Librarian
 
 
 class TestGlobalRegistrySync(unittest.TestCase):

@@ -3,6 +3,13 @@
 
 ## [Unreleased]
 
+### Changed (code style, #191 part 2)
+- ruff 0.16 with an explicit rule set in `[tool.ruff.lint]` (upgrades can no longer change what CI enforces) and
+  `ruff format` (line length 120) checked in CI. The reformat commit is listed in `.git-blame-ignore-revs`.
+- Re-raised errors keep their cause (`raise … from exc`); `StepStatus` is a `StrEnum`.
+- Broad `except` handling and structural lint findings in `librarian.py` / `cli.py` are deferred to their split
+  (#189, #190) via per-file ignores.
+
 ### Security
 - `filelock` floor raised to `>=4.2.1,<5`: the old `<4` cap kept installs on 3.x versions with 8 published
   advisories (found by the new pip-audit job).

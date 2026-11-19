@@ -7,8 +7,8 @@ import os
 import secrets
 import time
 import uuid
+from datetime import UTC, datetime
 from urllib.parse import urlencode
-from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
@@ -130,7 +130,7 @@ def github_callback(code: str, state: str, response: Response) -> RedirectRespon
                     email = entry["email"]
                     break
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     github_id: int = gh_user["id"]
     handle: str = gh_user["login"]
     avatar: str = gh_user.get("avatar_url", "")

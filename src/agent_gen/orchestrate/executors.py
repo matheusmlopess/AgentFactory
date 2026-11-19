@@ -10,9 +10,10 @@ from __future__ import annotations
 import json
 import logging
 import re
+from datetime import UTC
 
 from .contract import OrchestrationContract
-from .delegate import DelegateUnavailable, plan_substeps, _failure_draft
+from .delegate import DelegateUnavailable, _failure_draft, plan_substeps
 from .evidence import NullSink
 from .models import (
     EXIT_EXPECTS_FAILED,
@@ -258,9 +259,9 @@ def _splice(workflow: Workflow, after: WorkflowStep, substeps: list[WorkflowStep
 
 
 def _utcnow() -> str:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 # ---------------------------------------------------------------------------

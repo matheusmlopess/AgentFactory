@@ -10,7 +10,7 @@ import threading
 import time
 import uuid
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -18,8 +18,8 @@ import pytest
 pytest.importorskip("fastapi", reason="API tests need the [api] extra")
 pytest.importorskip("multipart", reason="registry upload needs python-multipart ([api] extra)")
 
-from click.testing import CliRunner  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
+from click.testing import CliRunner
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture()
@@ -29,23 +29,23 @@ def api(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/reg.db")
     monkeypatch.setenv("REGISTRY_STORAGE_DIR", str(tmp_path / "store"))
     monkeypatch.setenv("API_PUBLIC_URL", "https://api.example.test")
-    import agent_gen.api.db as db
+    from agent_gen.api import db
 
     importlib.reload(db)
     db.init_db()
-    import agent_gen.api.deps as deps
+    from agent_gen.api import deps
 
     importlib.reload(deps)
-    import agent_gen.api.routers.registry as registry
+    from agent_gen.api.routers import registry
 
     importlib.reload(registry)
-    import agent_gen.api.main as main
+    from agent_gen.api import main
 
     importlib.reload(main)
 
     def user(handle: str) -> str:
         uid = str(uuid.uuid4())
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         with db.get_conn() as conn:
             conn.execute(
                 "INSERT INTO users (id, github_id, github_handle, email, avatar_url, plan, created_at, updated_at) "
@@ -84,7 +84,7 @@ def test_publish_requires_auth(api):
 
 
 def test_publish_fetch_download_round_trip(api):
-    client, db, user, tmp = api
+    client, _db, user, _tmp = api
     token = user("alice")
     data = bundle("demo")
     r = publish(client, token, data=data)
@@ -224,13 +224,13 @@ def _free_port() -> int:
 def test_cli_publish_then_import_from_registry(api, tmp_path, monkeypatch):
     """The MVP loop on one machine: wrap → publish (CLI, Bearer token) → import --from-registry in another project."""
     uvicorn = pytest.importorskip("uvicorn")
-    _, db, user, _ = api
+    _, _db, user, _ = api
     token = user("alice")
     port = _free_port()
     base = f"http://127.0.0.1:{port}"
     monkeypatch.setenv("API_PUBLIC_URL", base)
 
-    import agent_gen.api.main as main
+    from agent_gen.api import main
 
     server = uvicorn.Server(uvicorn.Config(main.app, host="127.0.0.1", port=port, log_level="warning"))
     thread = threading.Thread(target=server.run, daemon=True)
