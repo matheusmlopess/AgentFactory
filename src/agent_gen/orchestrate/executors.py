@@ -2,7 +2,7 @@
 
 SequentialExecutor ports the supervisor-branch HarnessRunner loop:
 retry | skip | abort | escalate remediation, timeout evidence, dry-run.
-DAG and checkpoint modes land in PR2; plugins register via register_executor().
+Also dag and checkpoint modes; plugins register via register_executor().
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from datetime import UTC
 from pathlib import Path
 
 from .contract import OrchestrationContract
-from .delegate import DelegateUnavailable, _failure_draft, plan_substeps
+from .delegate import DelegateError, DelegateUnavailable, _failure_draft, plan_substeps
 from .evidence import NullSink
 from .models import (
     EXIT_EXPECTS_FAILED,
@@ -131,6 +131,32 @@ class BaseExecutor:
             evidence_by_step[step.id] = ev
         return ev
 
+    def _planner(self, step: WorkflowStep, result: RunResult):
+        """An AskFn that sends a planning prompt to the contract's supervisor agent and records the call."""
+        name = self.contract.supervisor_agent
+        try:
+            spec = self.contract.agent_spec(name)
+        except (KeyError, ValueError) as exc:
+            raise DelegateUnavailable(f"supervisor_agent '{name}' is not usable: {exc}") from None
+        if not spec.get("enabled", True):
+            raise DelegateUnavailable(f"supervisor_agent '{name}' is disabled in the contract")
+        runner = CliAgentRunner(
+            name, spec, self.contract.policies, dry_run=False, cwd=self.cwd, env_overrides=self.env_overrides
+        )
+        plan_step = WorkflowStep(id=f"{step.id}.plan", type="agent", agent=name, prompt="(planner)")
+        plan_step.timeout_seconds = step.timeout_seconds
+
+        def ask(prompt: str, attempt: int) -> Evidence:
+            ev = runner.run(plan_step, prompt, attempt=attempt)
+            self.sink.write_step(ev)
+            result.evidence.append(ev)
+            return ev
+
+        return ask
+
+    def _plan(self, step: WorkflowStep, task: str, result: RunResult, depth: int) -> list[WorkflowStep]:
+        return plan_substeps(step, task, self.contract, result.evidence, depth=depth, ask=self._planner(step, result))
+
     def _refused(self, step: WorkflowStep, reason: str, attempt: int) -> Evidence:
         ev = Evidence(
             step_id=step.id,
@@ -167,7 +193,7 @@ class BaseExecutor:
 class SequentialExecutor(BaseExecutor):
     """Steps run in order; remediation semantics ported from HarnessRunner.run().
 
-    escalate re-plans the failed step through the supervisor agent (PR3); until then it fails the step.
+    escalate re-plans the failed step through the supervisor agent and replaces it with the plan (delegate.py).
     Subclasses can gate each step (`_gate`) and resume from a saved state (`resume=`).
     """
 
@@ -200,6 +226,8 @@ class SequentialExecutor(BaseExecutor):
             evidence_by_step = {e.step_id: e for e in result.evidence}
         max_rounds = self.contract.policies.get("max_remediation_rounds", 2)
         resumed_at = step_index if self._resume else None
+        depth_of: dict[str, int] = dict((self._resume or {}).get("delegate_depth", {}))  # planned steps → depth
+        self._depth_of = depth_of
 
         while step_index < len(workflow.steps):
             step = workflow.steps[step_index]
@@ -211,17 +239,28 @@ class SequentialExecutor(BaseExecutor):
                 break
 
             if step.type == "delegate":
-                try:
-                    prompt = step.render_prompt(evidence_by_step)
-                    substeps = plan_substeps(step, prompt, self.contract, result.evidence)
-                    workflow = _splice(workflow, step, substeps)
+                if self.dry_run:
+                    logger.info("orchestrate: dry run — delegate step=%s is not planned", step.id)
                     result.statuses[step.id] = StepStatus.SUCCESS.value
                     step_index += 1
                     continue
-                except DelegateUnavailable as exc:
-                    logger.error("orchestrate: %s", exc)
+                depth = depth_of.get(step.id, 0)
+                try:
+                    substeps = self._plan(step, step.render_prompt(evidence_by_step), result, depth)
+                except DelegateError as exc:
+                    logger.error("orchestrate: delegate step=%s: %s", step.id, exc)
+                    if step.remediation == "skip":
+                        result.statuses[step.id] = StepStatus.SKIPPED.value
+                        step_index += 1
+                        continue
                     result.statuses[step.id] = StepStatus.FAILED.value
                     break
+                for sub in substeps:
+                    depth_of[sub.id] = depth + 1
+                workflow = _splice(workflow, step, substeps)
+                result.statuses[step.id] = StepStatus.SUCCESS.value
+                step_index += 1
+                continue
 
             ev = self._run_with_retries(step, evidence_by_step, result)
             if ev.succeeded:
@@ -246,8 +285,10 @@ class SequentialExecutor(BaseExecutor):
                     break
                 remediation_round += 1
                 try:
-                    draft = _failure_draft(step, result.evidence)
-                    replacements = plan_substeps(step, draft, self.contract, result.evidence)
+                    depth = depth_of.get(step.id, 0)
+                    replacements = self._plan(step, _failure_draft(step, result.evidence), result, depth)
+                    for sub in replacements:
+                        depth_of[sub.id] = depth + 1
                     if replacements:
                         workflow = workflow.patch(replacements, [step.id])
                         result.statuses.pop(step.id, None)
@@ -255,8 +296,8 @@ class SequentialExecutor(BaseExecutor):
                     result.statuses[step.id] = StepStatus.SKIPPED.value
                     step_index += 1
                     continue
-                except DelegateUnavailable as exc:
-                    logger.error("orchestrate: escalate unavailable — %s", exc)
+                except DelegateError as exc:
+                    logger.error("orchestrate: escalate of step=%s failed — %s", step.id, exc)
                     result.statuses[step.id] = StepStatus.FAILED.value
                     break
 
@@ -307,6 +348,7 @@ class CheckpointExecutor(SequentialExecutor):
             "started_at": result.started_at,
             "next_index": index,
             "remediation_round": remediation_round,
+            "delegate_depth": dict(getattr(self, "_depth_of", {})),
             "workflow": workflow.to_dict(),
             "statuses": dict(result.statuses),
             "evidence": [e.to_dict() for e in result.evidence],
@@ -331,8 +373,8 @@ class DagExecutor(BaseExecutor):
     """Run steps as soon as their `depends_on` are done, up to `max_parallel` at a time (PR2).
 
     A failed (or blocked) dependency blocks its dependents. `skip` lets dependents run, `abort` stops scheduling
-    new steps, and retries/escalation behave as in sequential mode. Delegate steps need sequential or checkpoint
-    mode until delegation lands (PR3).
+    new steps, and retries behave as in sequential mode. Planning does not happen mid-graph: delegate steps need
+    sequential or checkpoint mode, and an `escalate` step that still fails is marked failed.
     """
 
     mode = "dag"
@@ -340,7 +382,7 @@ class DagExecutor(BaseExecutor):
     def run(self, workflow: Workflow) -> RunResult:
         delegates = [s.id for s in workflow.steps if s.type == "delegate"]
         if delegates:
-            raise ValueError(f"dag mode cannot run delegate steps yet {delegates}: use sequential or checkpoint")
+            raise ValueError(f"dag mode cannot run delegate steps {delegates}: use sequential or checkpoint")
         workflow.topological_order()  # cycle check
         self._apply_policies(workflow)
         result = RunResult(workflow_name=workflow.name, workflow_id=workflow.workflow_id, mode=self.mode)
@@ -391,7 +433,9 @@ class DagExecutor(BaseExecutor):
                         done_ok.add(step.id)
                     else:
                         if step.remediation in ("retry", "escalate"):
-                            logger.error("orchestrate: step=%s failed; escalation needs delegation (PR3)", step.id)
+                            logger.error(
+                                "orchestrate: step=%s failed; dag mode does not re-plan (use sequential)", step.id
+                            )
                         statuses[step.id] = StepStatus.FAILED.value
                         abort = abort or step.remediation == "abort"
 
@@ -430,7 +474,7 @@ def _utcnow() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Registry — public plugin point (dag + checkpoint land in PR2)
+# Registry — public plugin point
 # ---------------------------------------------------------------------------
 
 _EXECUTOR_REGISTRY: dict[str, type[BaseExecutor]] = {

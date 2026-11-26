@@ -3,6 +3,15 @@
 
 ## [Unreleased]
 
+### Added (orchestrate PR3, #196)
+- `delegate` steps: the contract's `supervisor_agent` plans the step's prompt as a JSON list of steps, which are
+  validated against the contract, given prefixed ids and run in place (one re-prompt on a bad reply).
+- `escalate` remediation works: a failed step is re-planned from its evidence and replaced, up to
+  `max_remediation_rounds`.
+- New policies `delegate_shell_steps` (default `false`: supervisor-written shell commands never run unless the
+  project opts in) and `max_delegate_steps` (12).
+- Nested harness runs (`"agent": "harness"`) are covered by tests, including the `max_delegate_depth` guard.
+
 ### Added (orchestrate PR2, #195)
 - `dag` mode: steps run as soon as their `depends_on` finish, up to `policies.max_parallel` in parallel. A
   failed dependency blocks its dependents, `skip` lets them run, `abort` stops new work.

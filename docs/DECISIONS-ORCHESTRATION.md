@@ -283,3 +283,17 @@ model; `load_workflow` picks the dialect from `version`.
 
 Retries are shared (`BaseExecutor._run_with_retries`): `max_retries` counts retries after the first attempt.
 
+## Delegation and nesting as built (#196, PR3)
+
+| Piece | Behavior |
+|---|---|
+| `delegate` step | prompt (templated) → `supervisor_agent` with a strict "JSON array of steps" reply format; fenced, prefixed or `{"steps": [...]}` replies parse; one re-prompt quoting the error; then the step fails (or is skipped with `remediation: skip`) |
+| Plan checks | every substep validated as a normal step; ids slugged and prefixed with the delegate id (`plan-draft`), `depends_on` rewritten; at most `policies.max_delegate_steps` (12); nested delegates only below `max_delegate_depth` |
+| Shell safety | supervisor-written shell steps need `allow_shell_steps` **and** `delegate_shell_steps` (default `false`) |
+| `escalate` | the failed step's evidence becomes a failure draft; the plan replaces the step; bounded by `max_remediation_rounds` |
+| Evidence | each supervisor call is recorded as `<step>.plan` evidence |
+| Dry run | delegate steps are not planned (no supervisor call) |
+| checkpoint | the plan and delegation depths are saved in `state.json`; resuming does not re-plan |
+| dag | does not plan mid-graph: delegate steps are rejected, failed `escalate` steps fail |
+| `harness` agent | `agentfactory-gen orchestrate run <prompt> --json` as a child process; `AGENTFACTORY_ORCH_DEPTH` grows per level and a run deeper than `max_delegate_depth` is refused |
+
