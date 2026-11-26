@@ -186,9 +186,11 @@ class ManifestMixin(LibrarianBase):
         manifest["git_ref"] = _git_ref(str(self.agent_root))
         manifest["synced_at"] = datetime.now(UTC).isoformat()
 
-        # Auto-detect orchestration plan
-        if not manifest.get("orchestration_plan") and manifest["resources"].get("orchestration"):
-            manifest["orchestration_plan"] = manifest["resources"]["orchestration"][0]
+        # Auto-detect orchestration plan: a runnable workflow first, then any orchestration file.
+        orchestration = manifest["resources"].get("orchestration") or []
+        if not manifest.get("orchestration_plan") and orchestration:
+            workflows = [p for p in orchestration if p.endswith((".workflow.json", ".plan.json"))]
+            manifest["orchestration_plan"] = (workflows or orchestration)[0]
 
         # Intelligence layer
         manifest["dependencies"].update(self._analyze_dependencies(manifest["resources"]))
@@ -214,6 +216,7 @@ class ManifestMixin(LibrarianBase):
             "invalid_skill_manifests": [],
             "skill_version_drift": [],
             "repo_state_warnings": [],
+            "invalid_workflows": [],
         }
 
         # 1. Check resources
@@ -278,12 +281,34 @@ class ManifestMixin(LibrarianBase):
                             except (OSError, ValueError) as exc:
                                 logger.warning("version check skipped for %s: %s", item.name, exc)
 
+        # 5. Workflows the unit ships must load (`orchestrate run <agent>/<name>`)
+        report["invalid_workflows"] = self._invalid_workflows()
+
         # Gap 2 & 3: repo-state.md checks (only meaningful for project-level audit)
         repo_state = self.agent_root / "skills" / "git-versioning" / "references" / "repo-state.md"
         if repo_state.exists():
             report["repo_state_warnings"].extend(self._check_repo_state(repo_state))
 
         return report
+
+    def _invalid_workflows(self) -> list[str]:
+        from ..orchestrate.models import load_workflow
+
+        found: list[str] = []
+        wf_dir = self.agent_root / "orchestration"
+        if not wf_dir.exists():
+            return found
+        files = sorted(
+            p for p in wf_dir.rglob("*") if p.is_file() and p.name.endswith((".workflow.json", ".plan.json"))
+        )
+        files += sorted((wf_dir / "workflows").glob("*.md")) if (wf_dir / "workflows").is_dir() else []
+        for path in files:
+            rel = path.relative_to(self.agent_root)
+            try:
+                load_workflow(path)
+            except (OSError, ValueError, TypeError, KeyError) as exc:
+                found.append(f"{rel}: {exc}")
+        return found
 
     @staticmethod
     def _check_repo_state(repo_state_path: Path) -> list[str]:

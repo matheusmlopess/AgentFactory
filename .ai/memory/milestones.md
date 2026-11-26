@@ -273,9 +273,10 @@ Tracked against the Agent Skills open standard (agentskills.io, 2026).
 | Item | Title | Status | PR |
 |------|-------|--------|----|
 | ORCH-1 | Core models, contract, runners, sequential executor, `orchestrate run/validate/list/init` | done | #183, follow-up #187 |
-| ORCH-2 | DAG + checkpoint execution modes | pending (milestone 0.5.0) | — |
-| ORCH-3 | Delegate steps + nested harness | pending (milestone 0.5.0) | — |
-| ORCH-4 | Portable Units carry workflows + live tests + docs | pending (milestone 0.5.0) | — |
+| ORCH-2 | DAG + checkpoint execution modes | done | #195, #225 |
+| ORCH-3 | Delegate steps + nested harness | done | #196, #226 |
+| ORCH-4 | Portable Units carry workflows + live tests + docs | done | #197 |
+| ORCH-5 | Canonical `craft-plan/0.1` read/write (CRAFT ADR 0002) | done | #194, #224 |
 
 ## Hardening — 2026-11-03 review
 

@@ -78,10 +78,28 @@ def _atomic_write_json(path: Path, data: dict) -> None:
         raise
 
 
-def _workflow_has_shell_steps(raw: bytes) -> bool:
-    """True when a .workflow.json declares any shell step (or cannot be parsed: assume yes)."""
+WORKFLOW_SUFFIXES = (".workflow.json", ".plan.json")  # plus .md workflows under orchestration/workflows/
+
+
+def _is_workflow_member(name: str) -> bool:
+    return name.endswith(WORKFLOW_SUFFIXES) or ("/workflows/" in name and name.endswith(".md"))
+
+
+def _workflow_has_shell_steps(raw: bytes, name: str = "x.workflow.json") -> bool:
+    """True when a workflow (.workflow.json, .plan.json or a .md with a json block) declares any shell step.
+
+    Anything that cannot be parsed is assumed to have one. A .md without a json block is not a workflow.
+    """
     try:
-        data = json.loads(raw.decode("utf-8"))
+        text = raw.decode("utf-8")
+        if name.endswith(".md"):
+            from ..orchestrate.models import _first_json_fence
+
+            block = _first_json_fence(text)
+            if block is None:
+                return False
+            text = block
+        data = json.loads(text)
         return any(
             isinstance(step, dict) and step.get("type", "shell") == "shell"  # models.py default
             for step in data.get("steps", [])
@@ -115,7 +133,7 @@ def _inspect_zip(zip_path: Path) -> dict:
                         head = member.read(2)
                         if head == b"#!":
                             shebang_files.append(n)
-                        elif n.endswith(".workflow.json") and _workflow_has_shell_steps(head + member.read()):
+                        elif _is_workflow_member(n) and _workflow_has_shell_steps(head + member.read(), n):
                             # Workflow shell steps run through `orchestrate run` (shell=True).
                             shebang_files.append(n)
                 except (OSError, zipfile.BadZipFile, RuntimeError, NotImplementedError) as exc:
