@@ -1,7 +1,7 @@
 # Issue Priority Report
 <!-- version: 1.0.0 -->
-<!-- generated: 2026-11-26 15:57 UTC -->
-<!-- open-issues: 37 -->
+<!-- generated: 2026-11-26 16:02 UTC -->
+<!-- open-issues: 36 -->
 
 Living priority matrix — regenerated automatically on every push to `main`.
 Priority and effort come from the `p0`–`p3` and `size:S|M|L` labels.
@@ -13,7 +13,7 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   ┌──────────────────┬───────────────────────────────────────────┐
   │  Track           │  Issues                                    │
   ├──────────────────┼───────────────────────────────────────────┤
-  │  Harness / CLI   │  #137  #138  #139  #145  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #197  #198│
+  │  Harness / CLI   │  #137  #138  #139  #145  #147  #148  #149  #150  #151  #152  #153  #154  #155  #156  #157  #158  #159  #160  #161  #162  #163  #164  #165  #166  #167  #168  #169  #170  #171  #172  #173  #178  #198│
   │  Webapp / UI     │                                             │
   │  Platform Core   │  #192  #203                                 │
   │  Platform Upper  │  #200                                       │
@@ -58,7 +58,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #173    —                         —                         [Gemini] Tracking issue for Gemini adapter al
   #178    #139                      —                         Umbrella(cli): SKILL.md frontmatter parsing +
   #192    —                         —                         api: production readiness (database, containe
-  #197    —                         —                         feat(orchestrate): workflows in Portable Unit
   #198    —                         —                         fix(brief): agent registry links point to doc
   #200    —                         —                         spike: shared Rust contracts core (validation
   #203    —                         —                         ops: deploy the API (api.agentfactory.dev)
@@ -86,7 +85,6 @@ Source: `.ai/scripts/generate-priority-report.py`  |  Spec: `docs/ISSUE-PRIORITY
   #161    p2   medium    Harness / CLI     —                     [Codex] Broaden Codex retrofit profile to mat
   #163    p2   medium    Harness / CLI     —                     [Codex] Add Codex edge-case tests for MCP, .c
   #192    p2   medium    Platform Core     —                     api: production readiness (database, containe
-  #197    p2   medium    Harness / CLI     —                     feat(orchestrate): workflows in Portable Unit
   #152    p3   small     Harness / CLI     —                     [Codex] Teach harness doctor to validate code
   #153    p3   small     Harness / CLI     —                     [Codex] Add codex skills symlink to harness d
   #154    p3   small     Harness / CLI     —                     [Codex] Document AgentFactory prompt mapping 
@@ -138,5 +136,5 @@ Key dependencies that span tracks — these are the critical path risks:
 
 ---
 
-_Generated 2026-11-26 15:57 UTC by `generate-priority-report.py`._
+_Generated 2026-11-26 16:02 UTC by `generate-priority-report.py`._
 _Run manually: `python3 .ai/scripts/generate-priority-report.py`_
