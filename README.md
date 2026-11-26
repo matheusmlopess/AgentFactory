@@ -181,7 +181,7 @@ the workflow name), up to `policies.max_delegate_depth` levels deep.
 agentfactory-gen orchestrate convert <workflow> --to canonical|af   # craft-plan/0.1 (CRAFT ADR 0002) ⇄ .workflow.json
 ```
 
-Workflows are `.workflow.json` (AgentFactory) or `.plan.json` in the shared CRAFT format `craft-plan/0.1`; both load
+User guide: [`docs/orchestration.md`](docs/orchestration.md). Workflows are `.workflow.json` (AgentFactory) or `.plan.json` in the shared CRAFT format `craft-plan/0.1`; both load
 anywhere a workflow is accepted. Steps run inside `--project-root`; evidence is written to `.ai/memory/orchestration-runs/`.
 `claude` steps use your Claude subscription (API key variables are stripped); set
 `AGENTFACTORY_CLAUDE_BACKEND=api` to use `ANTHROPIC_API_KEY` instead.

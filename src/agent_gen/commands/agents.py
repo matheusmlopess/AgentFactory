@@ -191,11 +191,17 @@ def audit(name: str, fix: bool, project_root: str):
         for p in report["skill_version_drift"]:
             _echo(f"  - {p}")
 
+    if report.get("invalid_workflows"):
+        _echo("[librarian] ! Workflows that do not load (orchestrate run would refuse them):")
+        for p in report["invalid_workflows"]:
+            _echo(f"  - {p}")
+
     if fatal:
         _echo(f"[librarian] ✗ '{name}' audit FAILED — fix the issues above.", err=True)
         sys.exit(1)
 
-    if not any([report["untracked_files"], report["missing_skill_manifests"], report.get("skill_version_drift")]):
+    warnings = ("untracked_files", "missing_skill_manifests", "skill_version_drift", "invalid_workflows")
+    if not any(report.get(k) for k in warnings):
         _echo(f"[librarian] ✓ '{name}' integrity is clean.")
     else:
         _echo(f"[librarian] ✓ '{name}' integrity OK (warnings above — run sync to resolve).")

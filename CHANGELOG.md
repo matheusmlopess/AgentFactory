@@ -3,6 +3,15 @@
 
 ## [Unreleased]
 
+### Added (orchestrate PR4, #197)
+- Portable Units carry workflows: `audit` warns about workflows in `orchestration/` that do not load, and
+  `orchestration_plan` defaults to the unit's first workflow. `orchestrate run <agent>/<name>` runs them.
+- `docs/orchestration.md`: the user guide (files, modes, supervisor steps, contract, units, exit codes).
+- Live tests (`pytest -m live`): a one-step workflow per CLI (claude, codex, agy) through the default contract.
+
+### Security
+- The import gate now also flags shell steps in `.plan.json` and `.md` workflows, not only `.workflow.json`.
+
 ### Added (orchestrate PR3, #196)
 - `delegate` steps: the contract's `supervisor_agent` plans the step's prompt as a JSON list of steps, which are
   validated against the contract, given prefixed ids and run in place (one re-prompt on a bad reply).
