@@ -74,7 +74,7 @@ class WorkflowStep:
     shell    → command executed via the shell
     agent    → prompt sent to a CLI agent from the contract's agents table
     delegate → prompt sent to the supervisor agent, whose JSON reply is
-               validated and spliced in as new steps (PR3)
+               validated and spliced in as new steps (delegate.py)
     """
 
     id: str = field(default_factory=lambda: f"step-{uuid.uuid4().hex[:8]}")

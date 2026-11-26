@@ -74,8 +74,8 @@ class TestRemediationPolicies:
         assert result.statuses["never"] == "blocked"
         assert not result.ok
 
-    def test_escalate_fails_cleanly_until_delegate_lands(self, orch_project):
-        """PR1: escalate requires the delegate planner (PR3) — run fails, doesn't crash."""
+    def test_escalate_fails_cleanly_without_a_usable_plan(self, orch_project):
+        """The stub supervisor echoes the prompt, which is not a plan: the step fails, the run doesn't crash."""
         wf = _wf(
             _shell("bad", "exit 1", remediation="escalate"),
             _shell("never", "echo nope"),

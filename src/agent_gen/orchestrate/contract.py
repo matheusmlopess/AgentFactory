@@ -62,6 +62,9 @@ DEFAULT_CONTRACT: dict = {
         "max_delegate_depth": 1,
         "max_parallel": 4,
         "allow_shell_steps": True,
+        # Shell steps written by the supervisor (delegate/escalate plans) run only when the project opts in.
+        "delegate_shell_steps": False,
+        "max_delegate_steps": 12,
         # An empty agent answer is never useful evidence (agy returns exit 0
         # with no output when quota is exhausted).
         "empty_output_is_failure": True,
