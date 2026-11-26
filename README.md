@@ -364,7 +364,7 @@ result in the harness.
 ### Versioning
 
 - The **package version** lives only in `pyproject.toml` (`agentfactory-gen --version`,
-  `agent_gen.__version__` and the API version read it). PyPI releases: 0.3.1 → **0.4.0**.
+  `agent_gen.__version__` and the API version read it). PyPI releases: 0.3.1 → 0.4.0 → **0.5.0**.
 - `<!-- version: X.Y.Z -->` markers at the top of Markdown files are **document versions**
   (bumped when that file changes), not the package version.
 - Tags `v2.0.0`–`v2.8.0` were internal milestone tags from April 2026; they were never
