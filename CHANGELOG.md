@@ -1,7 +1,19 @@
 # Changelog
-<!-- version: 2.9.0 -->
+<!-- version: 2.10.0 -->
 
 ## [Unreleased]
+
+## [v0.5.0] - 2026-11-26
+
+Highlights: the `orchestrate` track is complete (milestone `0.5.0 orchestrate`).
+- Workflows load and save in the shared CRAFT plan format `craft-plan/0.1` (`orchestrate convert`).
+- New `dag` (parallel) and `checkpoint` (approve, pause, resume) execution modes.
+- Supervisor-planned `delegate` steps and working `escalate` re-planning. Planned shell steps are opt-in.
+- Workflows ship inside Portable Units and run as `<agent>/<name>`. Live tests cover claude, codex and agy, and
+  `docs/orchestration.md` is the user guide.
+
+Also: the library and CLI are split into packages (`agent_gen/core/`, `agent_gen/commands/`), and CI is
+hardened (mypy, CodeQL, pip-audit, Dependabot). Import is safer: the gate covers every workflow dialect.
 
 ### Added (orchestrate PR4, #197)
 - Portable Units carry workflows: `audit` warns about workflows in `orchestration/` that do not load, and
